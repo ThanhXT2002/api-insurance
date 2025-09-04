@@ -1,0 +1,119 @@
+// Trình sinh Prisma Client
+generator client {
+  provider = "prisma-client-js"
+  // Sinh client vào thư mục `generated/prisma` ở root project để phù hợp với import
+  // đường dẫn ../../generated/prisma từ thư mục src/base
+  output = "../generated/prisma"
+}
+
+// Datasource: cấu hình kết nối DB.
+// Mặc định ở đây dùng Postgres (thích hợp với Supabase). Nếu muốn phát triển local
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// -------------------------
+// Các model (bảng)
+// -------------------------
+
+// User: thiết kế để dễ mở rộng và liên kết với Supabase Auth thông qua `supabaseId` (UUID)
+model User {
+  id          Int       @id @default(autoincrement())
+  // Nếu bạn dùng Supabase Auth, lưu id của user (UUID) tại đây để liên kết profile
+  // (ví dụ: 'supabaseId' sẽ chứa giá trị UUID do Supabase cấp). Trường này để
+  // tùy chọn để vẫn hỗ trợ user cục bộ không dùng Supabase.
+  // Lưu ý: với Postgres/Supabase trường này dùng native UUID để tương thích với
+  // id do Supabase cấp. Đây là kiểu chỉ hỗ trợ với Postgres connector.
+  supabaseId  String?   @unique @db.Uuid
+  email       String    @unique
+  name        String?
+  avatarUrl   String?
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Địa chỉ: một user có thể có nhiều địa chỉ. Hiện tại để đơn giản trường này là
+  // một string (có thể mở rộng thành model `UserAddress` nếu cần lưu nhiều thông tin).
+  addresses   String?
+
+  // Roles: many-to-many via UserRoleAssignment
+  roleAssignments UserRoleAssignment[]
+  // Quyền gán trực tiếp cho user (nếu có)
+  userPermissions  UserPermission[]
+
+  @@map("users")
+}
+
+// UserRole: lưu các vai trò (role) có thể mở rộng (ví dụ: admin, user, support)
+model UserRole {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique // machine-friendly key, e.g. 'admin'
+  name        String   // human-friendly name
+  description String?
+
+  assignments UserRoleAssignment[]
+  // Quyền gán cho role
+  rolePermissions RolePermission[]
+
+  @@map("user_roles")
+}
+
+// Bảng nối many-to-many giữa User và UserRole
+model UserRoleAssignment {
+  id      Int     @id @default(autoincrement())
+  user    User    @relation(fields: [userId], references: [id])
+  userId  Int
+  role    UserRole @relation(fields: [roleId], references: [id])
+  roleId  Int
+  // tùy chọn: dùng để phân vùng vai trò theo tổ chức hoặc resource trong tương lai
+  scope   String?
+
+  @@unique([userId, roleId, scope])
+  @@map("user_role_assignments")
+}
+
+// -------------------------
+// Quyền (Permissions)
+// -------------------------
+// Permission: định nghĩa các chức năng cụ thể trong hệ thống, ví dụ: 'user.view',
+// 'user.edit', 'project.create'. Mỗi permission có key duy nhất và mô tả để tránh nhầm lẫn.
+model Permission {
+  id          Int     @id @default(autoincrement())
+  key         String  @unique // ví dụ: 'user.view'
+  name        String  // ví dụ: 'Xem người dùng'
+  description String? // mô tả chi tiết quyền
+
+  // Các mapping
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+
+  @@map("permissions")
+}
+
+// RolePermission: gán permission cho role (nhiều role <-> nhiều permission)
+model RolePermission {
+  id           Int        @id @default(autoincrement())
+  role         UserRole   @relation(fields: [roleId], references: [id])
+  roleId       Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  permissionId Int
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// UserPermission: tùy chọn để gán permission trực tiếp cho user (ghi đè hoặc bổ sung)
+model UserPermission {
+  id           Int        @id @default(autoincrement())
+  user         User       @relation(fields: [userId], references: [id])
+  userId       Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  permissionId Int
+  // allowed = true => cho phép, false => tắt quyền (dùng để ghi đè)
+  allowed      Boolean    @default(true)
+
+  @@unique([userId, permissionId])
+  @@map("user_permissions")
+}
+
