@@ -12,7 +12,7 @@ export class AuthController {
   }
 
   async register(req: Request, res: Response) {
-    const { email, password, name } = req.body
+    const { email, password } = req.body
     if (!email || !password) {
       return res
         .status(StatusCodes.BAD_REQUEST)
@@ -20,13 +20,24 @@ export class AuthController {
     }
 
     try {
-      const user = await this.authService.createUserWithSupabase(email, password, name)
+      const result = await this.authService.createUserWithSupabase(email, password)
+      
+      if ((result as any).error) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .send(ApiResponse.error((result as any).error, 'Lỗi đăng ký', StatusCodes.BAD_REQUEST))
+      }
+      
       return res
         .status(StatusCodes.CREATED)
         .send(
           ApiResponse.ok(
-            { id: (user as any).id, email: (user as any).email },
-            'Tạo user thành công',
+            { 
+              id: (result as any).profile.id, 
+              email: (result as any).user.email,
+              emailConfirmed: !!(result as any).user.email_confirmed_at
+            },
+            (result as any).message,
             StatusCodes.CREATED
           )
         )

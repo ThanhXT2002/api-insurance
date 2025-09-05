@@ -9,23 +9,28 @@ const router = Router()
  * @openapi
  * /auth/register:
  *   post:
- *     summary: Đăng ký user mới bằng Supabase (server-side create)
+ *     summary: Đăng ký user mới với email verification
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - email
+ *               - password
  *             properties:
  *               email:
  *                 type: string
+ *                 format: email
+ *                 description: Email của user
  *               password:
  *                 type: string
- *               name:
- *                 type: string
+ *                 minLength: 6
+ *                 description: Mật khẩu (tối thiểu 6 ký tự)
  *     responses:
  *       201:
- *         description: Đã tạo user
+ *         description: Đăng ký thành công
  */
 router.post('/register', (req, res) => authController.register(req, res))
 

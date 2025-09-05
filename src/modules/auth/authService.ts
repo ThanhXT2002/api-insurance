@@ -1,35 +1,45 @@
-import { supabaseAdmin } from '../../config/supabaseClient'
+import { supabase } from '../../config/supabaseClient'
 import { AuthRepository } from './authRepository'
 
 export class AuthService {
   constructor(private authRepository: AuthRepository) {}
 
-  async createUserWithSupabase(email: string, password: string, name?: string) {
-    // Create user in Supabase (server-side)
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+  async createUserWithSupabase(email: string, password: string) {
+    // Create user with email verification required
+    const { data, error } = await supabase.auth.signUp({
       email,
-      password,
-      user_metadata: { name }
+      password
     })
     if (error) throw error
 
-    // the response contains a `user` object
-    const supabaseId = (data as any).user?.id
+    const user = data.user
+    if (!user) throw new Error('Supabase user not created')
 
-    // Create DB profile using repository
-    const user = await this.authRepository.createProfile({
-      supabaseId,
-      email,
-      name,
-      active: true
-    })
+    // Tạo profile trong DB chỉ với email
+    try {
+      const userProfile = await this.authRepository.createProfile({
+        supabaseId: user.id,
+        email,
+        active: true
+      })
 
-    // Assign default role using repository
-    const role = await this.authRepository.findRoleByKey('user')
-    if (role) {
-      await this.authRepository.createRoleAssignment((user as any).id, role.id)
+      // Ensure default role exists and assign to user
+      const role = await this.authRepository.ensureDefaultRole()
+      await this.authRepository.createRoleAssignment((userProfile as any).id, role.id)
+
+      return { 
+        user, 
+        profile: userProfile,
+        message: user.email_confirmed_at 
+          ? 'Đăng ký thành công' 
+          : 'Đăng ký thành công, vui lòng kiểm tra email để xác thực'
+      }
+    } catch (err: any) {
+      // Nếu tạo profile failed, có thể rollback Supabase user nếu cần
+      if (err.code === 'P2002') {
+        return { error: { code: 'P2002', message: 'Tài khoản đã tồn tại', meta: err.meta } }
+      }
+      throw err
     }
-
-    return user
   }
 }

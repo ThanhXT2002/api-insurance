@@ -28,4 +28,26 @@ export class AuthRepository extends BaseRepository<'user'> {
       data: { userId, roleId, scope }
     })
   }
+
+  async createDefaultRole() {
+    // Tạo role 'user' mặc định nếu chưa tồn tại
+    return prisma.userRole.upsert({
+      where: { key: 'user' },
+      update: {}, // Không update gì nếu đã tồn tại
+      create: {
+        key: 'user',
+        name: 'User',
+        description: 'Default user role with basic permissions'
+      }
+    })
+  }
+
+  async ensureDefaultRole() {
+    // Đảm bảo role 'user' tồn tại, tạo nếu chưa có
+    const existingRole = await this.findRoleByKey('user')
+    if (!existingRole) {
+      return this.createDefaultRole()
+    }
+    return existingRole
+  }
 }
