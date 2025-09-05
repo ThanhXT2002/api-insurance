@@ -1,5 +1,6 @@
 import { Express, Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
+import authRouter from '../modules/auth/authRouter'
 
 export function registerRoutes(app: Express) {
   // Health route
@@ -19,6 +20,7 @@ export function registerRoutes(app: Express) {
   // TODO: import and mount other module routers here, e.g.
   // const userRouter = createUserRouter()
   // app.use('/users', userRouter)
+  app.use('/auth', authRouter)
 }
 
 export default registerRoutes
