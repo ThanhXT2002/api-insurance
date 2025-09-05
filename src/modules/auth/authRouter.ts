@@ -7,9 +7,12 @@ const router = Router()
 
 /**
  * @openapi
- * /auth/register:
+ * /api/auth/register:
  *   post:
- *     summary: Đăng ký user mới với email verification
+ *     tags:
+ *       - Authentication
+ *     summary: Đăng ký user mới
+ *     description: Tạo tài khoản mới với email verification
  *     requestBody:
  *       required: true
  *       content:
@@ -23,11 +26,11 @@ const router = Router()
  *               email:
  *                 type: string
  *                 format: email
- *                 description: Email của user
+ *                 example: "user@example.com"
  *               password:
  *                 type: string
  *                 minLength: 6
- *                 description: Mật khẩu (tối thiểu 6 ký tự)
+ *                 example: "password123"
  *     responses:
  *       201:
  *         description: Đăng ký thành công
