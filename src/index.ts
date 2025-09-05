@@ -1,5 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express'
 import { StatusCodes } from 'http-status-codes'
+import { setupSwagger } from './config/swagger'
+import registerRoutes from './router'
 
 const app = express()
 
@@ -15,10 +17,11 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 	next()
 })
 
-// Health route
-app.get('/health', (_req: Request, res: Response) => {
-	res.status(StatusCodes.OK).send({ status: 'ok', uptime: process.uptime() })
-})
+// Register swagger docs UI
+setupSwagger(app)
+
+// Register application routes (health + module routers)
+registerRoutes(app)
 
 // Example fallback route
 app.use((_req: Request, res: Response) => {
@@ -36,7 +39,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 
 // Start server when this file is run directly
 if (require.main === module) {
-	const port = Number(process.env.PORT) || 3000
+	const port = Number(process.env.PORT) || 3600
 	app.listen(port, () => {
 		// eslint-disable-next-line no-console
 		console.log(`Server listening on port ${port}`)

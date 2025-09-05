@@ -32,9 +32,6 @@ model User {
   active      Boolean   @default(true)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
-
-  // Địa chỉ: một user có thể có nhiều địa chỉ. Hiện tại để đơn giản trường này là
-  // một string (có thể mở rộng thành model `UserAddress` nếu cần lưu nhiều thông tin).
   addresses   String?
 
   // Roles: many-to-many via UserRoleAssignment

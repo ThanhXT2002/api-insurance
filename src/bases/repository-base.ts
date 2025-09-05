@@ -1,6 +1,5 @@
-import { PrismaClient, Prisma } from '../../generated/prisma'
-
-const prisma = new PrismaClient()
+import prisma from '../config/prismaClient'
+import { Prisma } from '../../generated/prisma'
 
 type ModelDelegate = {
   findMany: (args?: any) => Promise<any>
@@ -15,9 +14,7 @@ type ModelDelegate = {
   groupBy: (args: any) => Promise<any>
 }
 
-type PrismaModelKeys = {
-  [K in keyof typeof prisma]: (typeof prisma)[K] extends ModelDelegate ? K : never
-}[keyof typeof prisma]
+type PrismaModelKeys = keyof typeof prisma & string
 
 export class BaseRepository<TModel extends PrismaModelKeys> {
   protected model: ModelDelegate
