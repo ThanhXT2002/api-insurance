@@ -1,4 +1,4 @@
-// Global type definitions for the project
+// Global type definitions
 declare global {
   namespace NodeJS {
     interface ProcessEnv {
