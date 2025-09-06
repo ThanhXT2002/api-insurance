@@ -13,6 +13,9 @@
     "prettier": "prettier --check .",
     "prettier:fix": "prettier --write ."
   },
+  "engines": {
+    "node": "22.x"
+  },
   "keywords": [],
   "license": "ISC",
   "type": "commonjs",
