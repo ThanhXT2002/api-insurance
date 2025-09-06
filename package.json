@@ -5,8 +5,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "npx nodemon",
-    "build": "prisma generate && rimraf ./dist && tsc --noCheck && tsc-alias",
+  "dev": "npx nodemon",
+  "build": "prisma generate && rimraf ./dist && tsc --noCheck && tsc-alias",
+  "postinstall": "prisma generate",
     "start": "node dist/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
