@@ -7,8 +7,33 @@ let handler: any
 
 try {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
-    app = require(path.join(__dirname, '..', 'dist', 'index.js')).default
+    // Try common built locations in order:
+    // 1. dist/index.js (when you prebuild to dist)
+    // 2. ../index.js (when builder places compiled root file next to api/)
+    // 3. ../dist/index.js (alternative)
+    const tryPaths = [
+      path.join(__dirname, '..', 'dist', 'index.js'),
+      path.join(__dirname, '..', 'index.js'),
+      path.join(__dirname, '..', 'dist', 'index.js')
+    ]
+    let loaded = false
+    for (const p of tryPaths) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+        const mod = require(p)
+        app = mod && mod.default ? mod.default : mod
+        loaded = true
+        break
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.debug(`api/index.ts: cannot require ${p}: ${e && e.code ? e.code : e}`)
+      }
+    }
+    if (!loaded) {
+      // fallback to trying to require source — but avoid on Vercel (will usually not exist)
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+      app = require(path.join(__dirname, '..', 'src', 'index.ts')).default
+    }
   } catch (e) {
     // fallback to source (ts-node or tsx during dev)
     // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
