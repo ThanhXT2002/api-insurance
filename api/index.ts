@@ -12,9 +12,14 @@ try {
     // 2. ../index.js (when builder places compiled root file next to api/)
     // 3. ../dist/index.js (alternative)
     const tryPaths = [
+      // common locations for compiled output
       path.join(__dirname, '..', 'dist', 'index.js'),
       path.join(__dirname, '..', 'index.js'),
-      path.join(__dirname, '..', 'dist', 'index.js')
+      // some builders keep compiled sources under src
+      path.join(__dirname, '..', 'src', 'index.js'),
+      // fallback to process.cwd() which in serverless runtime is often /var/task
+      path.join(process.cwd(), 'index.js'),
+      path.join(process.cwd(), 'src', 'index.js')
     ]
     let loaded = false
     for (const p of tryPaths) {
@@ -31,14 +36,23 @@ try {
       }
     }
     if (!loaded) {
-      // fallback to trying to require source — but avoid on Vercel (will usually not exist)
-      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
-      app = require(path.join(__dirname, '..', 'src', 'index.ts')).default
+      // No compiled JS entry found. Don't require TypeScript source in production —
+      // on Vercel the TS files are not present at runtime which causes the crash
+      // observed in logs (Cannot find module '/var/task/src/index.ts').
+      throw new Error('No compiled JS entry found for the app')
     }
   } catch (e) {
-    // fallback to source (ts-node or tsx during dev)
-    // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
-    app = require(path.join(__dirname, '..', 'src', 'index.ts')).default
+    // If we're here, either a tryPaths require failed or we're in a dev environment
+    // where a runtime transpiler is available. Attempt to require compiled JS under
+    // src (some environments compile in-place) and otherwise rethrow so the outer
+    // catch produces a fallback handler that logs the root cause.
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires, @typescript-eslint/no-unsafe-assignment
+      app = require(path.join(__dirname, '..', 'src', 'index.js')).default
+    } catch (inner) {
+      // rethrow original so outer catch will create the fallback handler
+      throw e
+    }
   }
 
   handler = serverless(app)
