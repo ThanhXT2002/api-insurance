@@ -25,8 +25,9 @@ try {
         loaded = true
         break
       } catch (e) {
+        const err: any = e
         // eslint-disable-next-line no-console
-        console.debug(`api/index.ts: cannot require ${p}: ${e && e.code ? e.code : e}`)
+        console.debug(`api/index.ts: cannot require ${p}: ${err && err.code ? err.code : err}`)
       }
     }
     if (!loaded) {
