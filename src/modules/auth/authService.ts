@@ -1,4 +1,4 @@
-import { supabase } from '../../config/supabaseClient'
+import { getSupabase } from '../../config/supabaseClient'
 import { AuthRepository } from './authRepository'
 
 export class AuthService {
@@ -6,7 +6,8 @@ export class AuthService {
 
   async createUserWithSupabase(email: string, password: string) {
     // Create user with email verification required
-    const { data, error } = await supabase.auth.signUp({
+  const supabase = getSupabase()
+  const { data, error } = await supabase.auth.signUp({
       email,
       password
     })
