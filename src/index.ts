@@ -3,6 +3,7 @@ import express, { Request, Response, NextFunction } from 'express'
 import { StatusCodes } from 'http-status-codes'
 import { setupSwagger } from './config/swagger'
 import registerRoutes from './router'
+import serverless from 'serverless-http'
 
 const app = express()
 
@@ -38,7 +39,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 	res.status(status).send({ error: message })
 })
 
-// Start server when this file is run directly
+// Start server when this file is run directly (for local development)
 if (require.main === module) {
 	const port = Number(process.env.PORT) || 3600
 	app.listen(port, () => {
@@ -47,4 +48,6 @@ if (require.main === module) {
 	})
 }
 
+// Export for both local and serverless
 export default app
+export const handler = serverless(app)
