@@ -141,11 +141,12 @@ model PostCategory {
   updatedBy   Int
   
   // Relations
+  taggedPosts Post[] @relation("PostTaggedCategories")
   creator     User     @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
   updater     User     @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
   parent      PostCategory? @relation("CategoryParent", fields: [parentId], references: [id])
   children    PostCategory[] @relation("CategoryParent")
-  posts       Post[]
+  posts       Post[] @relation("PostPrimaryCategory")
   
   // Note: SEO metadata handled via polymorphic SeoMeta table with seoableType='POST_CATEGORY'
 
@@ -167,11 +168,6 @@ model Post {
 
   // Content Enhancement  
   note        String?  // Ghi chú nội bộ cho editor/admin
-  summary     String?  // Tóm tắt ngắn gọn (khác với excerpt)
-  
-  // SEO & Performance
-  readingTime Int?     // Thời gian đọc (phút) - auto calculate
-  viewCount   Int      @default(0) // Số lượt xem
   
   // Content Organization
   priority    Int      @default(0) // Độ ưu tiên hiển thị (0=normal, 1=high, 2=urgent)
@@ -187,7 +183,7 @@ model Post {
   relatedProducts Json? // [1, 2, 3] - IDs của sản phẩm bảo hiểm liên quan
 
   // Content Metadata
-  metaKeywords String? // Keywords for internal search
+  metaKeywords Json? // Keywords for internal search
 
   publishedAt DateTime?
   categoryId  Int?
@@ -201,9 +197,9 @@ model Post {
   // Relations
   creator     User     @relation("PostCreatedBy", fields: [createdBy], references: [id])
   updater     User     @relation("PostUpdatedBy", fields: [updatedBy], references: [id])
-  category    PostCategory? @relation(fields: [categoryId], references: [id])
+  category    PostCategory? @relation("PostPrimaryCategory", fields: [categoryId], references: [id])
 
-  tags            PostTag[] @relation("PostTags") // Mối quan hệ với thẻ bài viết
+  taggedCategories PostCategory[] @relation("PostTaggedCategories") // Mối quan hệ với thẻ bài viết
   comments        PostComment[] @relation("PostComments") // Comments của post
   postType      PostType  @default(ARTICLE) // ARTICLE, GUIDE, NEWS, PRODUCT
   
@@ -212,15 +208,15 @@ model Post {
   @@map("posts")
 }
 
-model PostTag {
-  id    Int    @id @default(autoincrement()) // ID thẻ
-  name  String // Tên thẻ
-  slug  String @unique // URL thân thiện của thẻ
+// model PostTag {
+//   id    Int    @id @default(autoincrement()) // ID thẻ
+//   name  String // Tên thẻ
+//   slug  String @unique // URL thân thiện của thẻ
   
-  posts Post[] @relation("PostTags") // Liên kết với bài viết
+//   posts Post[] @relation("PostTags") // Liên kết với bài viết
 
-  @@index([slug])
-}
+//   @@index([slug])
+// }
 
 // Model SEO chung cho tất cả
 model SeoMeta {
