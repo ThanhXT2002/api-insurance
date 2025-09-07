@@ -6,7 +6,7 @@ export function registerRoutes(app: Express) {
   // Health route (without API prefix for monitoring)
   /**
    * @openapi
-   * /health:
+   * /api/health:
    *   get:
    *     tags:
    *       - System
