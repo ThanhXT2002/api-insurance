@@ -28,7 +28,7 @@ export function registerRoutes(app: Express) {
    *                   description: Thời gian server đã chạy (giây)
    *                   example: 12345.67
    */
-  app.get('/health', (_req: Request, res: Response) => {
+  app.get('/api/health', (_req: Request, res: Response) => {
     res.status(StatusCodes.OK).send({ status: 'ok', uptime: process.uptime() })
   })
   
