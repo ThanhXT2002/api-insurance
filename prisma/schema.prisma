@@ -39,6 +39,17 @@ model User {
   // Quyền gán trực tiếp cho user (nếu có)
   userPermissions  UserPermission[]
 
+  // Relations với Post và Category
+  createdPosts        Post[]            @relation("PostCreatedBy")
+  updatedPosts        Post[]            @relation("PostUpdatedBy")
+  createdCategories   PostCategory[]    @relation("CategoryCreatedBy")
+  updatedCategories   PostCategory[]    @relation("CategoryUpdatedBy")
+  createdSeoMeta      SeoMeta[]         @relation("SeoCreatedBy")
+  updatedSeoMeta      SeoMeta[]         @relation("SeoUpdatedBy")
+  createdPostComments PostComment[]     @relation("PostCommentCreatedBy")
+  updatedPostComments PostComment[]     @relation("PostCommentUpdatedBy")
+  userComments        PostComment[]     @relation("UserComments")
+
   @@map("users")
 }
 
@@ -114,3 +125,209 @@ model UserPermission {
   @@map("user_permissions")
 }
 
+// Model PostCategory
+model PostCategory {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  description String?
+  parentId    Int?     // Self-reference cho category con
+  active      Boolean  @default(true)
+  
+  // Audit fields
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   Int
+  updatedBy   Int
+  
+  // Relations
+  creator     User     @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
+  updater     User     @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
+  parent      PostCategory? @relation("CategoryParent", fields: [parentId], references: [id])
+  children    PostCategory[] @relation("CategoryParent")
+  posts       Post[]
+  
+  // Note: SEO metadata handled via polymorphic SeoMeta table with seoableType='POST_CATEGORY'
+
+  @@map("post_categories")
+}
+
+// Model Post
+model Post {
+  id          Int      @id @default(autoincrement())
+  title       String
+  slug        String   @unique
+  excerpt     String?
+  content     String
+  featuredImage String?
+  status      PostStatus @default(DRAFT)
+
+  albumImages Json?    // Array URLs: ["img1.jpg", "img2.jpg", "img3.jpg"]
+  videoUrl    String?  // URL video YouTube/Vimeo cho video tutorials
+
+  // Content Enhancement  
+  note        String?  // Ghi chú nội bộ cho editor/admin
+  summary     String?  // Tóm tắt ngắn gọn (khác với excerpt)
+  
+  // SEO & Performance
+  readingTime Int?     // Thời gian đọc (phút) - auto calculate
+  viewCount   Int      @default(0) // Số lượt xem
+  
+  // Content Organization
+  priority    Int      @default(0) // Độ ưu tiên hiển thị (0=normal, 1=high, 2=urgent)
+  isHighlighted Boolean @default(false) // Bài viết nổi bật
+  isFeatured  Boolean  @default(false) // Hiển thị ở homepage/featured section
+  
+  // Publishing Control
+  scheduledAt DateTime? // Đăng theo lịch (scheduled publishing)
+  expiredAt   DateTime? // Ngày hết hạn (cho tin khuyến mãi)
+  
+  // Insurance Specific
+  targetAudience Json? // ["individual", "business", "family"] - đối tượng mục tiêu
+  relatedProducts Json? // [1, 2, 3] - IDs của sản phẩm bảo hiểm liên quan
+
+  // Content Metadata
+  metaKeywords String? // Keywords for internal search
+
+  publishedAt DateTime?
+  categoryId  Int?
+  
+  // Audit fields
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   Int
+  updatedBy   Int
+  
+  // Relations
+  creator     User     @relation("PostCreatedBy", fields: [createdBy], references: [id])
+  updater     User     @relation("PostUpdatedBy", fields: [updatedBy], references: [id])
+  category    PostCategory? @relation(fields: [categoryId], references: [id])
+
+  tags            PostTag[] @relation("PostTags") // Mối quan hệ với thẻ bài viết
+  comments        PostComment[] @relation("PostComments") // Comments của post
+  postType      PostType  @default(ARTICLE) // ARTICLE, GUIDE, NEWS, PRODUCT
+  
+  // Note: SEO metadata handled via polymorphic SeoMeta table with seoableType='POST'
+
+  @@map("posts")
+}
+
+model PostTag {
+  id    Int    @id @default(autoincrement()) // ID thẻ
+  name  String // Tên thẻ
+  slug  String @unique // URL thân thiện của thẻ
+  
+  posts Post[] @relation("PostTags") // Liên kết với bài viết
+
+  @@index([slug])
+}
+
+// Model SEO chung cho tất cả
+model SeoMeta {
+  id          Int      @id @default(autoincrement())
+  
+  // Polymorphic fields
+  seoableType SeoableType
+  seoableId   Int
+  
+  // SEO cơ bản
+  seoTitle        String?  @db.VarChar(60)
+  metaDescription String?  @db.VarChar(160)
+  canonicalUrl    String?
+  focusKeyword    String?  @db.VarChar(100)
+  
+  // Open Graph (cho Facebook, Instagram, Threads)
+  ogTitle       String? @db.VarChar(95)
+  ogDescription String?
+  ogImage       String?
+  ogType        String? @default("article") @db.VarChar(20)
+  
+  // Zalo riêng
+  zaloTitle       String? @db.VarChar(100)
+  zaloDescription String?
+  zaloImage       String?
+  
+  // Kỹ thuật SEO
+  noindex     Boolean @default(false)
+  nofollow    Boolean @default(false)
+  
+  // Audit fields
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   Int
+  updatedBy   Int
+  
+  // Relations
+  creator     User @relation("SeoCreatedBy", fields: [createdBy], references: [id])
+  updater     User @relation("SeoUpdatedBy", fields: [updatedBy], references: [id])
+  
+  // Note: Polymorphic implementation - these will be handled in application logic
+  // Only one of these should be populated based on seoableType
+  
+  // Composite unique index cho polymorphic
+  @@unique([seoableType, seoableId])
+  @@index([seoableType, seoableId])
+  @@map("seo_meta")
+}
+
+enum PostType {
+  ARTICLE     // Bài viết thông thường
+  GUIDE       // Hướng dẫn
+  NEWS        // Tin tức
+  PRODUCT     // Giới thiệu sản phẩm bảo hiểm
+  FAQ         // Câu hỏi thường gặp
+}
+
+// Enums
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum SeoableType {
+  POST
+  POST_CATEGORY
+  
+  // Insurance Products
+  PRODUCT
+  PRODUCT_CATEGORY
+  INSURANCE_PLAN
+  
+  // Customer & Reviews  
+  REVIEW
+  TESTIMONIAL
+  
+  // Content & Guides
+  CLAIM_GUIDE
+  FAQ_ITEM
+  LEGAL_PAGE
+  
+  // Company Info
+  BRANCH_OFFICE
+  AGENT_PROFILE
+  
+  // Có thể thêm nhiều hơn khi cần
+}
+
+model PostComment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  postId    Int
+  userId    Int?     // nullable cho guest comments
+  email     String?  // cho guest
+  name      String?  // cho guest
+  approved  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   Int
+  updatedBy   Int
+  
+  // Relations
+  post        Post     @relation("PostComments", fields: [postId], references: [id])
+  user        User?    @relation("UserComments", fields: [userId], references: [id])
+  creator     User     @relation("PostCommentCreatedBy", fields: [createdBy], references: [id])
+  updater     User     @relation("PostCommentUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@map("post_comments")
+}
