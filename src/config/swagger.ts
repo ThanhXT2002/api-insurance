@@ -8,16 +8,17 @@ const options: swaggerJsdoc.Options = {
     info: {
       title: 'API Insurance',
       version: process.env.npm_package_version || '1.0.0',
-      description: 'Document API Insurance ',
+      description: 'Document API Insurance '
     },
     components: {
       securitySchemes: {
-        BearerAuth: {
+        bearerAuth: {
           type: 'http',
-          scheme: 'bearer'
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'Enter JWT token obtained from login'
         }
-      }
-      ,
+      },
       schemas: {
         ApiResponseOk: {
           type: 'object',
@@ -52,8 +53,8 @@ const options: swaggerJsdoc.Options = {
           }
         }
       }
-    },
-    security: [{ BearerAuth: [] }]
+    }
+    // Remove global security - let each endpoint define its own
   },
   apis: [
     './src/**/*.ts', // Cho development
@@ -64,15 +65,15 @@ const options: swaggerJsdoc.Options = {
 const swaggerSpec = swaggerJsdoc(options)
 
 export function setupSwagger(app: Express) {
-	// Serve swagger.json
-	app.get('/swagger.json', (_req, res) => {
-		res.setHeader('Content-Type', 'application/json')
-		res.send(swaggerSpec)
-	})
-	
-	// Custom Swagger UI HTML để tránh vấn đề với static files
-	app.get('/docs', (_req, res) => {
-		const html = `
+  // Serve swagger.json
+  app.get('/swagger.json', (_req, res) => {
+    res.setHeader('Content-Type', 'application/json')
+    res.send(swaggerSpec)
+  })
+
+  // Custom Swagger UI HTML để tránh vấn đề với static files
+  app.get('/docs', (_req, res) => {
+    const html = `
 		<!DOCTYPE html>
 		<html lang="en">
 		<head>
@@ -109,8 +110,8 @@ export function setupSwagger(app: Express) {
 		</body>
 		</html>
 		`
-		res.send(html)
-	})
+    res.send(html)
+  })
 }
 
 export default swaggerSpec

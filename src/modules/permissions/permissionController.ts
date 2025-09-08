@@ -28,6 +28,7 @@ export class PermissionController {
 
       res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Permissions retrieved successfully'))
     } catch (error: any) {
+      console.error('Error in getAll permissions:', error)
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .send(ApiResponse.error(error.message, 'Failed to get permissions', StatusCodes.INTERNAL_SERVER_ERROR))

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express'
-import { getSupabaseAdmin } from '../config/supabaseClient'
+import jwt from 'jsonwebtoken'
+import { getSupabaseAdmin, getSupabase } from '../config/supabaseClient'
 import { AuthRepository } from '../modules/auth/authRepository'
 import { AuthService } from '../modules/auth/authService'
 
@@ -78,13 +79,10 @@ export class AuthMiddleware {
         })
         return
       }
-
       // Load user roles and permissions
       const userWithPermissions = await this.loadUserPermissions(localUser)
-
       // Inject user context into request
       req.user = userWithPermissions
-
       next()
     } catch (error) {
       console.error('Auth middleware error:', error)
@@ -208,22 +206,80 @@ export class AuthMiddleware {
 
   private async verifySupabaseToken(token: string) {
     try {
-      const supabase = getSupabaseAdmin()
-      const {
-        data: { user },
-        error
-      } = await supabase.auth.getUser(token)
-
-      if (error || !user) {
+      // Verify JWT token using SUPABASE_JWT_SECRET
+      const secret = process.env.SUPABASE_JWT_SECRET
+      if (!secret) {
+        console.error('SUPABASE_JWT_SECRET not found in environment variables')
         return null
       }
 
+      // Try both raw secret and base64 decoded secret
+      let finalSecret = secret
+
+      // If secret looks like base64, try to decode it
+      if (secret.includes('/') || secret.includes('+') || secret.includes('=')) {
+        try {
+          const decodedSecret = Buffer.from(secret, 'base64').toString('utf-8')
+          finalSecret = decodedSecret
+        } catch (base64Error) {
+          console.error('Base64 decode failed, using raw secret')
+        }
+      }
+
+      // Try to decode without verification first to see the structure
+      try {
+        const decoded = jwt.decode(token, { complete: true })
+        // console.log('Token structure:', {
+        //   header: decoded?.header,
+        //   payload: decoded?.payload
+        //     ? {
+        //         sub: (decoded.payload as any).sub,
+        //         email: (decoded.payload as any).email,
+        //         iss: (decoded.payload as any).iss,
+        //         exp: (decoded.payload as any).exp
+        //       }
+        //     : null
+        // })
+      } catch (decodeError) {
+        console.error('Failed to decode token structure:', decodeError)
+      }
+
+      // Now try to verify with different secret formats
+      let decoded: any = null
+
+      // Try 1: Raw secret
+      try {
+        decoded = jwt.verify(token, secret) as any
+      } catch (rawError) {
+
+        // Try 2: Base64 decoded secret
+        try {
+          const base64Secret = Buffer.from(secret, 'base64')
+          decoded = jwt.verify(token, base64Secret) as any
+        } catch (base64Error) {
+          throw new Error('All secret formats failed')
+        }
+      }
+
+      // Create user object compatible with existing code
+      const user = {
+        id: decoded.sub,
+        email: decoded.email,
+        user_metadata: decoded.user_metadata || {},
+        app_metadata: decoded.app_metadata || {}
+      }
       return user
     } catch (error) {
-      console.error('Supabase token verification failed:', error)
+      // Additional debug info
+      if (error instanceof Error) {
+        console.error('Error type:', error.constructor.name)
+        console.error('Error message:', error.message)
+      }
+
       return null
     }
   }
+
 
   private async getOrCreateLocalUser(supabaseUser: any) {
     // Try to find existing user by supabaseId

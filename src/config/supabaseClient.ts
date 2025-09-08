@@ -3,6 +3,7 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 const supabaseUrl = process.env.SUPABASE_URL
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
+const supabaseJwtSecret = process.env.SUPABASE_JWT_SECRET
 
 // Avoid throwing at import-time to prevent serverless function init crashes.
 // If env vars are missing, we log a warning and delay throwing until the client is actually requested.

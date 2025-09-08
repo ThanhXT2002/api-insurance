@@ -46,7 +46,7 @@ export class BaseService<T = any> {
         orderBy,
         select
       }),
-      this.repository.count({ where })
+      this.repository.count(where)
     ])
 
     return { rows, total }

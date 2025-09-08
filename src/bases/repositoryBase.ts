@@ -126,7 +126,13 @@ export class BaseRepository<TModel extends PrismaModelKeys> {
     return this.delegate(client).upsert({ where, create: createData, update: updateData })
   }
 
-  async count(where: object = {}, client?: any) {
-    return this.delegate(client).count({ where })
+  async count(whereOrArgs: any = {}, client?: any) {
+    // Support both styles:
+    // - count(whereCondition)
+    // - count({ where: whereCondition, select: ... })
+    if (whereOrArgs && typeof whereOrArgs === 'object' && 'where' in whereOrArgs) {
+      return this.delegate(client).count(whereOrArgs)
+    }
+    return this.delegate(client).count({ where: whereOrArgs })
   }
 }
