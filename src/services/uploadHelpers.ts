@@ -90,6 +90,40 @@ export class UploadHelpers {
     })
   }
   /**
+   * Update file with old file cleanup - pattern for replacing existing files
+   */
+  static async updateFileWithCleanup<T>(
+    uploadOperation: () => Promise<UploadedFile>,
+    databaseOperation: (newFileUrl: string, uploadedFile: UploadedFile) => Promise<T>,
+    oldFileUrl?: string | null
+  ): Promise<{ result: T; uploadedFile: UploadedFile }> {
+    return withRollback(async (rollbackManager) => {
+      // Upload new file
+      const uploadedFile = await uploadOperation()
+
+      // Add rollback for new file in case database operation fails
+      rollbackManager.addFileDeleteAction(uploadedFile.url)
+
+      // Update database with new file URL
+      const result = await databaseOperation(uploadedFile.url, uploadedFile)
+
+      // After successful database update, delete old file
+      if (oldFileUrl && oldFileUrl !== uploadedFile.url) {
+        try {
+          console.log(`Cleaning up old file: ${oldFileUrl}`)
+          await fileUploadService.deleteFileByUrl(oldFileUrl)
+          console.log(`Old file deleted successfully`)
+        } catch (error: any) {
+          console.warn(`Failed to delete old file: ${error.message}`)
+          // Don't fail the operation if cleanup fails
+        }
+      }
+
+      return { result, uploadedFile }
+    })
+  }
+
+  /**
    * Upload with rollback - for when you need to perform operations after upload
    */
   static async uploadWithTransaction<T>(

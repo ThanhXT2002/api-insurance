@@ -2,6 +2,7 @@ import { getSupabase } from '../../config/supabaseClient'
 import { AuthRepository } from './authRepository'
 import { fileUploadService, UploadedFile } from '../../services/fileUploadService'
 import { withRollback } from '../../utils/rollbackHelper'
+import UploadHelpers from '../../services/uploadHelpers'
 
 export class AuthService {
   constructor(private authRepository: AuthRepository) {}
@@ -73,35 +74,38 @@ export class AuthService {
 
   // Upload avatar và cập nhật avatarUrl
   async updateAvatarUrl(userId: number, file: Buffer, originalName: string) {
-    return withRollback(async (rollbackManager) => {
-      // Kiểm tra user tồn tại
-      const existingUser = await this.authRepository.findById({ where: { id: userId } })
-      if (!existingUser) {
-        throw new Error('User not found')
+    // Kiểm tra user tồn tại trước
+    const existingUser = await this.authRepository.findById({ where: { id: userId } })
+    if (!existingUser) {
+      throw new Error('User not found')
+    }
+
+    // Sử dụng UploadHelpers.updateFileWithCleanup để handle upload + cleanup
+    const { result: updatedUser, uploadedFile } = await UploadHelpers.updateFileWithCleanup(
+      // Upload operation
+      () => fileUploadService.uploadAvatar(file, originalName),
+
+      // Database operation
+      async (newFileUrl: string) => {
+        return await this.authRepository.updateById(userId, {
+          avatarUrl: newFileUrl,
+          updatedAt: new Date()
+        })
+      },
+
+      // Old file URL to cleanup
+      existingUser.avatarUrl
+    )
+
+    return {
+      user: updatedUser,
+      uploadInfo: {
+        id: uploadedFile.id,
+        originalName: uploadedFile.originalName,
+        url: uploadedFile.url,
+        size: uploadedFile.size,
+        fileType: uploadedFile.fileType
       }
-
-      // Upload file sử dụng FileUploadService
-      const uploadedFile = await fileUploadService.uploadAvatar(file, originalName)
-
-      // Add rollback action to delete uploaded file if database update fails
-      rollbackManager.addFileDeleteAction(uploadedFile.url)
-
-      // Cập nhật avatarUrl trong database
-      const updatedUser = await this.authRepository.updateById(userId, {
-        avatarUrl: uploadedFile.url,
-        updatedAt: new Date()
-      })
-
-      return {
-        user: updatedUser,
-        uploadInfo: {
-          id: uploadedFile.id,
-          originalName: uploadedFile.originalName,
-          url: uploadedFile.url,
-          size: uploadedFile.size,
-          fileType: uploadedFile.fileType
-        }
-      }
-    })
+    }
   }
 }
