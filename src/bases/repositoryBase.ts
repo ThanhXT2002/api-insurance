@@ -19,38 +19,63 @@ type PrismaModelKeys = keyof typeof prisma & string
 
 export class BaseRepository<TModel extends PrismaModelKeys> {
   protected model: ModelDelegate
+  protected modelName: TModel
+  protected logger?: { info?: (...args: any[]) => void; error?: (...args: any[]) => void }
 
-  constructor(model: TModel) {
+  constructor(model: TModel, logger?: BaseRepository<TModel>['logger']) {
+    this.modelName = model
     this.model = prisma[model] as ModelDelegate
+    this.logger = logger
   }
 
-  async findMany(query: object = {}) {
-    return this.model.findMany(query)
+  // choose delegate from optional client (transaction) or global prisma
+  protected delegate(client?: any): ModelDelegate {
+    const p = client ?? prisma
+    return p[this.modelName] as ModelDelegate
   }
 
-  async findUnique(query: object) {
-    return this.model.findUnique(query)
+  // run multiple operations in a transaction
+  async runTransaction<T>(cb: (tx: typeof prisma) => Promise<T>): Promise<T> {
+    this.logger?.info?.('[BaseRepository] start transaction', { model: this.modelName })
+    try {
+      const res = await prisma.$transaction(cb)
+      this.logger?.info?.('[BaseRepository] transaction committed', { model: this.modelName })
+      return res
+    } catch (err) {
+      this.logger?.error?.('[BaseRepository] transaction failed', { model: this.modelName, err })
+      throw err
+    }
   }
 
-  async findById<TId extends string | number>(id: TId): Promise<any>
-  async findById(args: { where: any; include?: any; select?: any }): Promise<any>
-  async findById(idOrArgs: any): Promise<any> {
+  async findMany(query: object = {}, client?: any) {
+    return this.delegate(client).findMany(query)
+  }
+
+  async findUnique(query: object, client?: any) {
+    return this.delegate(client).findUnique(query)
+  }
+
+  async findById<TId extends string | number>(id: TId, client?: any): Promise<any>
+  async findById(args: { where: any; include?: any; select?: any }, client?: any): Promise<any>
+  async findById(idOrArgs: any, client?: any): Promise<any> {
     // Support two styles:
     // - findById(id)
-    // - findById({ where: { id }, include, select })
+    // - findById({ where: { id }, include, select }, client?)
     if (
       idOrArgs &&
       typeof idOrArgs === 'object' &&
       ('where' in idOrArgs || 'include' in idOrArgs || 'select' in idOrArgs)
     ) {
-      return this.model.findUnique(idOrArgs)
+      return this.delegate(client).findUnique(idOrArgs)
     }
-    return this.model.findUnique({ where: { id: idOrArgs } })
+    return this.delegate(client).findUnique({ where: { id: idOrArgs } })
   }
 
-  async create(data: object) {
+  async create(data: object, client?: any) {
     try {
-      return await this.model.create({ data })
+      const res = await this.delegate(client).create({ data })
+      this.logger?.info?.('[BaseRepository] create', { model: this.modelName, data })
+      return res
     } catch (err: any) {
       // Prisma unique constraint
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
@@ -59,31 +84,49 @@ export class BaseRepository<TModel extends PrismaModelKeys> {
         ;(e as any).meta = err.meta
         throw e
       }
+      this.logger?.error?.('[BaseRepository] create error', { model: this.modelName, err })
       throw err
     }
   }
 
-  async update(where: object, data: object) {
-    return this.model.update({ where, data })
+  async update(where: object, data: object, client?: any) {
+    const res = await this.delegate(client).update({ where, data })
+    this.logger?.info?.('[BaseRepository] update', { model: this.modelName, where, data })
+    return res
   }
 
-  async delete(where: object) {
-    return this.model.delete({ where })
+  async delete(where: object, client?: any) {
+    const res = await this.delegate(client).delete({ where })
+    this.logger?.info?.('[BaseRepository] delete', { model: this.modelName, where })
+    return res
   }
 
-  async deleteMany(where: object) {
-    return this.model.deleteMany({ where })
+  async deleteMany(where: object, client?: any) {
+    const res = await this.delegate(client).deleteMany({ where })
+    this.logger?.info?.('[BaseRepository] deleteMany', {
+      model: this.modelName,
+      where,
+      count: (res && (res as any).count) || undefined
+    })
+    return res
   }
 
-  async updateMany(where: object, data: object) {
-    return this.model.updateMany({ where, data })
+  async updateMany(where: object, data: object, client?: any) {
+    const res = await this.delegate(client).updateMany({ where, data })
+    this.logger?.info?.('[BaseRepository] updateMany', {
+      model: this.modelName,
+      where,
+      data,
+      count: (res && (res as any).count) || undefined
+    })
+    return res
   }
 
-  async upsert(where: object, createData: object, updateData: object) {
-    return this.model.upsert({ where, create: createData, update: updateData })
+  async upsert(where: object, createData: object, updateData: object, client?: any) {
+    return this.delegate(client).upsert({ where, create: createData, update: updateData })
   }
 
-  async count(where: object = {}) {
-    return this.model.count({ where })
+  async count(where: object = {}, client?: any) {
+    return this.delegate(client).count({ where })
   }
 }
