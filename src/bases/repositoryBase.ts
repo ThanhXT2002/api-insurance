@@ -8,6 +8,7 @@ type ModelDelegate = {
   update: (args: any) => Promise<any>
   delete: (args: any) => Promise<any>
   deleteMany: (args: any) => Promise<any>
+  updateMany: (args: any) => Promise<any>
   upsert: (args: any) => Promise<any>
   count: (args?: any) => Promise<any>
   aggregate: (args: any) => Promise<any>
@@ -31,8 +32,20 @@ export class BaseRepository<TModel extends PrismaModelKeys> {
     return this.model.findUnique(query)
   }
 
-  async findById(id: string) {
-    return this.model.findUnique({ where: { id } })
+  async findById<TId extends string | number>(id: TId): Promise<any>
+  async findById(args: { where: any; include?: any; select?: any }): Promise<any>
+  async findById(idOrArgs: any): Promise<any> {
+    // Support two styles:
+    // - findById(id)
+    // - findById({ where: { id }, include, select })
+    if (
+      idOrArgs &&
+      typeof idOrArgs === 'object' &&
+      ('where' in idOrArgs || 'include' in idOrArgs || 'select' in idOrArgs)
+    ) {
+      return this.model.findUnique(idOrArgs)
+    }
+    return this.model.findUnique({ where: { id: idOrArgs } })
   }
 
   async create(data: object) {
@@ -56,6 +69,14 @@ export class BaseRepository<TModel extends PrismaModelKeys> {
 
   async delete(where: object) {
     return this.model.delete({ where })
+  }
+
+  async deleteMany(where: object) {
+    return this.model.deleteMany({ where })
+  }
+
+  async updateMany(where: object, data: object) {
+    return this.model.updateMany({ where, data })
   }
 
   async upsert(where: object, createData: object, updateData: object) {
