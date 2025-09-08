@@ -21,35 +21,39 @@ export class PostCategoryService extends BaseService {
     super(repo)
   }
 
-  // Override keyword search để search theo name/description
+  // Override keyword search để search theo name/description - with audit transformation
   async getAll(params: any = {}) {
     const { keyword, ...otherParams } = params
 
     if (keyword) {
-      const results = await this.repo.search(keyword)
-      const total = results.length
-      return { rows: results, total }
+      const results = await this.repo.search(keyword, this.getAuditInclude())
+      const transformedResults = this.transformUserAuditFields(results)
+      const total = transformedResults.length
+      return { rows: transformedResults, total }
     }
 
     return super.getAll(otherParams)
   }
 
-  // Lấy tree hierarchy
+  // Lấy tree hierarchy - with audit transformation
   async getTree() {
-    return this.repo.findTree()
+    const tree = await this.repo.findTree(this.getAuditInclude())
+    return this.transformUserAuditFields(tree)
   }
 
-  // Lấy root categories
+  // Lấy root categories - with audit transformation
   async getRoots() {
-    return this.repo.findRoots()
+    const roots = await this.repo.findRoots(this.getAuditInclude())
+    return this.transformUserAuditFields(roots)
   }
 
-  // Lấy children của category
+  // Lấy children của category - with audit transformation
   async getChildren(parentId: number) {
-    return this.repo.findChildren(parentId)
+    const children = await this.repo.findChildren(parentId, this.getAuditInclude())
+    return this.transformUserAuditFields(children)
   }
 
-  // Tạo category mới với validation
+  // Tạo category mới với validation - with audit transformation
   async create(data: CreateCategoryData, ctx?: { actorId?: number }) {
     // Validate slug unique
     const slugExists = await this.repo.slugExists(data.slug)
@@ -65,10 +69,11 @@ export class PostCategoryService extends BaseService {
       }
     }
 
-    return super.create(data, ctx)
+    const result = await super.create(data, ctx)
+    return this.transformUserAuditFields(result)
   }
 
-  // Update category với validation
+  // Update category với validation - with audit transformation
   async updateById(id: number, data: UpdateCategoryData, ctx?: { actorId?: number }) {
     const existing = await this.repo.findById(id)
     if (!existing) {
@@ -96,7 +101,8 @@ export class PostCategoryService extends BaseService {
       }
     }
 
-    return super.update({ id }, data, ctx)
+    const result = await super.update({ id }, data, ctx)
+    return this.transformUserAuditFields(result)
   }
 
   // Kiểm tra category A có phải là descendant của B không
@@ -178,8 +184,9 @@ export class PostCategoryService extends BaseService {
     return this.repo.updateMany({ id: { in: ids } }, { active, updatedBy: ctx?.actorId })
   }
 
-  // Lấy theo slug
+  // Lấy theo slug - with audit transformation
   async findBySlug(slug: string) {
-    return this.repo.findBySlug(slug)
+    const result = await this.repo.findBySlug(slug, this.getAuditInclude())
+    return this.transformUserAuditFields(result)
   }
 }

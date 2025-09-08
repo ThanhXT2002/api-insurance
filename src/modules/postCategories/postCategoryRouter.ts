@@ -202,6 +202,8 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *     tags:
  *       - Post Categories
  *     summary: Create new category
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -213,6 +215,10 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *         description: Category created successfully
  *       400:
  *         description: Bad request - validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - insufficient permissions
  *       409:
  *         description: Conflict - slug already exists
  */
@@ -226,6 +232,8 @@ router.post('/', authenticate, controller.create.bind(controller))
  *     tags:
  *       - Post Categories
  *     summary: Update category
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -254,6 +262,10 @@ router.post('/', authenticate, controller.create.bind(controller))
  *         description: Category updated successfully
  *       400:
  *         description: Bad request - validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - insufficient permissions
  *       404:
  *         description: Category not found
  */
@@ -266,6 +278,8 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *     tags:
  *       - Post Categories
  *     summary: Delete category (soft delete)
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -282,6 +296,10 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *         description: Category deleted successfully
  *       400:
  *         description: Cannot delete - has posts or children
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - insufficient permissions
  *       404:
  *         description: Category not found
  */
@@ -294,6 +312,8 @@ router.delete('/:id', authenticate, requirePermissions(['post_category.delete'])
  *     tags:
  *       - Post Categories
  *     summary: Delete multiple categories
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -316,6 +336,10 @@ router.delete('/:id', authenticate, requirePermissions(['post_category.delete'])
  *         description: Categories deleted successfully
  *       400:
  *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - insufficient permissions
  */
 // Admin-only batch operations
 router.post(
@@ -332,6 +356,8 @@ router.post(
  *     tags:
  *       - Post Categories
  *     summary: Activate/deactivate multiple categories
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -355,6 +381,10 @@ router.post(
  *         description: Categories updated successfully
  *       400:
  *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Forbidden - insufficient permissions
  */
 router.post(
   '/batch/active',

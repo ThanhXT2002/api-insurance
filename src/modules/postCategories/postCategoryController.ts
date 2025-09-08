@@ -148,6 +148,7 @@ export class PostCategoryController {
         .status(StatusCodes.CREATED)
         .send(ApiResponse.ok(category, 'Category created successfully', StatusCodes.CREATED))
     } catch (error: any) {
+      console.log(error)
       if (error.message.includes('already exists')) {
         return res.status(StatusCodes.CONFLICT).send(ApiResponse.error(error.message, 'Conflict', StatusCodes.CONFLICT))
       }

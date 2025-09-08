@@ -28,6 +28,11 @@ export class BaseRepository<TModel extends PrismaModelKeys> {
     this.logger = logger
   }
 
+  // Public getter for modelName
+  get getModelName(): TModel {
+    return this.modelName
+  }
+
   // choose delegate from optional client (transaction) or global prisma
   protected delegate(client?: any): ModelDelegate {
     const p = client ?? prisma

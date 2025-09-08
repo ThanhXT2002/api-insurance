@@ -18,6 +18,77 @@ export class BaseService<T = any> {
   // Mặc định giới hạn tối đa page size để tránh over-fetch
   protected MAX_LIMIT = 100
 
+  /**
+   * Transform audit fields (createdBy, updatedBy) to user display names
+   */
+  protected transformUserAuditFields(data: any): any {
+    if (!data) return data
+
+    // Handle single object
+    if (!Array.isArray(data)) {
+      return this.transformSingleRecord(data)
+    }
+
+    // Handle array of objects
+    return data.map((item: any) => this.transformSingleRecord(item))
+  }
+
+  private transformSingleRecord(record: any): any {
+    if (!record || typeof record !== 'object') return record
+
+    const transformed = { ...record }
+
+    // Transform createdBy if exists
+    if (record.creator && typeof record.creator === 'object') {
+      transformed.createdBy = this.getUserDisplayName(record.creator)
+      delete transformed.creator // Remove original relation
+    }
+
+    // Transform updatedBy if exists
+    if (record.updater && typeof record.updater === 'object') {
+      transformed.updatedBy = this.getUserDisplayName(record.updater)
+      delete transformed.updater // Remove original relation
+    }
+
+    return transformed
+  }
+
+  private getUserDisplayName(user: any): string {
+    if (!user) return 'Unknown'
+
+    // Return name if available, otherwise email, otherwise 'Unknown'
+    return user.name || user.email || 'Unknown'
+  }
+
+  /**
+   * Get default include for models with audit fields
+   */
+  protected getAuditInclude(): any {
+    const modelName = this.repository.getModelName
+
+    if (modelName === 'postCategory' || modelName === 'post') {
+      return {
+        creator: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        },
+        updater: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    }
+
+    // For other models, no audit include needed
+    return {}
+  }
+
   async getAll(params: GetAllParams = {}): Promise<{ rows: T[]; total: number }> {
     const { page = 1, limit = 10, keyword, active, filters = {}, include, orderBy, select } = params
 
@@ -37,33 +108,59 @@ export class BaseService<T = any> {
       throw new Error('Keyword search not implemented in BaseService. Override this in child service.')
     }
 
+    // Merge default audit include with custom include
+    const defaultInclude = this.getAuditInclude()
+    const finalInclude = include ? { ...defaultInclude, ...include } : defaultInclude
+
     const [rows, total] = await Promise.all([
       this.repository.findMany({
         where,
         skip: (safePage - 1) * safeLimit,
         take: safeLimit,
-        include,
+        include: Object.keys(finalInclude).length > 0 ? finalInclude : undefined,
         orderBy,
         select
       }),
       this.repository.count(where)
     ])
 
-    return { rows, total }
+    // Transform audit fields to user display names
+    const transformedRows = this.transformUserAuditFields(rows)
+
+    return { rows: transformedRows, total }
   }
 
   async getById(id: string | number, options: { include?: any; select?: any } = {}): Promise<T | null> {
     // Nếu cần validate/cast id => làm ở đây
     const args: any = { where: { id } }
-    if (options.include) args.include = options.include
+
+    // Merge default audit include with custom include
+    const defaultInclude = this.getAuditInclude()
+    const finalInclude = options.include ? { ...defaultInclude, ...options.include } : defaultInclude
+
+    if (Object.keys(finalInclude).length > 0) args.include = finalInclude
     if (options.select) args.select = options.select
-    return this.repository.findById(args)
+
+    const result = await this.repository.findById(args)
+
+    // Transform audit fields to user display names
+    return this.transformUserAuditFields(result)
   }
 
   async create(data: Partial<T>, ctx?: { actorId?: number }): Promise<T> {
     if (ctx?.actorId) {
-      // tuỳ model có createdBy hay không
-      ;(data as any).createdBy = ctx.actorId
+      // Handle audit fields for models with User relationships
+      const modelName = this.repository.getModelName
+      if (modelName === 'postCategory') {
+        ;(data as any).creator = { connect: { id: ctx.actorId } }
+        ;(data as any).updater = { connect: { id: ctx.actorId } }
+      } else if (modelName === 'post') {
+        ;(data as any).creator = { connect: { id: ctx.actorId } }
+        ;(data as any).updater = { connect: { id: ctx.actorId } }
+      } else {
+        // Fallback for models with direct foreign key fields
+        ;(data as any).createdBy = ctx.actorId
+      }
     }
     // Lưu: xử lý lỗi unique (Prisma P2002) có thể được catch ở đây hoặc controller
     return this.repository.create(data)
@@ -71,7 +168,15 @@ export class BaseService<T = any> {
 
   async update(where: any, data: Partial<T>, ctx?: { actorId?: number }): Promise<T> {
     if (ctx?.actorId) {
-      ;(data as any).updatedBy = ctx.actorId
+      const modelName = this.repository.getModelName
+      if (modelName === 'postCategory') {
+        ;(data as any).updater = { connect: { id: ctx.actorId } }
+      } else if (modelName === 'post') {
+        ;(data as any).updater = { connect: { id: ctx.actorId } }
+      } else {
+        // Fallback for models with direct foreign key fields
+        ;(data as any).updatedBy = ctx.actorId
+      }
     }
     return this.repository.update(where, data)
   }

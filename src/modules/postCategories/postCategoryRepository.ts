@@ -6,38 +6,40 @@ export class PostCategoryRepository extends BaseRepository<'postCategory'> {
   }
 
   // Tìm category theo slug
-  async findBySlug(slug: string, client?: any) {
-    return this.findUnique({ where: { slug } }, client)
+  async findBySlug(slug: string, include?: any, client?: any) {
+    return this.findUnique({ where: { slug }, include }, client)
   }
 
   // Tìm tất cả children của một category
-  async findChildren(parentId: number, client?: any) {
-    return this.findMany({ where: { parentId, active: true } }, client)
+  async findChildren(parentId: number, include?: any, client?: any) {
+    return this.findMany({ where: { parentId, active: true }, include }, client)
   }
 
   // Tìm tất cả category cha (không có parentId)
-  async findRoots(client?: any) {
+  async findRoots(include?: any, client?: any) {
     return this.findMany(
       {
         where: { parentId: null, active: true },
-        include: { children: true }
+        include: include || { children: true }
       },
       client
     )
   }
 
   // Tìm tree đầy đủ (parent + children)
-  async findTree(client?: any) {
+  async findTree(include?: any, client?: any) {
+    const defaultInclude = {
+      children: {
+        where: { active: true },
+        include: { posts: { select: { id: true } } }
+      },
+      posts: { select: { id: true } }
+    }
+
     return this.findMany(
       {
         where: { active: true },
-        include: {
-          children: {
-            where: { active: true },
-            include: { posts: { select: { id: true } } }
-          },
-          posts: { select: { id: true } }
-        },
+        include: include || defaultInclude,
         orderBy: [{ parentId: 'asc' }, { name: 'asc' }]
       },
       client
@@ -45,7 +47,7 @@ export class PostCategoryRepository extends BaseRepository<'postCategory'> {
   }
 
   // Tìm kiếm theo keyword trong name, description
-  async search(keyword: string, client?: any) {
+  async search(keyword: string, include?: any, client?: any) {
     return this.findMany(
       {
         where: {
@@ -54,7 +56,8 @@ export class PostCategoryRepository extends BaseRepository<'postCategory'> {
             { name: { contains: keyword, mode: 'insensitive' } },
             { description: { contains: keyword, mode: 'insensitive' } }
           ]
-        }
+        },
+        include
       },
       client
     )
