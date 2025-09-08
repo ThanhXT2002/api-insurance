@@ -1,5 +1,6 @@
 import { Router } from 'express'
-import { AuthController } from './authController'
+import { AuthController, upload } from './authController'
+import { authenticate } from '../../middlewares/authMiddleware'
 
 const authController = new AuthController()
 
@@ -35,133 +36,86 @@ const router = Router()
  *       201:
  *         description: Đăng ký thành công
  */
-router.post(
-  '/register',
-  /**
-   * #swagger.tags = ['Authentication']
-   * #swagger.summary = 'Đăng ký tài khoản mới'
-   * #swagger.description = 'Tạo tài khoản mới cho người dùng'
-   * #swagger.parameters['body'] = {
-   *   in: 'body',
-   *   description: 'Thông tin đăng ký',
-   *   required: true,
-   *   type: 'object',
-   *   schema: {
-   *     email: 'user@example.com',
-   *     password: 'password123',
-   *     name: 'Nguyễn Văn A'
-   *   }
-   * }
-   * #swagger.responses[201] = {
-   *   description: 'Đăng ký thành công',
-   *   schema: {
-   *     success: true,
-   *     data: {
-   *       user: { id: 1, email: 'user@example.com', name: 'Nguyễn Văn A' },
-   *       token: 'jwt_token_here'
-   *     },
-   *     message: 'Đăng ký thành công'
-   *   }
-   * }
-   */
-  authController.register.bind(authController)
-)
+router.post('/register', authController.register.bind(authController))
 
 /**
  * @openapi
- * /api/auth/login:
- *   post:
+ * /api/auth/profile:
+ *   get:
  *     tags:
  *       - Authentication
- *     summary: Đăng nhập
- *     description: Đăng nhập vào hệ thống để lấy JWT token
+ *     summary: Lấy thông tin profile
+ *     description: Lấy thông tin profile của user hiện tại
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Lấy thông tin profile thành công
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/profile', authenticate, authController.getProfile.bind(authController))
+
+/**
+ * @openapi
+ * /api/auth/profile:
+ *   put:
+ *     tags:
+ *       - Authentication
+ *     summary: Cập nhật profile
+ *     description: Cập nhật thông tin profile của user
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - email
- *               - password
  *             properties:
- *               email:
+ *               name:
  *                 type: string
- *                 format: email
- *                 example: "user@example.com"
- *               password:
+ *                 example: "Nguyễn Văn A"
+ *               addresses:
  *                 type: string
- *                 example: "password123"
+ *                 example: "123 Đường ABC, Quận 1, TP.HCM"
  *     responses:
  *       200:
- *         description: Đăng nhập thành công
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     user:
- *                       type: object
- *                       properties:
- *                         id:
- *                           type: integer
- *                         email:
- *                           type: string
- *                         name:
- *                           type: string
- *                     token:
- *                       type: string
- *                       description: JWT access token
- *                     expiresAt:
- *                       type: string
- *                       format: date-time
- *                 message:
- *                   type: string
+ *         description: Cập nhật profile thành công
  *       401:
- *         description: Email hoặc mật khẩu không đúng
+ *         description: Unauthorized
  */
-router.post(
-  '/login',
-  /**
-   * #swagger.tags = ['Authentication']
-   * #swagger.summary = 'Đăng nhập'
-   * #swagger.description = 'Đăng nhập vào hệ thống để lấy JWT token'
-   * #swagger.parameters['body'] = {
-   *   in: 'body',
-   *   description: 'Thông tin đăng nhập',
-   *   required: true,
-   *   type: 'object',
-   *   schema: {
-   *     email: 'user@example.com',
-   *     password: 'password123'
-   *   }
-   * }
-   * #swagger.responses[200] = {
-   *   description: 'Đăng nhập thành công',
-   *   schema: {
-   *     success: true,
-   *     data: {
-   *       user: { id: 1, email: 'user@example.com', name: 'Nguyễn Văn A' },
-   *       token: 'jwt_token_here',
-   *       expiresAt: '2024-12-31T23:59:59Z'
-   *     },
-   *     message: 'Đăng nhập thành công'
-   *   }
-   * }
-   * #swagger.responses[400] = {
-   *   description: 'Thông tin đăng nhập không hợp lệ'
-   * }
-   * #swagger.responses[401] = {
-   *   description: 'Email hoặc mật khẩu không đúng'
-   * }
-   */
-  authController.login.bind(authController)
-)
+router.put('/profile', authenticate, authController.updateProfile.bind(authController))
+
+/**
+ * @openapi
+ * /api/auth/avatar:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: Upload và cập nhật avatar
+ *     description: Upload file ảnh và cập nhật avatar cho user
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: File ảnh avatar (max 5MB)
+ *     responses:
+ *       200:
+ *         description: Upload avatar thành công
+ *       400:
+ *         description: File không hợp lệ
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/avatar', authenticate, upload.single('file'), authController.updateAvatarUrl.bind(authController))
 
 export default router

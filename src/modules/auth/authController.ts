@@ -3,55 +3,31 @@ import { StatusCodes } from 'http-status-codes'
 import { ApiResponse } from '../../bases/apiResponse'
 import { AuthService } from './authService'
 import { AuthRepository } from './authRepository'
+import multer from 'multer'
+
+// Multer config cho upload file
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: (req: any, file: any, cb: any) => {
+    // Chỉ cho phép image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true)
+    } else {
+      cb(new Error('Only image files are allowed'))
+    }
+  }
+})
+
+export { upload }
 
 export class AuthController {
   private authService: AuthService
 
   constructor() {
     this.authService = new AuthService(new AuthRepository())
-  }
-
-  async login(req: Request, res: Response) {
-    const { email, password } = req.body
-
-    if (!email || !password) {
-      return res
-        .status(StatusCodes.BAD_REQUEST)
-        .send(ApiResponse.error('Email và password là bắt buộc', 'Dữ liệu không hợp lệ', StatusCodes.BAD_REQUEST))
-    }
-
-    try {
-      const result = await this.authService.loginWithSupabase(email, password)
-
-      if (result.error) {
-        console.error('Login failed:', result.error)
-        return res
-          .status(result.code || StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error(result.error, 'Lỗi đăng nhập', result.code || StatusCodes.BAD_REQUEST))
-      }
-
-      return res.status(StatusCodes.OK).send(
-        ApiResponse.ok(
-          {
-            user: {
-              id: result.profile.id,
-              email: result.user?.email,
-              name: result.profile.name,
-              avatarUrl: result.profile.avatarUrl
-            },
-            token: result.token,
-            expiresAt: result.session?.expires_at
-          },
-          result.message,
-          StatusCodes.OK
-        )
-      )
-    } catch (err: any) {
-      console.error('Login error:', err)
-      return res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(err.message || 'Lỗi server', 'Lỗi', StatusCodes.INTERNAL_SERVER_ERROR))
-    }
   }
 
   async register(req: Request, res: Response) {
@@ -82,6 +58,75 @@ export class AuthController {
           StatusCodes.CREATED
         )
       )
+    } catch (err: any) {
+      console.error(err)
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(err.message || 'Lỗi server', 'Lỗi', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
+
+  // Lấy thông tin profile
+  async getProfile(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id
+      if (!userId) {
+        return res
+          .status(StatusCodes.UNAUTHORIZED)
+          .send(ApiResponse.error('Không tìm thấy thông tin user', 'Unauthorized', StatusCodes.UNAUTHORIZED))
+      }
+
+      const profile = await this.authService.getProfile(userId)
+      return res.status(StatusCodes.OK).send(ApiResponse.ok(profile, 'Lấy thông tin profile thành công'))
+    } catch (err: any) {
+      console.error(err)
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(err.message || 'Lỗi server', 'Lỗi', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
+
+  // Cập nhật profile
+  async updateProfile(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id
+      if (!userId) {
+        return res
+          .status(StatusCodes.UNAUTHORIZED)
+          .send(ApiResponse.error('Không tìm thấy thông tin user', 'Unauthorized', StatusCodes.UNAUTHORIZED))
+      }
+
+      const { name, addresses } = req.body
+      const updatedProfile = await this.authService.updateProfile(userId, { name, addresses })
+
+      return res.status(StatusCodes.OK).send(ApiResponse.ok(updatedProfile, 'Cập nhật profile thành công'))
+    } catch (err: any) {
+      console.error(err)
+      return res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(err.message || 'Lỗi server', 'Lỗi', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
+
+  // Upload và cập nhật avatar
+  async updateAvatarUrl(req: Request, res: Response) {
+    try {
+      const userId = (req as any).user?.id
+      if (!userId) {
+        return res
+          .status(StatusCodes.UNAUTHORIZED)
+          .send(ApiResponse.error('Không tìm thấy thông tin user', 'Unauthorized', StatusCodes.UNAUTHORIZED))
+      }
+
+      if (!req.file) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .send(ApiResponse.error('Không có file được upload', 'File không hợp lệ', StatusCodes.BAD_REQUEST))
+      }
+
+      const result = await this.authService.updateAvatarUrl(userId, req.file.buffer, req.file.originalname)
+
+      return res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Cập nhật avatar thành công'))
     } catch (err: any) {
       console.error(err)
       return res

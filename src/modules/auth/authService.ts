@@ -1,64 +1,9 @@
 import { getSupabase } from '../../config/supabaseClient'
 import { AuthRepository } from './authRepository'
+import { fileUploadService, UploadedFile } from '../../services/fileUploadService'
 
 export class AuthService {
   constructor(private authRepository: AuthRepository) {}
-
-  async loginWithSupabase(email: string, password: string) {
-    try {
-      const supabase = getSupabase()
-
-      // Sign in with Supabase
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      })
-
-      if (error) {
-        return {
-          error: error.message || 'Đăng nhập thất bại',
-          code: error.status || 400
-        }
-      }
-
-      if (!data.user || !data.session) {
-        return {
-          error: 'Không thể tạo session',
-          code: 401
-        }
-      }
-
-      // Get local user profile
-      const localUser = await this.authRepository.findBySupabaseId(data.user.id)
-
-      if (!localUser) {
-        return {
-          error: 'Tài khoản không tồn tại trong hệ thống',
-          code: 404
-        }
-      }
-
-      if (!localUser.active) {
-        return {
-          error: 'Tài khoản đã bị vô hiệu hóa',
-          code: 403
-        }
-      }
-
-      return {
-        user: data.user,
-        session: data.session,
-        profile: localUser,
-        token: data.session.access_token,
-        message: 'Đăng nhập thành công'
-      }
-    } catch (error: any) {
-      return {
-        error: error.message || 'Lỗi đăng nhập',
-        code: 500
-      }
-    }
-  }
 
   async createUserWithSupabase(email: string, password: string) {
     // Create user with email verification required
@@ -97,6 +42,65 @@ export class AuthService {
         return { error: { code: 'P2002', message: 'Tài khoản đã tồn tại', meta: err.meta } }
       }
       throw err
+    }
+  }
+
+  // Lấy thông tin profile user
+  async getProfile(userId: number) {
+    const user = await this.authRepository.findById({ where: { id: userId } })
+    if (!user) {
+      throw new Error('User not found')
+    }
+
+    // Loại bỏ các thông tin nhạy cảm nếu có
+    const { ...profile } = user
+    return profile
+  } // Cập nhật thông tin profile
+  async updateProfile(userId: number, data: { name?: string; addresses?: string }) {
+    const existingUser = await this.authRepository.findById({ where: { id: userId } })
+    if (!existingUser) {
+      throw new Error('User not found')
+    }
+
+    const updatedUser = await this.authRepository.updateById(userId, {
+      ...data,
+      updatedAt: new Date()
+    })
+
+    return updatedUser
+  }
+
+  // Upload avatar và cập nhật avatarUrl
+  async updateAvatarUrl(userId: number, file: Buffer, originalName: string) {
+    try {
+      // Kiểm tra user tồn tại
+      const existingUser = await this.authRepository.findById({ where: { id: userId } })
+      if (!existingUser) {
+        throw new Error('User not found')
+      }
+
+      // Upload file sử dụng FileUploadService
+      const uploadedFile: UploadedFile = await fileUploadService.uploadAvatar(file, originalName)
+
+      // Cập nhật avatarUrl trong database
+      const updatedUser = await this.authRepository.updateById(userId, {
+        avatarUrl: uploadedFile.url,
+        updatedAt: new Date()
+      })
+
+      return {
+        user: updatedUser,
+        uploadInfo: {
+          id: uploadedFile.id,
+          originalName: uploadedFile.originalName,
+          url: uploadedFile.url,
+          size: uploadedFile.size,
+          fileType: uploadedFile.fileType
+        }
+      }
+    } catch (error: any) {
+      // Xử lý lỗi upload
+      throw new Error(`Upload avatar failed: ${error.message}`)
     }
   }
 }

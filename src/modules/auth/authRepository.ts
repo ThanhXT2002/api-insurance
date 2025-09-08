@@ -50,4 +50,9 @@ export class AuthRepository extends BaseRepository<'user'> {
     }
     return existingRole
   }
+
+  // Thêm phương thức updateById cho AuthRepository
+  async updateById(id: number, data: any) {
+    return this.update({ id }, data)
+  }
 }
