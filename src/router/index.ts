@@ -2,6 +2,10 @@ import { Express, Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
 import authRouter from '../modules/auth/authRouter'
 import postCategoryRouter from '../modules/postCategories/postCategoryRouter'
+import permissionRouter from '../modules/permissions/permissionRouter'
+import userRoleRouter from '../modules/userRoles/userRoleRouter'
+import userRouter from '../modules/users/userRouter'
+import reportsRouter from '../modules/reports/reportsRouter'
 
 export function registerRoutes(app: Express) {
   // Health route (without API prefix for monitoring)
@@ -36,8 +40,13 @@ export function registerRoutes(app: Express) {
   app.use('/api/auth', authRouter)
   app.use('/api/post-categories', postCategoryRouter)
 
+  // Permission management routes
+  app.use('/api/permissions', permissionRouter)
+  app.use('/api/user-roles', userRoleRouter)
+  app.use('/api/users', userRouter)
+  app.use('/api/reports', reportsRouter)
+
   // TODO: Thêm các module khác với API prefix
-  // app.use('/api/users', userRouter)
   // app.use('/api/products', productRouter)
   // app.use('/api/orders', orderRouter)
 }
