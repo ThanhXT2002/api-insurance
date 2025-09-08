@@ -13,7 +13,10 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "prettier": "prettier --check .",
-    "prettier:fix": "prettier --write ."
+    "prettier:fix": "prettier --write .",
+    "setup:auth": "npx ts-node src/scripts/setupAuth.ts",
+    "seed:roles": "npx ts-node src/scripts/seedRolesPermissions.ts",
+    "create:admin": "npx ts-node src/scripts/createDefaultAdmin.ts"
   },
   "engines": {
     "node": "22.x"
@@ -24,6 +27,7 @@
   "dependencies": {
     "@prisma/client": "^6.15.0",
     "@supabase/supabase-js": "^2.56.0",
+    "bcryptjs": "^3.0.2",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "http-status-codes": "^2.3.0",
@@ -35,6 +39,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.34.0",
+    "@types/bcryptjs": "^2.4.6",
     "@types/express": "^5.0.3",
     "@types/node": "^24.3.1",
     "@types/swagger-jsdoc": "^6.0.4",

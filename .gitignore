@@ -53,3 +53,4 @@ docs/
 .github/
 
 /generated/prisma
+scripts/

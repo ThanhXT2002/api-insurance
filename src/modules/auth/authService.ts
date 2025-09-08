@@ -6,8 +6,8 @@ export class AuthService {
 
   async createUserWithSupabase(email: string, password: string) {
     // Create user with email verification required
-  const supabase = getSupabase()
-  const { data, error } = await supabase.auth.signUp({
+    const supabase = getSupabase()
+    const { data, error } = await supabase.auth.signUp({
       email,
       password
     })
@@ -28,11 +28,11 @@ export class AuthService {
       const role = await this.authRepository.ensureDefaultRole()
       await this.authRepository.createRoleAssignment((userProfile as any).id, role.id)
 
-      return { 
-        user, 
+      return {
+        user,
         profile: userProfile,
-        message: user.email_confirmed_at 
-          ? 'Đăng ký thành công' 
+        message: user.email_confirmed_at
+          ? 'Đăng ký thành công'
           : 'Đăng ký thành công, vui lòng kiểm tra email để xác thực'
       }
     } catch (err: any) {

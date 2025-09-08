@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
 import { ApiResponse } from '../../bases/apiResponse'
 import { PostCategoryService } from './postCategoryService'
+import { AuthUtils } from '../../middlewares/authUtils'
 
 export class PostCategoryController {
   constructor(private service: PostCategoryService) {}
@@ -103,6 +104,19 @@ export class PostCategoryController {
   // POST /api/post-categories - Tạo category mới
   async create(req: Request, res: Response) {
     try {
+      // Check permissions
+      if (!AuthUtils.hasPermission(req, 'post_category.create')) {
+        return res
+          .status(StatusCodes.FORBIDDEN)
+          .send(
+            ApiResponse.error(
+              'Insufficient permissions',
+              'POST_CATEGORY_CREATE permission required',
+              StatusCodes.FORBIDDEN
+            )
+          )
+      }
+
       const { name, slug, description, parentId } = req.body
 
       // Validate required fields
@@ -112,8 +126,13 @@ export class PostCategoryController {
           .send(ApiResponse.error('Missing required fields', 'Name and slug are required', StatusCodes.BAD_REQUEST))
       }
 
-      // TODO: Extract actorId from auth middleware
-      const actorId = (req as any).user?.id || 1
+      // Get user ID from auth context
+      const auditContext = AuthUtils.getAuditContext(req)
+      if (!auditContext.createdBy) {
+        return res
+          .status(StatusCodes.UNAUTHORIZED)
+          .send(ApiResponse.error('User not authenticated', 'Authentication required', StatusCodes.UNAUTHORIZED))
+      }
 
       const category = await this.service.create(
         {
@@ -122,7 +141,7 @@ export class PostCategoryController {
           description,
           parentId: parentId ? parseInt(parentId) : undefined
         },
-        { actorId }
+        { actorId: auditContext.createdBy }
       )
 
       res
@@ -142,10 +161,30 @@ export class PostCategoryController {
   // PUT /api/post-categories/:id - Cập nhật category
   async update(req: Request, res: Response) {
     try {
+      // Check permissions
+      if (!AuthUtils.hasPermission(req, 'post_category.edit')) {
+        return res
+          .status(StatusCodes.FORBIDDEN)
+          .send(
+            ApiResponse.error(
+              'Insufficient permissions',
+              'POST_CATEGORY_EDIT permission required',
+              StatusCodes.FORBIDDEN
+            )
+          )
+      }
+
       const { id } = req.params
       const { name, slug, description, parentId, active } = req.body
 
-      const actorId = (req as any).user?.id || 1
+      const auditContext = AuthUtils.getAuditContext(req)
+      if (!auditContext.updatedBy) {
+        return res
+          .status(StatusCodes.UNAUTHORIZED)
+          .send(ApiResponse.error('User not authenticated', 'Authentication required', StatusCodes.UNAUTHORIZED))
+      }
+
+      const actorId = auditContext.updatedBy
 
       const category = await this.service.updateById(
         parseInt(id),

@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { PostCategoryController } from './postCategoryController'
 import { PostCategoryService } from './postCategoryService'
 import { PostCategoryRepository } from './postCategoryRepository'
+import { authenticate, optionalAuthenticate, requirePermissions } from '../../middlewares/authMiddleware'
 
 // Initialize dependencies
 const repository = new PostCategoryRepository()
@@ -121,7 +122,8 @@ const router = Router()
  *                     total:
  *                       type: integer
  */
-router.get('/', controller.getAll.bind(controller))
+// Public endpoints (no auth required)
+router.get('/', optionalAuthenticate, controller.getAll.bind(controller))
 
 /**
  * @openapi
@@ -134,7 +136,7 @@ router.get('/', controller.getAll.bind(controller))
  *       200:
  *         description: Category tree retrieved successfully
  */
-router.get('/tree', controller.getTree.bind(controller))
+router.get('/tree', optionalAuthenticate, controller.getTree.bind(controller))
 
 /**
  * @openapi
@@ -147,7 +149,7 @@ router.get('/tree', controller.getTree.bind(controller))
  *       200:
  *         description: Root categories retrieved successfully
  */
-router.get('/roots', controller.getRoots.bind(controller))
+router.get('/roots', optionalAuthenticate, controller.getRoots.bind(controller))
 
 /**
  * @openapi
@@ -169,7 +171,7 @@ router.get('/roots', controller.getRoots.bind(controller))
  *       404:
  *         description: Category not found
  */
-router.get('/slug/:slug', controller.getBySlug.bind(controller))
+router.get('/slug/:slug', optionalAuthenticate, controller.getBySlug.bind(controller))
 
 /**
  * @openapi
@@ -191,7 +193,7 @@ router.get('/slug/:slug', controller.getBySlug.bind(controller))
  *       404:
  *         description: Category not found
  */
-router.get('/:id', controller.getById.bind(controller))
+router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
 
 /**
  * @openapi
@@ -214,7 +216,8 @@ router.get('/:id', controller.getById.bind(controller))
  *       409:
  *         description: Conflict - slug already exists
  */
-router.post('/', controller.create.bind(controller))
+// Protected endpoints (require authentication and permissions)
+router.post('/', authenticate, controller.create.bind(controller))
 
 /**
  * @openapi
@@ -254,7 +257,7 @@ router.post('/', controller.create.bind(controller))
  *       404:
  *         description: Category not found
  */
-router.put('/:id', controller.update.bind(controller))
+router.put('/:id', authenticate, controller.update.bind(controller))
 
 /**
  * @openapi
@@ -282,7 +285,7 @@ router.put('/:id', controller.update.bind(controller))
  *       404:
  *         description: Category not found
  */
-router.delete('/:id', controller.delete.bind(controller))
+router.delete('/:id', authenticate, requirePermissions(['post_category.delete']), controller.delete.bind(controller))
 
 /**
  * @openapi
@@ -314,7 +317,13 @@ router.delete('/:id', controller.delete.bind(controller))
  *       400:
  *         description: Validation error
  */
-router.post('/batch/delete', controller.batchDelete.bind(controller))
+// Admin-only batch operations
+router.post(
+  '/batch/delete',
+  authenticate,
+  requirePermissions(['post_category.delete']),
+  controller.batchDelete.bind(controller)
+)
 
 /**
  * @openapi
@@ -347,6 +356,11 @@ router.post('/batch/delete', controller.batchDelete.bind(controller))
  *       400:
  *         description: Validation error
  */
-router.post('/batch/active', controller.batchActive.bind(controller))
+router.post(
+  '/batch/active',
+  authenticate,
+  requirePermissions(['post_category.edit']),
+  controller.batchActive.bind(controller)
+)
 
 export default router
