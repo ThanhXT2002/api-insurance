@@ -249,6 +249,40 @@ export class FileUploadService {
   }
 
   /**
+   * Delete files by URLs - for rollback purposes
+   */
+  async deleteFilesByUrls(urls: string[]): Promise<void> {
+    if (!urls || urls.length === 0) {
+      return
+    }
+
+    try {
+      console.log(`Attempting to delete ${urls.length} files for rollback`)
+
+      const response = await fileUploadClient.request({
+        method: 'DELETE',
+        url: '/bulk-by-urls',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        data: { urls }
+      })
+
+      console.log(`Rollback delete response:`, response.status)
+    } catch (error: any) {
+      console.error(`Rollback delete failed:`, error.response?.data || error.message)
+      // Don't throw error here as this is cleanup operation
+    }
+  }
+
+  /**
+   * Delete single file by URL - convenience method
+   */
+  async deleteFileByUrl(url: string): Promise<void> {
+    return this.deleteFilesByUrls([url])
+  }
+
+  /**
    * Check if file is an image
    */
   private async isImageFile(buffer: Buffer): Promise<boolean> {

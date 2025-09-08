@@ -1,6 +1,7 @@
 import { getSupabase } from '../../config/supabaseClient'
 import { AuthRepository } from './authRepository'
 import { fileUploadService, UploadedFile } from '../../services/fileUploadService'
+import { withRollback } from '../../utils/rollbackHelper'
 
 export class AuthService {
   constructor(private authRepository: AuthRepository) {}
@@ -72,7 +73,7 @@ export class AuthService {
 
   // Upload avatar và cập nhật avatarUrl
   async updateAvatarUrl(userId: number, file: Buffer, originalName: string) {
-    try {
+    return withRollback(async (rollbackManager) => {
       // Kiểm tra user tồn tại
       const existingUser = await this.authRepository.findById({ where: { id: userId } })
       if (!existingUser) {
@@ -80,7 +81,10 @@ export class AuthService {
       }
 
       // Upload file sử dụng FileUploadService
-      const uploadedFile: UploadedFile = await fileUploadService.uploadAvatar(file, originalName)
+      const uploadedFile = await fileUploadService.uploadAvatar(file, originalName)
+
+      // Add rollback action to delete uploaded file if database update fails
+      rollbackManager.addFileDeleteAction(uploadedFile.url)
 
       // Cập nhật avatarUrl trong database
       const updatedUser = await this.authRepository.updateById(userId, {
@@ -98,9 +102,6 @@ export class AuthService {
           fileType: uploadedFile.fileType
         }
       }
-    } catch (error: any) {
-      // Xử lý lỗi upload
-      throw new Error(`Upload avatar failed: ${error.message}`)
-    }
+    })
   }
 }

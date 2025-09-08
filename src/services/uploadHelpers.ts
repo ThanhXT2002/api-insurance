@@ -1,4 +1,5 @@
 import { fileUploadService, UploadedFile } from './fileUploadService'
+import { withRollback, RollbackManager } from '../utils/rollbackHelper'
 
 /**
  * High-level upload helpers cho các use cases phổ biến
@@ -87,6 +88,29 @@ export class UploadHelpers {
       maxFileSize: options?.maxFileSize || 10 * 1024 * 1024, // 10MB default
       allowedTypes: options?.allowedTypes || ['image/', 'application/pdf', 'text/']
     })
+  }
+  /**
+   * Upload with rollback - for when you need to perform operations after upload
+   */
+  static async uploadWithTransaction<T>(
+    uploadOperation: (rollbackManager: RollbackManager) => Promise<{ uploads: UploadedFile[]; result: T }>
+  ): Promise<T> {
+    return withRollback(async (rollbackManager) => {
+      const { uploads, result } = await uploadOperation(rollbackManager)
+
+      // Add all uploaded file URLs to rollback in case of error
+      const urls = uploads.map((upload) => upload.url)
+      rollbackManager.addFileDeleteAction(urls)
+
+      return result
+    })
+  }
+
+  /**
+   * Delete files by URLs - convenience method
+   */
+  static async deleteFiles(urls: string[]): Promise<void> {
+    return fileUploadService.deleteFilesByUrls(urls)
   }
 }
 
