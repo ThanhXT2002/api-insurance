@@ -131,26 +131,34 @@ export class UserRepository extends BaseRepository<any> {
 
   // Get all effective permissions for user (role + direct permissions)
   async getEffectivePermissions(userId: number): Promise<Permission[]> {
-    const result = await prisma.$queryRaw<Permission[]>`
-      SELECT DISTINCT p.id, p.key, p.name, p.description
-      FROM "permissions" p
-      WHERE p.id IN (
-        -- Permissions from roles
-        SELECT rp.permission_id 
-        FROM "user_role_assignments" ura
-        JOIN "role_permissions" rp ON ura.role_id = rp.role_id
-        WHERE ura.user_id = ${userId}
-        
-        UNION
-        
-        -- Direct permissions
-        SELECT up.permission_id
-        FROM "user_permissions" up
-        WHERE up.user_id = ${userId}
-      )
-      ORDER BY p.key
-    `
-    return result
+    // 1) Get roleIds assigned to user
+    const roleAssignments: { roleId: number }[] = await prisma.userRoleAssignment.findMany({
+      where: { userId },
+      select: { roleId: true }
+    })
+    const roleIds: number[] = roleAssignments.map((r) => r.roleId)
+
+    // 2) Fetch permissions assigned to those roles
+    const rolePerms = roleIds.length
+      ? await prisma.rolePermission.findMany({ where: { roleId: { in: roleIds } }, include: { permission: true } })
+      : []
+
+    // 3) Fetch direct user permissions
+    const userPerms = await prisma.userPermission.findMany({ where: { userId }, include: { permission: true } })
+
+    // 4) Merge and dedupe by permission id
+    const map = new Map<number, Permission>()
+    for (const rp of rolePerms) {
+      if (rp.permission) map.set(rp.permission.id, rp.permission)
+    }
+    for (const up of userPerms) {
+      if (up.permission) map.set(up.permission.id, up.permission)
+    }
+
+    const permissions = Array.from(map.values())
+    // 5) Sort by key to preserve previous ordering
+    permissions.sort((a, b) => a.key.localeCompare(b.key))
+    return permissions
   }
 
   // Search users with role/permission filters
@@ -162,57 +170,63 @@ export class UserRepository extends BaseRepository<any> {
     take?: number
   }): Promise<{ users: User[]; total: number }> {
     const { keyword, roleIds, permissionIds, skip = 0, take = 20 } = params
-
-    let whereClause = ''
-    const conditions: string[] = []
+    // Build Prisma where filter safely
+    const where: any = {}
 
     if (keyword) {
-      conditions.push(`(u.email ILIKE '%${keyword}%' OR u.name ILIKE '%${keyword}%')`)
+      where.OR = [
+        { email: { contains: keyword, mode: 'insensitive' } },
+        { name: { contains: keyword, mode: 'insensitive' } }
+      ]
     }
 
+    // Filter by roleIds using nested some
     if (roleIds && roleIds.length > 0) {
-      conditions.push(`u.id IN (
-        SELECT ura.user_id FROM "user_role_assignments" ura 
-        WHERE ura.role_id IN (${roleIds.join(',')})
-      )`)
+      where.roleAssignments = { some: { roleId: { in: roleIds } } }
     }
 
+    // Filter by permissionIds: either direct user_permissions or via role -> role_permissions
     if (permissionIds && permissionIds.length > 0) {
-      conditions.push(`u.id IN (
-        SELECT DISTINCT user_id FROM (
-          SELECT ura.user_id 
-          FROM "user_role_assignments" ura
-          JOIN "role_permissions" rp ON ura.role_id = rp.role_id
-          WHERE rp.permission_id IN (${permissionIds.join(',')})
-          
-          UNION
-          
-          SELECT up.user_id
-          FROM "user_permissions" up
-          WHERE up.permission_id IN (${permissionIds.join(',')})
-        ) AS user_permissions
-      )`)
+      // Build OR condition that checks direct permissions or role-derived permissions
+      const permCondition = {
+        OR: [
+          { userPermissions: { some: { permissionId: { in: permissionIds } } } },
+          {
+            roleAssignments: {
+              some: {
+                role: {
+                  rolePermissions: { some: { permissionId: { in: permissionIds } } }
+                }
+              }
+            }
+          }
+        ]
+      }
+
+      // Merge with existing where. If where already has AND/OR, ensure we combine properly.
+      if (where.AND) {
+        where.AND.push(permCondition)
+      } else if (where.OR) {
+        // If there was only an OR for keyword, convert to AND of previous OR and this permCondition
+        where.AND = [{ OR: where.OR }, permCondition]
+        delete where.OR
+      } else {
+        where.AND = [permCondition]
+      }
     }
 
-    if (conditions.length > 0) {
-      whereClause = `WHERE ${conditions.join(' AND ')}`
-    }
+    const users = await prisma.user.findMany({
+      where,
+      include: {
+        roleAssignments: { include: { role: true } }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take
+    })
 
-    const users = await prisma.$queryRaw<User[]>`
-      SELECT u.* FROM "users" u
-      ${whereClause}
-      ORDER BY u.created_at DESC
-      LIMIT ${take} OFFSET ${skip}
-    `
+    const total = await prisma.user.count({ where })
 
-    const totalResult = await prisma.$queryRaw<{ count: bigint }[]>`
-      SELECT COUNT(*) as count FROM "users" u
-      ${whereClause}
-    `
-
-    return {
-      users,
-      total: Number(totalResult[0].count)
-    }
+    return { users, total }
   }
 }
