@@ -5,5 +5,5 @@ export interface UserProfileSafe {
   active: boolean
   updatedAt: string | null
   addresses: string | null
-  roles: string[] // ex: ["super_admin"]
+  roles: string[] 
 }
