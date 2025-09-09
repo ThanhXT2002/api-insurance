@@ -52,9 +52,17 @@ export class AuthRepository extends BaseRepository<'user'> {
   }
 
   // Thêm phương thức updateById cho AuthRepository
-  async updateById(id: number, data: any) {
-    return this.update({ id }, data)
-  }
+async updateById(id: number, data: any) {
+  return prisma.user.update({
+    where: { id },
+    data,
+    include: {
+      roleAssignments: {
+        include: { role: true }
+      }
+    }
+  })
+}
 
   // Lấy user với role assignments
   async findByIdWithRoles(userId: number) {

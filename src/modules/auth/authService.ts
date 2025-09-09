@@ -3,6 +3,7 @@ import { AuthRepository } from './authRepository'
 import { fileUploadService, UploadedFile } from '../../services/fileUploadService'
 import { withRollback } from '../../utils/rollbackHelper'
 import UploadHelpers from '../../services/uploadHelpers'
+import { UserProfileSafe } from '~/types/userType'
 
 export class AuthService {
   constructor(private authRepository: AuthRepository) {}
@@ -54,66 +55,66 @@ export class AuthService {
       throw new Error('User not found')
     }
 
-    // Lấy danh sách roles của user và ép kiểu thành string
-    const rolesString = user.roleAssignments.map((assignment: any) => assignment.role.key).toString()
-
-    // Loại bỏ các thông tin nhạy cảm và thêm roles
-    const { roleAssignments, ...profile } = user
-    return {
-      ...profile,
-      roles: rolesString
-    }
+    return this.toSafeProfile(user)
   }
 
   // Cập nhật thông tin profile
-  async updateProfile(userId: number, data: { name?: string; addresses?: string }) {
-    const existingUser = await this.authRepository.findById({ where: { id: userId } })
-    if (!existingUser) {
-      throw new Error('User not found')
-    }
+async updateProfile(userId: number, data: { name?: string; addresses?: string }) {
+  const existingUser = await this.authRepository.findById({ where: { id: userId } })
+  if (!existingUser) throw new Error('User not found')
 
-    const updatedUser = await this.authRepository.updateById(userId, {
-      ...data,
-      updatedAt: new Date()
-    })
+  const updatedUser = await this.authRepository.updateById(userId, {
+    ...data,
+    updatedAt: new Date()
+  })
 
-    return updatedUser
-  }
+  return this.toSafeProfile(updatedUser)
+}
 
-  // Upload avatar và cập nhật avatarUrl
   async updateAvatarUrl(userId: number, file: Buffer, originalName: string) {
-    // Kiểm tra user tồn tại trước
-    const existingUser = await this.authRepository.findById({ where: { id: userId } })
-    if (!existingUser) {
-      throw new Error('User not found')
+  const existingUser = await this.authRepository.findById({ where: { id: userId } })
+  if (!existingUser) throw new Error('User not found')
+
+  const { result: updatedUser, uploadedFile } = await UploadHelpers.updateFileWithCleanup(
+    () => fileUploadService.uploadAvatar(file, originalName),
+    async (newFileUrl: string) => {
+      return await this.authRepository.updateById(userId, {
+        avatarUrl: newFileUrl,
+        updatedAt: new Date()
+      })
+    },
+    existingUser.avatarUrl
+  )
+  return {
+    user: this.toSafeProfile(updatedUser),
+    uploadInfo: {
+      id: uploadedFile.id,
+      originalName: uploadedFile.originalName,
+      url: uploadedFile.url,
+      size: uploadedFile.size,
+      fileType: uploadedFile.fileType
     }
+  }
+}
 
-    // Sử dụng UploadHelpers.updateFileWithCleanup để handle upload + cleanup
-    const { result: updatedUser, uploadedFile } = await UploadHelpers.updateFileWithCleanup(
-      // Upload operation
-      () => fileUploadService.uploadAvatar(file, originalName),
-
-      // Database operation
-      async (newFileUrl: string) => {
-        return await this.authRepository.updateById(userId, {
-          avatarUrl: newFileUrl,
-          updatedAt: new Date()
-        })
-      },
-
-      // Old file URL to cleanup
-      existingUser.avatarUrl
-    )
+  // Chuyển object user từ DB sang định dạng an toàn trả về FE
+  private toSafeProfile(user: any): UserProfileSafe {
+    const roles = (user?.roleAssignments || []).map((assignment: any) => assignment.role.key)
+    const {
+      roleAssignments,
+      id, // sensitive
+      supabaseId, // sensitive
+      ...profile
+    } = user || {}
 
     return {
-      user: updatedUser,
-      uploadInfo: {
-        id: uploadedFile.id,
-        originalName: uploadedFile.originalName,
-        url: uploadedFile.url,
-        size: uploadedFile.size,
-        fileType: uploadedFile.fileType
-      }
+      email: profile.email,
+      name: profile.name ?? null,
+      avatarUrl: profile.avatarUrl ?? null,
+      active: !!profile.active,
+      updatedAt: profile.updatedAt ?? null,
+      addresses: profile.addresses ?? null,
+      roles
     }
   }
 }
