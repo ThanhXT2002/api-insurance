@@ -1,208 +1,277 @@
-import { User, UserRole, Permission } from '@prisma/client'
 import { BaseService } from '../../bases/baseService'
 import { UserRepository } from './userRepository'
+import { getSupabase } from '../../config/supabaseClient'
+import { fileUploadService } from '../../services/fileUploadService'
+import { withRollback, RollbackManager } from '../../utils/rollbackHelper'
 
-export class UserService extends BaseService<any> {
-  constructor(private userRepository: UserRepository) {
-    super(userRepository)
+export class UserService extends BaseService {
+  constructor(protected repo: UserRepository) {
+    super(repo)
   }
+  // Override getAll to support keyword search on email/name
+  async getAll(params: any = {}) {
+    const { keyword, page, limit, ...other } = params
+    const safePage = page || 1
+    const safeLimit = limit || 20
+    const skip = (safePage - 1) * safeLimit
 
-  // Get user with all permissions (role + direct)
-  async getUserWithPermissions(id: number): Promise<{
-    user: User
-    roles: UserRole[]
-    directPermissions: Permission[]
-    effectivePermissions: Permission[]
-  } | null> {
-    const user = await this.userRepository.findByIdWithPermissions(id)
-    if (!user) return null
-
-    const roles = user.roleAssignments?.map((ra: any) => ra.role) || []
-    const directPermissions = user.userPermissions?.map((up: any) => up.permission) || []
-    const effectivePermissions = await this.userRepository.getEffectivePermissions(id)
-
-    return {
-      user: {
-        id: user.id,
-        supabaseId: user.supabaseId,
-        email: user.email,
-        name: user.name,
-        avatarUrl: user.avatarUrl,
-        active: user.active,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-        addresses: user.addresses
-      },
-      roles,
-      directPermissions,
-      effectivePermissions
-    }
-  }
-
-  // Assign role to user
-  async assignRole(userId: number, roleId: number, auditContext?: { userId: number }): Promise<boolean> {
-    try {
-      // Check if user exists
-      const user = await this.userRepository.findById(userId)
-      if (!user) {
-        throw new Error(`User with ID ${userId} not found`)
-      }
-
-      // Check if assignment already exists
-      const hasRole = await this.userRepository.hasRole(userId, roleId)
-      if (hasRole) {
-        throw new Error('User already has this role')
-      }
-
-      await this.userRepository.assignRole(userId, roleId)
-      return true
-    } catch (error: any) {
-      throw error
-    }
-  }
-
-  // Remove role from user
-  async removeRole(userId: number, roleId: number, auditContext?: { userId: number }): Promise<boolean> {
-    try {
-      const success = await this.userRepository.removeRole(userId, roleId)
-      if (!success) {
-        throw new Error('Role assignment not found')
-      }
-
-      return true
-    } catch (error: any) {
-      throw error
-    }
-  }
-
-  // Get user roles
-  async getUserRoles(userId: number): Promise<UserRole[]> {
-    const assignments = await this.userRepository.getUserRoles(userId)
-    return assignments.map((assignment: any) => assignment.role)
-  }
-
-  // Assign direct permission to user
-  async assignPermission(userId: number, permissionId: number, auditContext?: { userId: number }): Promise<boolean> {
-    try {
-      // Check if user exists
-      const user = await this.userRepository.findById(userId)
-      if (!user) {
-        throw new Error(`User with ID ${userId} not found`)
-      }
-
-      // Check if assignment already exists
-      const userPermissions = await this.userRepository.getUserPermissions(userId)
-      const hasPermission = userPermissions.some((up: any) => up.permissionId === permissionId)
-      if (hasPermission) {
-        throw new Error('User already has this permission')
-      }
-
-      await this.userRepository.assignPermission(userId, permissionId)
-      return true
-    } catch (error: any) {
-      throw error
-    }
-  }
-
-  // Remove direct permission from user
-  async removePermission(userId: number, permissionId: number, auditContext?: { userId: number }): Promise<boolean> {
-    try {
-      const success = await this.userRepository.removePermission(userId, permissionId)
-      if (!success) {
-        throw new Error('Permission assignment not found')
-      }
-
-      return true
-    } catch (error: any) {
-      throw error
-    }
-  }
-
-  // Get user direct permissions
-  async getUserDirectPermissions(userId: number): Promise<Permission[]> {
-    const assignments = await this.userRepository.getUserPermissions(userId)
-    return assignments.map((assignment: any) => assignment.permission)
-  }
-
-  // Get user effective permissions
-  async getUserEffectivePermissions(userId: number): Promise<Permission[]> {
-    return await this.userRepository.getEffectivePermissions(userId)
-  }
-
-  // Check if user has permission (through role or direct)
-  async hasPermission(userId: number, permissionKey: string): Promise<boolean> {
-    const permissions = await this.getUserEffectivePermissions(userId)
-    return permissions.some((p: Permission) => p.key === permissionKey)
-  }
-
-  // Search users with filters
-  async searchUsers(params: {
-    keyword?: string
-    roleIds?: number[]
-    permissionIds?: number[]
-    page?: number
-    limit?: number
-  }): Promise<{
-    users: User[]
-    total: number
-    page: number
-    limit: number
-    totalPages: number
-  }> {
-    const page = params.page || 1
-    const limit = params.limit || 20
-    const skip = (page - 1) * limit
-
-    const result = await this.userRepository.searchUsers({
-      ...params,
-      skip,
-      take: limit
-    })
-
-    return {
-      ...result,
-      page,
-      limit,
-      totalPages: Math.ceil(result.total / limit)
-    }
-  }
-
-  // Get users with basic role information
-  async getUsersWithRoles(params: { page?: number; limit?: number; keyword?: string }): Promise<{
-    users: any[]
-    total: number
-    page: number
-    limit: number
-    totalPages: number
-  }> {
-    const page = params.page || 1
-    const limit = params.limit || 20
-    const skip = (page - 1) * limit
-
-    let where = {}
-    if (params.keyword) {
-      where = {
+    if (keyword) {
+      const where = {
         OR: [
-          { email: { contains: params.keyword, mode: 'insensitive' } },
-          { name: { contains: params.keyword, mode: 'insensitive' } }
+          { email: { contains: keyword, mode: 'insensitive' } },
+          { name: { contains: keyword, mode: 'insensitive' } }
         ]
       }
+
+      const users = await (this.repo as any).findManyWithRoles({ where, skip, take: safeLimit })
+      const total = await this.repo.count(where)
+      const transformed = this.transformUserAuditFields(users)
+      return { rows: transformed, total }
     }
 
-    const users = await this.userRepository.findManyWithRoles({
-      skip,
-      take: limit,
-      where
+    return super.getAll({ page: safePage, limit: safeLimit, ...other })
+  }
+
+  /**
+   * Create user flow:
+   * 1. Create user in Supabase (email/password)
+   * 2. Upload avatar (if provided)
+   * 3. Create local user record and role assignments in a DB transaction
+   * 4. On any error, rollback uploaded files and throw
+   *
+   * Expected data shape:
+   * { email, password, name?, avatarFile?: { buffer, originalname }, roleKeys?: string[] , ...other }
+   */
+  async createUser(data: any, ctx?: { actorId?: number }) {
+    return withRollback(async (rollback: RollbackManager) => {
+      // 1) Supabase signup
+      const supabase = getSupabase()
+      if (!data.email || !data.password) throw new Error('Email and password are required')
+
+      const { data: sbData, error: sbError } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password
+      })
+
+      if (sbError) throw sbError
+      const sbUser = (sbData as any).user
+      if (!sbUser) throw new Error('Supabase user not created')
+
+      // 2) Upload avatar if present
+      let uploadedAvatarUrl: string | null = null
+      if (data.avatarFile && data.avatarFile.buffer) {
+        const uploaded = await fileUploadService.uploadAvatar(data.avatarFile.buffer, data.avatarFile.originalname)
+        uploadedAvatarUrl = uploaded.url
+        // register rollback action to delete uploaded file if anything fails later
+        rollback.addFileDeleteAction(uploaded.url)
+      }
+
+      // 3) create local user and role assignments in a transaction
+      const created = await this.repo.runTransaction(async (tx) => {
+        // create user profile in local DB (link to supabaseId)
+        const userCreateData: any = {
+          email: data.email,
+          name: data.name ?? null,
+          supabaseId: sbUser.id,
+          avatarUrl: uploadedAvatarUrl ?? null,
+          active: typeof data.active === 'boolean' ? data.active : true,
+          createdBy: ctx?.actorId ?? null,
+          updatedBy: ctx?.actorId ?? null
+        }
+
+        const newUser = await this.repo.create(userCreateData, tx)
+
+        // role assignments: data.roleKeys can be array of role keys
+        if (Array.isArray(data.roleKeys) && data.roleKeys.length > 0) {
+          // find roles and create assignments using the transaction client `tx`
+          const roles = await tx.userRole.findMany({ where: { key: { in: data.roleKeys } } })
+
+          for (const r of roles) {
+            await tx.userRoleAssignment.create({ data: { userId: newUser.id, roleId: r.id } })
+          }
+        }
+
+        // return created user with roles
+        return await this.repo.findById(
+          { where: { id: newUser.id }, include: { roleAssignments: { include: { role: true } } } },
+          tx
+        )
+      })
+
+      // success: clear rollback actions implicitly by withRollback
+      return created
     })
+  }
 
-    const total = await this.userRepository.count(where)
+  async updateById(id: number, data: any, ctx?: { actorId?: number }) {
+    const existing = await this.repo.findById(id)
+    if (!existing) throw new Error('User not found')
 
-    return {
-      users,
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
+    // Support updating avatar and roles atomically with rollback for uploaded file
+    return withRollback(async (rollback: RollbackManager) => {
+      // If new avatar provided, upload it first and register rollback to delete if update fails
+      let newAvatarUrl: string | null = null
+      if (data.avatarFile && data.avatarFile.buffer) {
+        const uploaded = await fileUploadService.uploadAvatar(data.avatarFile.buffer, data.avatarFile.originalname)
+        newAvatarUrl = uploaded.url
+        rollback.addFileDeleteAction(newAvatarUrl)
+      }
+
+      const updated = await this.repo.runTransaction(async (tx) => {
+        // Prepare update payload
+        const updateData: any = { ...data }
+        if (newAvatarUrl) {
+          updateData.avatarUrl = newAvatarUrl
+        }
+        // Remove avatarFile from payload to avoid unexpected DB fields
+        delete updateData.avatarFile
+
+        // Handle audit field
+        if (ctx?.actorId) updateData.updatedBy = ctx.actorId
+
+        // Update user
+        const user = await this.repo.update({ id }, updateData, tx)
+
+        // If roleKeys provided, replace role assignments inside the transaction
+        if (Array.isArray(data.roleKeys)) {
+          // delete existing assignments for user
+          await tx.userRoleAssignment.deleteMany({ where: { userId: user.id } })
+
+          if (data.roleKeys.length > 0) {
+            const roles = await tx.userRole.findMany({ where: { key: { in: data.roleKeys } } })
+            for (const r of roles) {
+              await tx.userRoleAssignment.create({ data: { userId: user.id, roleId: r.id } })
+            }
+          }
+        }
+
+        // return updated user with roles
+        return tx.user.findUnique({ where: { id: user.id }, include: { roleAssignments: { include: { role: true } } } })
+      })
+
+      // If update succeeded and we replaced avatar, attempt to delete old avatar (best-effort)
+      try {
+        if (newAvatarUrl && existing.avatarUrl) {
+          await fileUploadService.deleteFileByUrl(existing.avatarUrl)
+        }
+      } catch (err: any) {
+        // log and continue - not fatal
+        console.error('Failed to delete old avatar:', err?.message || err)
+      }
+
+      return updated
+    })
+  }
+
+  // Override getById to include roles and other necessary fields for update operations
+  async getById(
+    id: number | string,
+    options?: { include?: any; select?: any; includeRoles?: boolean; includePermissions?: boolean }
+  ) {
+    try {
+      const includeRoles = options?.includeRoles !== false // default true
+      const includePermissions = options?.includePermissions || false
+
+      let include: any = options?.include || {}
+
+      if (includeRoles) {
+        include.roleAssignments = {
+          include: {
+            role: {
+              select: {
+                id: true,
+                key: true,
+                name: true,
+                description: true
+              }
+            }
+          }
+        }
+      }
+
+      if (includePermissions) {
+        include.userPermissions = {
+          include: {
+            permission: {
+              select: {
+                id: true,
+                key: true,
+                name: true,
+                description: true
+              }
+            }
+          }
+        }
+      }
+
+      const user = await this.repo.findById({
+        where: { id: typeof id === 'string' ? parseInt(id) : id },
+        include: Object.keys(include).length > 0 ? include : undefined,
+        select: options?.select
+      })
+
+      if (!user) return null
+
+      // Transform the result to include role keys for easier frontend handling
+      const transformed = this.transformUserAuditFields([user])[0]
+
+      if (includeRoles && transformed.roleAssignments) {
+        // Add roleKeys array for easier form handling
+        transformed.roleKeys = transformed.roleAssignments.map((assignment: any) => assignment.role.key)
+
+        // Add roles array with simplified structure
+        transformed.roles = transformed.roleAssignments.map((assignment: any) => ({
+          id: assignment.role.id,
+          key: assignment.role.key,
+          name: assignment.role.name,
+          description: assignment.role.description
+        }))
+      }
+
+      if (includePermissions && transformed.userPermissions) {
+        // Add direct permissions with simplified structure
+        transformed.directPermissions = transformed.userPermissions.map((userPerm: any) => ({
+          id: userPerm.permission.id,
+          key: userPerm.permission.key,
+          name: userPerm.permission.name,
+          description: userPerm.permission.description,
+          allowed: userPerm.allowed
+        }))
+      }
+
+      return transformed
+    } catch (error) {
+      throw error
     }
   }
+
+  // Convenience method for getting user with roles for update operations
+  async getUserForUpdate(id: number) {
+    return this.getById(id, { includeRoles: true, includePermissions: false })
+  }
+
+  // Convenience method for getting user with full details
+  async getUserWithFullDetails(id: number) {
+    return this.getById(id, { includeRoles: true, includePermissions: true })
+  }
+
+  async deleteById(id: number, hard = false, ctx?: { actorId?: number }) {
+    const existing = await this.repo.findById(id)
+    if (!existing) throw new Error('User not found')
+    if (hard) return this.repo.delete({ id })
+    return this.delete({ id }, false)
+  }
+
+  async deleteMultiple(ids: number[], hard = false, ctx?: { actorId?: number }) {
+    if (!Array.isArray(ids) || ids.length === 0) throw new Error('No ids provided')
+    if (hard) return this.repo.deleteMany({ id: { in: ids } })
+    return this.repo.updateMany({ id: { in: ids } }, { active: false, updatedBy: ctx?.actorId })
+  }
+
+  async activeMultiple(ids: number[], active: boolean, ctx?: { actorId?: number }) {
+    if (!Array.isArray(ids) || ids.length === 0) throw new Error('No ids provided')
+    return this.repo.updateMany({ id: { in: ids } }, { active, updatedBy: ctx?.actorId })
+  }
 }
+
+export default UserService

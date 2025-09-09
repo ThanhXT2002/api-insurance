@@ -3,73 +3,13 @@ import { UserController } from './userController'
 import { UserService } from './userService'
 import { UserRepository } from './userRepository'
 import { authenticate } from '../../middlewares/authMiddleware'
+import { upload } from '../auth/authController'
 
-// Initialize dependencies
-const repository = new UserRepository()
-const service = new UserService(repository)
+const repo = new UserRepository()
+const service = new UserService(repo)
 const controller = new UserController(service)
 
 const router = Router()
-
-/**
- * @openapi
- * components:
- *   schemas:
- *     UserWithRoles:
- *       type: object
- *       properties:
- *         id:
- *           type: integer
- *         email:
- *           type: string
- *         name:
- *           type: string
- *         roleAssignments:
- *           type: array
- *           items:
- *             type: object
- *             properties:
- *               role:
- *                 $ref: '#/components/schemas/UserRole'
- *     AssignRoleRequest:
- *       type: object
- *       required:
- *         - roleId
- *       properties:
- *         roleId:
- *           type: integer
- *           description: Role ID to assign
- *     AssignPermissionRequest:
- *       type: object
- *       required:
- *         - permissionId
- *       properties:
- *         permissionId:
- *           type: integer
- *           description: Permission ID to assign
- *     UserSearchRequest:
- *       type: object
- *       properties:
- *         keyword:
- *           type: string
- *           description: Search keyword for email/name
- *         roleIds:
- *           type: array
- *           items:
- *             type: integer
- *           description: Filter by role IDs
- *         permissionIds:
- *           type: array
- *           items:
- *             type: integer
- *           description: Filter by permission IDs
- *         page:
- *           type: integer
- *           default: 1
- *         limit:
- *           type: integer
- *           default: 20
- */
 
 /**
  * @openapi
@@ -77,7 +17,7 @@ const router = Router()
  *   get:
  *     tags:
  *       - Users
- *     summary: Get all users with basic role information
+ *     summary: Get all users
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -85,17 +25,14 @@ const router = Router()
  *         name: page
  *         schema:
  *           type: integer
- *         description: Page number
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *         description: Items per page
  *       - in: query
  *         name: keyword
  *         schema:
  *           type: string
- *         description: Search keyword
  *     responses:
  *       200:
  *         description: Users retrieved successfully
@@ -108,7 +45,7 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *   get:
  *     tags:
  *       - Users
- *     summary: Get user with full permission details
+ *     summary: Get user by id with roles for update
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -117,237 +54,452 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: "User ID"
+ *         example: 1
  *     responses:
  *       200:
- *         description: User retrieved successfully
- *       404:
- *         description: User not found
- */
-router.get('/:id', authenticate, controller.getById.bind(controller))
-
-/**
- * @openapi
- * /api/users/{userId}/roles:
- *   get:
- *     tags:
- *       - Users
- *     summary: Get user roles
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: integer
- *         description: User ID
- *     responses:
- *       200:
- *         description: User roles retrieved successfully
- *   post:
- *     tags:
- *       - Users
- *     summary: Assign role to user
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: integer
- *         description: User ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/AssignRoleRequest'
- *     responses:
- *       200:
- *         description: Role assigned successfully
- *       404:
- *         description: User or role not found
- *       409:
- *         description: User already has this role
- */
-router.get('/:userId/roles', authenticate, controller.getUserRoles.bind(controller))
-router.post('/:userId/roles', authenticate, controller.assignRole.bind(controller))
-
-/**
- * @openapi
- * /api/users/{userId}/roles/{roleId}:
- *   delete:
- *     tags:
- *       - Users
- *     summary: Remove role from user
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: integer
- *         description: User ID
- *       - in: path
- *         name: roleId
- *         required: true
- *         schema:
- *           type: integer
- *         description: Role ID
- *     responses:
- *       200:
- *         description: Role removed successfully
- *       404:
- *         description: Role assignment not found
- */
-router.delete('/:userId/roles/:roleId', authenticate, controller.removeRole.bind(controller))
-
-/**
- * @openapi
- * /api/users/{userId}/permissions:
- *   get:
- *     tags:
- *       - Users
- *     summary: Get user direct permissions
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: integer
- *         description: User ID
- *     responses:
- *       200:
- *         description: User direct permissions retrieved successfully
- *   post:
- *     tags:
- *       - Users
- *     summary: Assign direct permission to user
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: integer
- *         description: User ID
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/AssignPermissionRequest'
- *     responses:
- *       200:
- *         description: Permission assigned successfully
- *       404:
- *         description: User or permission not found
- *       409:
- *         description: User already has this permission
- */
-router.get('/:userId/permissions', authenticate, controller.getUserDirectPermissions.bind(controller))
-router.post('/:userId/permissions', authenticate, controller.assignPermission.bind(controller))
-
-/**
- * @openapi
- * /api/users/{userId}/permissions/{permissionId}:
- *   delete:
- *     tags:
- *       - Users
- *     summary: Remove direct permission from user
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: integer
- *         description: User ID
- *       - in: path
- *         name: permissionId
- *         required: true
- *         schema:
- *           type: integer
- *         description: Permission ID
- *     responses:
- *       200:
- *         description: Permission removed successfully
- *       404:
- *         description: Permission assignment not found
- */
-router.delete('/:userId/permissions/:permissionId', authenticate, controller.removePermission.bind(controller))
-
-/**
- * @openapi
- * /api/users/{userId}/effective-permissions:
- *   get:
- *     tags:
- *       - Users
- *     summary: Get user effective permissions (role + direct)
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: integer
- *         description: User ID
- *     responses:
- *       200:
- *         description: User effective permissions retrieved successfully
- */
-router.get('/:userId/effective-permissions', authenticate, controller.getUserEffectivePermissions.bind(controller))
-
-/**
- * @openapi
- * /api/users/{userId}/has-permission/{permissionKey}:
- *   get:
- *     tags:
- *       - Users
- *     summary: Check if user has specific permission
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: userId
- *         required: true
- *         schema:
- *           type: integer
- *         description: User ID
- *       - in: path
- *         name: permissionKey
- *         required: true
- *         schema:
- *           type: string
- *         description: Permission key (e.g., "user.edit")
- *     responses:
- *       200:
- *         description: Permission check completed
+ *         description: User retrieved successfully with roles
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 hasPermission:
+ *                 success:
  *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     email:
+ *                       type: string
+ *                       example: "john.doe@example.com"
+ *                     name:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     avatarUrl:
+ *                       type: string
+ *                       example: "https://storage.example.com/avatars/123.jpg"
+ *                     addresses:
+ *                       type: string
+ *                       example: "123 Main Street, City, Country"
+ *                     active:
+ *                       type: boolean
+ *                       example: true
+ *                     roleKeys:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["user", "customer"]
+ *                     roles:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           key:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           description:
+ *                             type: string
+ *                     roleAssignments:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                 message:
+ *                   type: string
+ *                   example: "User retrieved successfully"
+ *       404:
+ *         description: User not found
+ *       400:
+ *         description: Invalid user ID
  */
-router.get('/:userId/has-permission/:permissionKey', authenticate, controller.checkPermission.bind(controller))
+router.get('/:id', authenticate, controller.getById.bind(controller))
 
 /**
  * @openapi
- * /api/users/search:
+ * /api/users/{id}/full-details:
+ *   get:
+ *     tags:
+ *       - Users
+ *     summary: Get user with full details (roles + permissions)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: "User ID"
+ *         example: 1
+ *     responses:
+ *       200:
+ *         description: User with full details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     email:
+ *                       type: string
+ *                       example: "john.doe@example.com"
+ *                     name:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     roleKeys:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["user", "customer"]
+ *                     roles:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                     directPermissions:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           id:
+ *                             type: integer
+ *                           key:
+ *                             type: string
+ *                           name:
+ *                             type: string
+ *                           allowed:
+ *                             type: boolean
+ *                 message:
+ *                   type: string
+ *                   example: "User with full details retrieved successfully"
+ *       404:
+ *         description: User not found
+ *       400:
+ *         description: Invalid user ID
+ */
+router.get('/:id/full-details', authenticate, controller.getUserWithFullDetails.bind(controller))
+
+/**
+ * @openapi
+ * /api/users/getUserById/{id}:
+ *   get:
+ *     tags:
+ *       - Users
+ *     summary: Alias - get user by id
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User retrieved successfully (alias)
+ */
+// Alias route requested: getUserById
+router.get('/getUserById/:id', authenticate, controller.getById.bind(controller))
+
+/**
+ * @openapi
+ * /api/users:
  *   post:
  *     tags:
  *       - Users
- *     summary: Advanced user search with role/permission filters
+ *     summary: Create user
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "john.doe@example.com"
+ *                 description: "Email address (required)"
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 example: "password123"
+ *                 description: "Password (required, min 6 characters)"
+ *               name:
+ *                 type: string
+ *                 example: "John Doe"
+ *                 description: "Full name (optional)"
+ *               addresses:
+ *                 type: string
+ *                 example: "123 Main St, City, Country"
+ *                 description: "Address information (optional)"
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: "Avatar image file (optional, jpg/png)"
+ *               roleKeys:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["user", "admin"]
+ *                 description: "Array of role keys to assign (optional)"
+ *               active:
+ *                 type: boolean
+ *                 default: true
+ *                 description: "User active status (optional)"
+ *             required:
+ *               - email
+ *               - password
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 example: "john.doe@example.com"
+ *               password:
+ *                 type: string
+ *                 minLength: 6
+ *                 example: "password123"
+ *               name:
+ *                 type: string
+ *                 example: "John Doe"
+ *               addresses:
+ *                 type: string
+ *                 example: "123 Main St, City, Country"
+ *               roleKeys:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["user", "admin"]
+ *               active:
+ *                 type: boolean
+ *                 default: true
+ *             required:
+ *               - email
+ *               - password
+ *     responses:
+ *       200:
+ *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     email:
+ *                       type: string
+ *                       example: "john.doe@example.com"
+ *                     name:
+ *                       type: string
+ *                       example: "John Doe"
+ *                     avatarUrl:
+ *                       type: string
+ *                       example: "https://storage.example.com/avatars/123.jpg"
+ *                     active:
+ *                       type: boolean
+ *                       example: true
+ *                     roleAssignments:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           role:
+ *                             type: object
+ *                             properties:
+ *                               key:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                 message:
+ *                   type: string
+ *                   example: "User created"
+ *       409:
+ *         description: Email already exists
+ *       400:
+ *         description: Validation error
+ *       500:
+ *         description: Internal server error
+ */
+// Accept multipart/form-data with optional `avatar` file
+router.post('/', authenticate, upload.single('avatar'), controller.create.bind(controller))
+
+/**
+ * @openapi
+ * /api/users/{id}:
+ *   put:
+ *     tags:
+ *       - Users
+ *     summary: Update user
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: "User ID to update"
+ *         example: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "John Doe Updated"
+ *                 description: "Full name (optional)"
+ *               addresses:
+ *                 type: string
+ *                 example: "456 New Street, Updated City, Country"
+ *                 description: "Address information (optional)"
+ *               avatar:
+ *                 type: string
+ *                 format: binary
+ *                 description: "New avatar image file (optional, jpg/png)"
+ *               roleKeys:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["user", "manager"]
+ *                 description: "Array of role keys to assign (optional, replaces existing roles)"
+ *               active:
+ *                 type: boolean
+ *                 example: true
+ *                 description: "User active status (optional)"
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: "John Doe Updated"
+ *                 description: "Full name (optional)"
+ *               addresses:
+ *                 type: string
+ *                 example: "456 New Street, Updated City, Country"
+ *                 description: "Address information (optional)"
+ *               roleKeys:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["user", "manager"]
+ *                 description: "Array of role keys to assign (optional)"
+ *               active:
+ *                 type: boolean
+ *                 example: true
+ *                 description: "User active status (optional)"
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: integer
+ *                       example: 1
+ *                     email:
+ *                       type: string
+ *                       example: "john.doe@example.com"
+ *                     name:
+ *                       type: string
+ *                       example: "John Doe Updated"
+ *                     avatarUrl:
+ *                       type: string
+ *                       example: "https://storage.example.com/avatars/123-updated.jpg"
+ *                     addresses:
+ *                       type: string
+ *                       example: "456 New Street, Updated City, Country"
+ *                     active:
+ *                       type: boolean
+ *                       example: true
+ *                     roleAssignments:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           role:
+ *                             type: object
+ *                             properties:
+ *                               key:
+ *                                 type: string
+ *                               name:
+ *                                 type: string
+ *                 message:
+ *                   type: string
+ *                   example: "User updated"
+ *       404:
+ *         description: User not found
+ *       400:
+ *         description: Invalid user ID
+ *       500:
+ *         description: Internal server error
+ */
+router.put('/:id', authenticate, upload.single('avatar'), controller.update.bind(controller))
+
+/**
+ * @openapi
+ * /api/users/{id}:
+ *   delete:
+ *     tags:
+ *       - Users
+ *     summary: Delete user (soft)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: User deleted successfully
+ */
+router.delete('/:id', authenticate, controller.delete.bind(controller))
+
+/**
+ * @openapi
+ * /api/users/delete-multiple:
+ *   post:
+ *     tags:
+ *       - Users
+ *     summary: Delete multiple users (soft)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -355,11 +507,44 @@ router.get('/:userId/has-permission/:permissionKey', authenticate, controller.ch
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/UserSearchRequest'
+ *             type: object
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
  *     responses:
  *       200:
- *         description: Users found successfully
+ *         description: Users deleted
  */
-router.post('/search', authenticate, controller.searchUsers.bind(controller))
+router.post('/delete-multiple', authenticate, controller.deleteMultiple.bind(controller))
+
+/**
+ * @openapi
+ * /api/users/active-multiple:
+ *   post:
+ *     tags:
+ *       - Users
+ *     summary: Activate/Deactivate multiple users
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               ids:
+ *                 type: array
+ *                 items:
+ *                   type: integer
+ *               active:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Users updated
+ */
+router.post('/active-multiple', authenticate, controller.activeMultiple.bind(controller))
 
 export default router
