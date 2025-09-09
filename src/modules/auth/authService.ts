@@ -49,15 +49,23 @@ export class AuthService {
 
   // Lấy thông tin profile user
   async getProfile(userId: number) {
-    const user = await this.authRepository.findById({ where: { id: userId } })
+    const user = await this.authRepository.findByIdWithRoles(userId)
     if (!user) {
       throw new Error('User not found')
     }
 
-    // Loại bỏ các thông tin nhạy cảm nếu có
-    const { ...profile } = user
-    return profile
-  } // Cập nhật thông tin profile
+    // Lấy danh sách roles của user và ép kiểu thành string
+    const rolesString = user.roleAssignments.map((assignment: any) => assignment.role.key).toString()
+
+    // Loại bỏ các thông tin nhạy cảm và thêm roles
+    const { roleAssignments, ...profile } = user
+    return {
+      ...profile,
+      roles: rolesString
+    }
+  }
+
+  // Cập nhật thông tin profile
   async updateProfile(userId: number, data: { name?: string; addresses?: string }) {
     const existingUser = await this.authRepository.findById({ where: { id: userId } })
     if (!existingUser) {
