@@ -102,6 +102,7 @@ export class UserRoleController {
 
       res.status(StatusCodes.CREATED).send(ApiResponse.ok(role, 'Role created successfully', StatusCodes.CREATED))
     } catch (error: any) {
+      console.error('Error creating role:', error);
       if (error.message.includes('already exists')) {
         return res.status(StatusCodes.CONFLICT).send(ApiResponse.error(error.message, 'Conflict', StatusCodes.CONFLICT))
       }

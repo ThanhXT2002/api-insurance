@@ -151,6 +151,7 @@ export class BaseService<T = any> {
     if (ctx?.actorId) {
       // Handle audit fields for models with User relationships
       const modelName = this.repository.getModelName
+      // Only set nested connect for models that use relation fields named `creator`/`updater`
       if (modelName === 'postCategory') {
         ;(data as any).creator = { connect: { id: ctx.actorId } }
         ;(data as any).updater = { connect: { id: ctx.actorId } }
@@ -158,8 +159,14 @@ export class BaseService<T = any> {
         ;(data as any).creator = { connect: { id: ctx.actorId } }
         ;(data as any).updater = { connect: { id: ctx.actorId } }
       } else {
-        // Fallback for models with direct foreign key fields
-        ;(data as any).createdBy = ctx.actorId
+        // Fallback: only set scalar fields for models that actually have `createdBy` field
+        // List of models that declare scalar createdBy/updatedBy in schema.prisma
+        const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta']
+        if (scalarAuditModels.includes(modelName as string)) {
+          ;(data as any).createdBy = ctx.actorId
+        } else {
+          // Do not inject unknown audit fields for other models (e.g., UserRole)
+        }
       }
     }
     // Lưu: xử lý lỗi unique (Prisma P2002) có thể được catch ở đây hoặc controller
@@ -174,8 +181,11 @@ export class BaseService<T = any> {
       } else if (modelName === 'post') {
         ;(data as any).updater = { connect: { id: ctx.actorId } }
       } else {
-        // Fallback for models with direct foreign key fields
-        ;(data as any).updatedBy = ctx.actorId
+        // Fallback: only set scalar updatedBy for models that declare it
+        const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta']
+        if (scalarAuditModels.includes(modelName as string)) {
+          ;(data as any).updatedBy = ctx.actorId
+        }
       }
     }
     return this.repository.update(where, data)
