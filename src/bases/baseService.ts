@@ -149,25 +149,7 @@ export class BaseService<T = any> {
 
   async create(data: Partial<T>, ctx?: { actorId?: number }): Promise<T> {
     if (ctx?.actorId) {
-      // Handle audit fields for models with User relationships
-      const modelName = this.repository.getModelName
-      // Only set nested connect for models that use relation fields named `creator`/`updater`
-      if (modelName === 'postCategory') {
-        ;(data as any).creator = { connect: { id: ctx.actorId } }
-        ;(data as any).updater = { connect: { id: ctx.actorId } }
-      } else if (modelName === 'post') {
-        ;(data as any).creator = { connect: { id: ctx.actorId } }
-        ;(data as any).updater = { connect: { id: ctx.actorId } }
-      } else {
-        // Fallback: only set scalar fields for models that actually have `createdBy` field
-        // List of models that declare scalar createdBy/updatedBy in schema.prisma
-        const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta']
-        if (scalarAuditModels.includes(modelName as string)) {
-          ;(data as any).createdBy = ctx.actorId
-        } else {
-          // Do not inject unknown audit fields for other models (e.g., UserRole)
-        }
-      }
+      this.injectCreateAuditFields(data, ctx.actorId)
     }
     // Lưu: xử lý lỗi unique (Prisma P2002) có thể được catch ở đây hoặc controller
     return this.repository.create(data)
@@ -175,20 +157,39 @@ export class BaseService<T = any> {
 
   async update(where: any, data: Partial<T>, ctx?: { actorId?: number }): Promise<T> {
     if (ctx?.actorId) {
-      const modelName = this.repository.getModelName
-      if (modelName === 'postCategory') {
-        ;(data as any).updater = { connect: { id: ctx.actorId } }
-      } else if (modelName === 'post') {
-        ;(data as any).updater = { connect: { id: ctx.actorId } }
-      } else {
-        // Fallback: only set scalar updatedBy for models that declare it
-        const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta']
-        if (scalarAuditModels.includes(modelName as string)) {
-          ;(data as any).updatedBy = ctx.actorId
-        }
-      }
+      this.injectUpdateAuditFields(data, ctx.actorId)
     }
     return this.repository.update(where, data)
+  }
+
+  // --- Audit helpers ---
+  private injectCreateAuditFields(data: any, actorId: number) {
+    const modelName = this.repository.getModelName
+    // Models that use relation fields named `creator` / `updater` for nested connect
+    if (modelName === 'postCategory' || modelName === 'post') {
+      data.creator = { connect: { id: actorId } }
+      data.updater = { connect: { id: actorId } }
+      return
+    }
+
+    // Models that declare scalar createdBy / updatedBy fields
+    const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta']
+    if (scalarAuditModels.includes(modelName as string)) {
+      data.createdBy = actorId
+    }
+  }
+
+  private injectUpdateAuditFields(data: any, actorId: number) {
+    const modelName = this.repository.getModelName
+    if (modelName === 'postCategory' || modelName === 'post') {
+      data.updater = { connect: { id: actorId } }
+      return
+    }
+
+    const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta']
+    if (scalarAuditModels.includes(modelName as string)) {
+      data.updatedBy = actorId
+    }
   }
 
   // Khuyến nghị: mặc định soft-delete (toggle active) thay vì xóa cứng
