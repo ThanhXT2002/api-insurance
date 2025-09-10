@@ -12,59 +12,8 @@ const controller = new PostCategoryController(service)
 const router = Router()
 
 /**
- * @openapi
- * components:
- *   schemas:
- *     PostCategory:
- *       type: object
- *       properties:
- *         id:
- *           type: integer
- *           description: Category ID
- *         name:
- *           type: string
- *           description: Category name
- *         slug:
- *           type: string
- *           description: URL-friendly slug
- *         description:
- *           type: string
- *           description: Category description
- *         parentId:
- *           type: integer
- *           nullable: true
- *           description: Parent category ID
- *         active:
- *           type: boolean
- *           description: Whether category is active
- *         createdAt:
- *           type: string
- *           format: date-time
- *         updatedAt:
- *           type: string
- *           format: date-time
- *         createdBy:
- *           type: integer
- *         updatedBy:
- *           type: integer
- *     CreateCategoryRequest:
- *       type: object
- *       required:
- *         - name
- *         - slug
- *       properties:
- *         name:
- *           type: string
- *           description: Category name
- *         slug:
- *           type: string
- *           description: URL-friendly slug
- *         description:
- *           type: string
- *           description: Category description
- *         parentId:
- *           type: integer
- *           description: Parent category ID
+ * OpenAPI schemas are centralized in `src/config/swagger.ts`.
+ * Per-file `components` blocks were removed to avoid duplicate top-level keys.
  */
 
 /**

@@ -12,39 +12,8 @@ const controller = new PermissionController(service)
 const router = Router()
 
 /**
- * @openapi
- * components:
- *   schemas:
- *     Permission:
- *       type: object
- *       properties:
- *         id:
- *           type: integer
- *           description: Permission ID
- *         key:
- *           type: string
- *           description: Permission key (e.g., "post.create")
- *         name:
- *           type: string
- *           description: Human-readable permission name
- *         description:
- *           type: string
- *           description: Permission description
- *     CreatePermissionRequest:
- *       type: object
- *       required:
- *         - key
- *         - name
- *       properties:
- *         key:
- *           type: string
- *           description: Permission key (lowercase with dots)
- *         name:
- *           type: string
- *           description: Human-readable permission name
- *         description:
- *           type: string
- *           description: Permission description
+ * OpenAPI schemas are centralized in `src/config/swagger.ts`.
+ * Per-file `components` blocks were removed to avoid duplicate top-level keys.
  */
 
 /**

@@ -12,63 +12,8 @@ const controller = new UserAssignmentController(service)
 const router = Router()
 
 /**
- * @openapi
- * components:
- *   schemas:
- *     UserWithRoles:
- *       type: object
- *       properties:
- *         id:
- *           type: integer
- *         email:
- *           type: string
- *         name:
- *           type: string
- *         roleAssignments:
- *           type: array
- *           items:
- *             type: object
- *             properties:
- *               role:
- *                 $ref: '#/components/schemas/UserRole'
- *     AssignRoleRequest:
- *       type: object
- *       required:
- *         - roleId
- *       properties:
- *         roleId:
- *           type: integer
- *           description: Role ID to assign
- *     AssignPermissionRequest:
- *       type: object
- *       required:
- *         - permissionId
- *       properties:
- *         permissionId:
- *           type: integer
- *           description: Permission ID to assign
- *     UserAssignmentSearchRequest:
- *       type: object
- *       properties:
- *         keyword:
- *           type: string
- *           description: Search keyword for email/name
- *         roleIds:
- *           type: array
- *           items:
- *             type: integer
- *           description: Filter by role IDs
- *         permissionIds:
- *           type: array
- *           items:
- *             type: integer
- *           description: Filter by permission IDs
- *         page:
- *           type: integer
- *           default: 1
- *         limit:
- *           type: integer
- *           default: 20
+ * OpenAPI schemas are centralized in `src/config/swagger.ts`.
+ * Per-file `components` blocks were removed to avoid duplicate top-level keys.
  */
 
 /**

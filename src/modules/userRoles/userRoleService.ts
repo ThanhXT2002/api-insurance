@@ -16,10 +16,6 @@ export class UserRoleService extends BaseService {
     return super.getAll(otherParams)
   }
 
-  async findByKey(key: string) {
-    return this.repo.findByKey(key)
-  }
-
   async create(data: any, ctx?: { actorId?: number }) {
     // Normalize key and extract permissionIds if provided
     data.key = this.normalizeRoleKey(data.key)
