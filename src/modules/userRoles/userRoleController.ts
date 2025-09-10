@@ -82,7 +82,7 @@ export class UserRoleController {
           .send(ApiResponse.error('Insufficient permissions', 'ROLE_CREATE permission required', StatusCodes.FORBIDDEN))
       }
 
-      const { key, name, description } = req.body
+      const { key, name, description, permissionIds } = req.body
 
       // Validate required fields
       if (!key || !name) {
@@ -98,11 +98,14 @@ export class UserRoleController {
           .send(ApiResponse.error('User not authenticated', 'Authentication required', StatusCodes.UNAUTHORIZED))
       }
 
-      const role = await this.service.create({ key, name, description }, { actorId: auditContext.createdBy })
+      const role = await this.service.create(
+        { key, name, description, permissionIds },
+        { actorId: auditContext.createdBy }
+      )
 
       res.status(StatusCodes.CREATED).send(ApiResponse.ok(role, 'Role created successfully', StatusCodes.CREATED))
     } catch (error: any) {
-      console.error('Error creating role:', error);
+      console.error('Error creating role:', error)
       if (error.message.includes('already exists')) {
         return res.status(StatusCodes.CONFLICT).send(ApiResponse.error(error.message, 'Conflict', StatusCodes.CONFLICT))
       }
@@ -124,7 +127,7 @@ export class UserRoleController {
       }
 
       const { id } = req.params
-      const { key, name, description } = req.body
+      const { key, name, description, permissionIds } = req.body
 
       const auditContext = AuthUtils.getAuditContext(req)
       if (!auditContext.updatedBy) {
@@ -135,7 +138,7 @@ export class UserRoleController {
 
       const role = await this.service.update(
         { id: parseInt(id) },
-        { key, name, description },
+        { key, name, description, permissionIds },
         { actorId: auditContext.updatedBy }
       )
 

@@ -49,6 +49,11 @@ const router = Router()
  *         description:
  *           type: string
  *           description: Role description
+				permissionIds:
+					type: array
+					items:
+						type: integer
+					description: Optional array of permission IDs to assign to the role on create/update
  *     AssignPermissionsRequest:
  *       type: object
  *       required:
