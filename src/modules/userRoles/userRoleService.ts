@@ -20,20 +20,13 @@ export class UserRoleService extends BaseService {
     return this.repo.findByKey(key)
   }
 
-  async getWithPermissions(roleId: number) {
-    return this.repo.findWithPermissions(roleId)
-  }
-
   async create(data: any, ctx?: { actorId?: number }) {
-    // Validate unique key
+    // Normalize key to lowercase_with_underscores and validate uniqueness on normalized key
+    data.key = this.normalizeRoleKey(data.key)
+
     const existing = await this.repo.findByKey(data.key)
     if (existing) {
       throw new Error(`Role with key '${data.key}' already exists`)
-    }
-
-    // Validate key format (should be lowercase with underscores)
-    if (!/^[a-z][a-z_]*$/.test(data.key)) {
-      throw new Error('Role key must be lowercase with underscores (e.g., "admin", "content_manager")')
     }
 
     return super.create(data, ctx)
@@ -42,18 +35,36 @@ export class UserRoleService extends BaseService {
   async update(where: any, data: any, ctx?: { actorId?: number }) {
     // If updating key, validate uniqueness
     if (data.key) {
+      data.key = this.normalizeRoleKey(data.key)
       const existing = await this.repo.findByKey(data.key)
       if (existing && existing.id !== where.id) {
         throw new Error(`Role with key '${data.key}' already exists`)
       }
-
-      // Validate key format
-      if (!/^[a-z][a-z_]*$/.test(data.key)) {
-        throw new Error('Role key must be lowercase with underscores (e.g., "admin", "content_manager")')
-      }
     }
 
     return super.update(where, data, ctx)
+  }
+
+  // Helper: normalize a provided key into lowercase_with_underscores
+  private normalizeRoleKey(key: any): string {
+    if (!key && key !== 0) return ''
+    // Convert to string, trim, replace spaces and non-word characters with underscore
+    const s = String(key)
+      .trim()
+      .toLowerCase()
+      // replace runs of non-alpha-numeric with underscore
+      .replace(/[^a-z0-9]+/g, '_')
+      // collapse multiple underscores
+      .replace(/_+/g, '_')
+      // remove leading/trailing underscores
+      .replace(/^_+|_+$/g, '')
+    // Ensure starts with a letter; if not, prefix with 'role_'
+    if (!/^[a-z]/.test(s)) return `role_${s}`
+    return s
+  }
+
+  async getWithPermissions(roleId: number) {
+    return this.repo.findWithPermissions(roleId)
   }
 
   async getRolePermissions(roleId: number) {
