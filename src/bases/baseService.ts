@@ -112,13 +112,15 @@ export class BaseService<T = any> {
     const defaultInclude = this.getAuditInclude()
     const finalInclude = include ? { ...defaultInclude, ...include } : defaultInclude
 
+    const finalOrderBy = orderBy ?? { id: 'desc' }
+
     const [rows, total] = await Promise.all([
       this.repository.findMany({
         where,
         skip: (safePage - 1) * safeLimit,
         take: safeLimit,
         include: Object.keys(finalInclude).length > 0 ? finalInclude : undefined,
-        orderBy,
+        orderBy: finalOrderBy,
         select
       }),
       this.repository.count(where)
