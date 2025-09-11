@@ -33,6 +33,11 @@ const router = Router()
  *         name: keyword
  *         schema:
  *           type: string
+ *       - in: query
+ *         name: active
+ *         schema:
+ *           type: boolean
+ *         description: "Filter by active status (true/false)"
  *     responses:
  *       200:
  *         description: Users retrieved successfully

@@ -9,11 +9,21 @@ export class UserController {
 
   async getAll(req: Request, res: Response) {
     try {
-      const { page, limit, keyword } = req.query
+      const { page, limit, keyword, active } = req.query
+
+      // Parse active query param to boolean when provided (expect 'true' or 'false')
+      let activeBool: boolean | undefined = undefined
+      if (typeof active === 'string') {
+        if (active.toLowerCase() === 'true') activeBool = true
+        else if (active.toLowerCase() === 'false') activeBool = false
+      }
+
       const result = await this.userService.getAll({
         page: page ? Number(page) : 1,
         limit: limit ? Number(limit) : 20,
-        keyword
+        keyword,
+        // only include active when explicitly provided
+        ...(typeof activeBool === 'boolean' ? { active: activeBool } : {})
       })
       res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Lấy danh sách người dùng thành công'))
     } catch (err: any) {

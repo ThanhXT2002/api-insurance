@@ -10,17 +10,23 @@ export class UserService extends BaseService {
   }
   // Override getAll to support keyword search on email/name
   async getAll(params: any = {}) {
-    const { keyword, page, limit, ...other } = params
+    const { keyword, page, limit, active, ...other } = params
     const safePage = page || 1
     const safeLimit = limit || 20
     const skip = (safePage - 1) * safeLimit
 
     if (keyword) {
-      const where = {
+      // Build keyword search where clause. Include `active` if caller provided it.
+      const where: any = {
         OR: [
           { email: { contains: keyword, mode: 'insensitive' } },
           { name: { contains: keyword, mode: 'insensitive' } }
         ]
+      }
+
+      if (typeof active === 'boolean') {
+        // apply active filter in addition to keyword
+        where.active = active
       }
 
       const users = await (this.repo as any).findManyWithRoles({ where, skip, take: safeLimit })
@@ -29,7 +35,9 @@ export class UserService extends BaseService {
       return { rows: transformed, total }
     }
 
-    return super.getAll({ page: safePage, limit: safeLimit, ...other })
+    const baseParams: any = { page: safePage, limit: safeLimit, ...other }
+    if (typeof active === 'boolean') baseParams.active = active
+    return super.getAll(baseParams)
   }
 
   /**
