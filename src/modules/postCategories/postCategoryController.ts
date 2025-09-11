@@ -23,7 +23,7 @@ export class PostCategoryController {
         filters
       })
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Categories retrieved successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Lấy danh sách chuyên mục thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -35,7 +35,7 @@ export class PostCategoryController {
   async getTree(req: Request, res: Response) {
     try {
       const tree = await this.service.getTree()
-      res.status(StatusCodes.OK).send(ApiResponse.ok(tree, 'Category tree retrieved successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(tree, 'Lấy cây chuyên mục thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -47,7 +47,7 @@ export class PostCategoryController {
   async getRoots(req: Request, res: Response) {
     try {
       const roots = await this.service.getRoots()
-      res.status(StatusCodes.OK).send(ApiResponse.ok(roots, 'Root categories retrieved successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(roots, 'Lấy chuyên mục gốc thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -70,10 +70,10 @@ export class PostCategoryController {
       if (!category) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error('Category not found', 'Category not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error('Không tìm thấy chuyên mục', 'Không tìm thấy chuyên mục', StatusCodes.NOT_FOUND))
       }
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Category retrieved successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Lấy chuyên mục thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -90,10 +90,10 @@ export class PostCategoryController {
       if (!category) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error('Category not found', 'Category not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error('Không tìm thấy chuyên mục', 'Không tìm thấy chuyên mục', StatusCodes.NOT_FOUND))
       }
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Category retrieved successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Lấy chuyên mục thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -108,13 +108,7 @@ export class PostCategoryController {
       if (!AuthUtils.hasPermission(req, 'post_category.create')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(
-            ApiResponse.error(
-              'Insufficient permissions',
-              'POST_CATEGORY_CREATE permission required',
-              StatusCodes.FORBIDDEN
-            )
-          )
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền POST_CATEGORY_CREATE', StatusCodes.FORBIDDEN))
       }
 
       const { name, slug, description, parentId } = req.body
@@ -123,7 +117,7 @@ export class PostCategoryController {
       if (!name || !slug) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error('Missing required fields', 'Name and slug are required', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error('Thiếu dữ liệu bắt buộc', 'Tên và slug là bắt buộc', StatusCodes.BAD_REQUEST))
       }
 
       // Get user ID from auth context
@@ -131,7 +125,7 @@ export class PostCategoryController {
       if (!auditContext.createdBy) {
         return res
           .status(StatusCodes.UNAUTHORIZED)
-          .send(ApiResponse.error('User not authenticated', 'Authentication required', StatusCodes.UNAUTHORIZED))
+          .send(ApiResponse.error('Người dùng chưa xác thực', 'Cần đăng nhập', StatusCodes.UNAUTHORIZED))
       }
 
       const category = await this.service.create(
@@ -144,18 +138,18 @@ export class PostCategoryController {
         { actorId: auditContext.createdBy }
       )
 
-      res
-        .status(StatusCodes.CREATED)
-        .send(ApiResponse.ok(category, 'Category created successfully', StatusCodes.CREATED))
+      res.status(StatusCodes.CREATED).send(ApiResponse.ok(category, 'Tạo chuyên mục thành công', StatusCodes.CREATED))
     } catch (error: any) {
       console.log(error)
       if (error.message.includes('already exists')) {
-        return res.status(StatusCodes.CONFLICT).send(ApiResponse.error(error.message, 'Conflict', StatusCodes.CONFLICT))
+        return res
+          .status(StatusCodes.CONFLICT)
+          .send(ApiResponse.error(error.message, 'Trùng dữ liệu', StatusCodes.CONFLICT))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to create category', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Tạo chuyên mục thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -166,13 +160,7 @@ export class PostCategoryController {
       if (!AuthUtils.hasPermission(req, 'post_category.edit')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(
-            ApiResponse.error(
-              'Insufficient permissions',
-              'POST_CATEGORY_EDIT permission required',
-              StatusCodes.FORBIDDEN
-            )
-          )
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền POST_CATEGORY_EDIT', StatusCodes.FORBIDDEN))
       }
 
       const { id } = req.params
@@ -182,7 +170,7 @@ export class PostCategoryController {
       if (!auditContext.updatedBy) {
         return res
           .status(StatusCodes.UNAUTHORIZED)
-          .send(ApiResponse.error('User not authenticated', 'Authentication required', StatusCodes.UNAUTHORIZED))
+          .send(ApiResponse.error('Người dùng chưa xác thực', 'Cần đăng nhập', StatusCodes.UNAUTHORIZED))
       }
 
       const actorId = auditContext.updatedBy
@@ -199,12 +187,12 @@ export class PostCategoryController {
         { actorId }
       )
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Category updated successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Cập nhật chuyên mục thành công'))
     } catch (error: any) {
       if (error.message.includes('not found')) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error(error.message, 'Not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error(error.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       }
       if (
         error.message.includes('already exists') ||
@@ -213,12 +201,12 @@ export class PostCategoryController {
       ) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error(error.message, 'Validation error', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error(error.message, 'Lỗi xác thực dữ liệu', StatusCodes.BAD_REQUEST))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to update category', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Cập nhật chuyên mục thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -232,22 +220,22 @@ export class PostCategoryController {
 
       await this.service.deleteById(parseInt(id), force === 'true', { actorId })
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Category deleted successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Xóa chuyên mục thành công'))
     } catch (error: any) {
       if (error.message.includes('not found')) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error(error.message, 'Not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error(error.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       }
       if (error.message.includes('Cannot delete')) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error(error.message, 'Validation error', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error(error.message, 'Lỗi xác thực dữ liệu', StatusCodes.BAD_REQUEST))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to delete category', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Xóa chuyên mục thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -259,7 +247,7 @@ export class PostCategoryController {
       if (!Array.isArray(ids) || ids.length === 0) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error('Invalid IDs', 'IDs must be a non-empty array', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error('ID không hợp lệ', 'IDs phải là mảng không rỗng', StatusCodes.BAD_REQUEST))
       }
 
       const actorId = (req as any).user?.id || 1
@@ -270,7 +258,7 @@ export class PostCategoryController {
         { actorId }
       )
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(result, `${result.count} categories deleted successfully`))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(result, `${result.count} chuyên mục đã được xóa thành công`))
     } catch (error: any) {
       if (
         error.message.includes('not found') ||
@@ -279,12 +267,12 @@ export class PostCategoryController {
       ) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error(error.message, 'Validation error', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error(error.message, 'Lỗi xác thực dữ liệu', StatusCodes.BAD_REQUEST))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to delete categories', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Xóa các chuyên mục thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -296,13 +284,13 @@ export class PostCategoryController {
       if (!Array.isArray(ids) || ids.length === 0) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error('Invalid IDs', 'IDs must be a non-empty array', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error('ID không hợp lệ', 'IDs phải là mảng không rỗng', StatusCodes.BAD_REQUEST))
       }
 
       if (typeof active !== 'boolean') {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error('Invalid active value', 'Active must be boolean', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error('Giá trị active không hợp lệ', 'Active phải là boolean', StatusCodes.BAD_REQUEST))
       }
 
       const actorId = (req as any).user?.id || 1
@@ -313,11 +301,11 @@ export class PostCategoryController {
         { actorId }
       )
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(result, `${result.count} categories updated successfully`))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(result, `${result.count} chuyên mục đã được cập nhật thành công`))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to update categories', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Cập nhật chuyên mục thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 }

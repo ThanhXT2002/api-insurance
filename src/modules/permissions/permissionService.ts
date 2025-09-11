@@ -24,12 +24,12 @@ export class PermissionService extends BaseService {
     // Validate unique key
     const existing = await this.repo.findByKey(data.key)
     if (existing) {
-      throw new Error(`Permission with key '${data.key}' already exists`)
+      throw new Error(`Permission với key '${data.key}' đã tồn tại`)
     }
 
     // Validate key format (should be lowercase with dots)
     if (!/^[a-z][a-z_]*(\.[a-z][a-z_]*)*$/.test(data.key)) {
-      throw new Error('Permission key must be lowercase with dots (e.g., "resource.action")')
+      throw new Error('Key permission phải là chữ thường và dùng dấu chấm phân tách (ví dụ: "resource.action")')
     }
 
     return super.create(data, ctx)
@@ -40,12 +40,12 @@ export class PermissionService extends BaseService {
     if (data.key) {
       const existing = await this.repo.findByKey(data.key)
       if (existing && existing.id !== where.id) {
-        throw new Error(`Permission with key '${data.key}' already exists`)
+        throw new Error(`Permission với key '${data.key}' đã tồn tại`)
       }
 
       // Validate key format
       if (!/^[a-z][a-z_]*(\.[a-z][a-z_]*)*$/.test(data.key)) {
-        throw new Error('Permission key must be lowercase with dots (e.g., "resource.action")')
+        throw new Error('Key permission phải là chữ thường và dùng dấu chấm phân tách (ví dụ: "resource.action")')
       }
     }
 

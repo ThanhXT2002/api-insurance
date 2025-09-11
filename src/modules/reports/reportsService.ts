@@ -94,9 +94,9 @@ export class ReportsService extends BaseService<any> {
 
     const recommendations = []
     if (permissions.length > 0) {
-      recommendations.push('Consider reviewing and removing unused permissions')
-      recommendations.push('Assign orphaned permissions to appropriate roles')
-      recommendations.push('Document the purpose of each permission')
+      recommendations.push('Xem xét và loại bỏ các permission không sử dụng')
+      recommendations.push('Gán các permission chưa có chủ cho các role tương ứng')
+      recommendations.push('Ghi chú mục đích của từng permission')
     }
 
     return {
@@ -252,15 +252,15 @@ export class ReportsService extends BaseService<any> {
     const recommendations = []
 
     if (roleCount > 3) {
-      recommendations.push('Consider consolidating roles to reduce complexity')
+      recommendations.push('Xem xét gộp các role để giảm độ phức tạp')
     }
 
     if (directPermissionCount > 5) {
-      recommendations.push('Review direct permissions - consider using roles instead')
+      recommendations.push('Kiểm tra các permission trực tiếp - cân nhắc sử dụng role thay thế')
     }
 
     if (roleCount === 0 && directPermissionCount > 0) {
-      recommendations.push('Consider creating a role for this permission set')
+      recommendations.push('Xem xét tạo role cho nhóm permission này')
     }
 
     return recommendations

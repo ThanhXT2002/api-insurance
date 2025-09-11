@@ -14,7 +14,7 @@ export class UserRoleController {
       if (!AuthUtils.hasPermission(req, 'role.view')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(ApiResponse.error('Insufficient permissions', 'ROLE_VIEW permission required', StatusCodes.FORBIDDEN))
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền ROLE_VIEW', StatusCodes.FORBIDDEN))
       }
 
       const { page, limit, keyword } = req.query
@@ -24,11 +24,11 @@ export class UserRoleController {
         keyword: keyword as string
       })
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Roles retrieved successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Lấy danh sách role thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get roles', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lấy danh sách role thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -39,7 +39,7 @@ export class UserRoleController {
       if (!AuthUtils.hasPermission(req, 'role.view')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(ApiResponse.error('Insufficient permissions', 'ROLE_VIEW permission required', StatusCodes.FORBIDDEN))
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền ROLE_VIEW', StatusCodes.FORBIDDEN))
       }
 
       const { id } = req.params
@@ -48,7 +48,7 @@ export class UserRoleController {
       if (!role) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error('Role not found', 'Role not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error('Không tìm thấy role', 'Không tìm thấy role', StatusCodes.NOT_FOUND))
       }
 
       // Get usage information
@@ -64,7 +64,7 @@ export class UserRoleController {
       // Remove the raw rolePermissions array
       delete roleWithPermissions.rolePermissions
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(roleWithPermissions, 'Role retrieved successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(roleWithPermissions, 'Lấy role thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -79,7 +79,7 @@ export class UserRoleController {
       if (!AuthUtils.hasPermission(req, 'role.create')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(ApiResponse.error('Insufficient permissions', 'ROLE_CREATE permission required', StatusCodes.FORBIDDEN))
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền ROLE_CREATE', StatusCodes.FORBIDDEN))
       }
 
       const { key, name, description, permissionIds } = req.body
@@ -88,14 +88,14 @@ export class UserRoleController {
       if (!key || !name) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error('Missing required fields', 'Key and name are required', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error('Thiếu dữ liệu bắt buộc', 'Key và name là bắt buộc', StatusCodes.BAD_REQUEST))
       }
 
       const auditContext = AuthUtils.getAuditContext(req)
       if (!auditContext.createdBy) {
         return res
           .status(StatusCodes.UNAUTHORIZED)
-          .send(ApiResponse.error('User not authenticated', 'Authentication required', StatusCodes.UNAUTHORIZED))
+          .send(ApiResponse.error('Người dùng chưa xác thực', 'Cần đăng nhập', StatusCodes.UNAUTHORIZED))
       }
 
       const role = await this.service.create(
@@ -103,16 +103,18 @@ export class UserRoleController {
         { actorId: auditContext.createdBy }
       )
 
-      res.status(StatusCodes.CREATED).send(ApiResponse.ok(role, 'Role created successfully', StatusCodes.CREATED))
+      res.status(StatusCodes.CREATED).send(ApiResponse.ok(role, 'Tạo role thành công', StatusCodes.CREATED))
     } catch (error: any) {
       console.error('Error creating role:', error)
       if (error.message.includes('already exists')) {
-        return res.status(StatusCodes.CONFLICT).send(ApiResponse.error(error.message, 'Conflict', StatusCodes.CONFLICT))
+        return res
+          .status(StatusCodes.CONFLICT)
+          .send(ApiResponse.error(error.message, 'Trùng dữ liệu', StatusCodes.CONFLICT))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to create role', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Tạo role thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -123,7 +125,7 @@ export class UserRoleController {
       if (!AuthUtils.hasPermission(req, 'role.edit')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(ApiResponse.error('Insufficient permissions', 'ROLE_EDIT permission required', StatusCodes.FORBIDDEN))
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền ROLE_EDIT', StatusCodes.FORBIDDEN))
       }
 
       const { id } = req.params
@@ -133,7 +135,7 @@ export class UserRoleController {
       if (!auditContext.updatedBy) {
         return res
           .status(StatusCodes.UNAUTHORIZED)
-          .send(ApiResponse.error('User not authenticated', 'Authentication required', StatusCodes.UNAUTHORIZED))
+          .send(ApiResponse.error('Người dùng chưa xác thực', 'Cần đăng nhập', StatusCodes.UNAUTHORIZED))
       }
 
       const role = await this.service.update(
@@ -145,18 +147,20 @@ export class UserRoleController {
       if (!role) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error('Role not found', 'Role not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error('Không tìm thấy role', 'Không tìm thấy role', StatusCodes.NOT_FOUND))
       }
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(role, 'Role updated successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(role, 'Cập nhật role thành công'))
     } catch (error: any) {
       if (error.message.includes('already exists')) {
-        return res.status(StatusCodes.CONFLICT).send(ApiResponse.error(error.message, 'Conflict', StatusCodes.CONFLICT))
+        return res
+          .status(StatusCodes.CONFLICT)
+          .send(ApiResponse.error(error.message, 'Trùng dữ liệu', StatusCodes.CONFLICT))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to update role', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Cập nhật role thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -167,7 +171,7 @@ export class UserRoleController {
       if (!AuthUtils.hasPermission(req, 'role.delete')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(ApiResponse.error('Insufficient permissions', 'ROLE_DELETE permission required', StatusCodes.FORBIDDEN))
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền ROLE_DELETE', StatusCodes.FORBIDDEN))
       }
 
       const { id } = req.params
@@ -175,17 +179,17 @@ export class UserRoleController {
 
       await this.service.delete({ id: roleId }, true)
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Role deleted successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Xóa role thành công'))
     } catch (error: any) {
       if (error.message.includes('Cannot delete role')) {
         return res
           .status(StatusCodes.CONFLICT)
-          .send(ApiResponse.error(error.message, 'Role in use', StatusCodes.CONFLICT))
+          .send(ApiResponse.error(error.message, 'Role đang được sử dụng', StatusCodes.CONFLICT))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to delete role', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Xóa role thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -196,7 +200,7 @@ export class UserRoleController {
       if (!AuthUtils.hasPermission(req, 'role.view')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(ApiResponse.error('Insufficient permissions', 'ROLE_VIEW permission required', StatusCodes.FORBIDDEN))
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền ROLE_VIEW', StatusCodes.FORBIDDEN))
       }
 
       const { roleId } = req.params
@@ -205,13 +209,13 @@ export class UserRoleController {
       res.status(StatusCodes.OK).send(
         ApiResponse.ok(
           permissions.map((rp: any) => rp.permission),
-          'Role permissions retrieved successfully'
+          'Lấy permissions của role thành công'
         )
       )
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get role permissions', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lấy permissions của role thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -222,7 +226,7 @@ export class UserRoleController {
       if (!AuthUtils.hasPermission(req, 'role.edit')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(ApiResponse.error('Insufficient permissions', 'ROLE_EDIT permission required', StatusCodes.FORBIDDEN))
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền ROLE_EDIT', StatusCodes.FORBIDDEN))
       }
 
       const { roleId } = req.params
@@ -231,22 +235,22 @@ export class UserRoleController {
       if (!Array.isArray(permissionIds)) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error('Invalid request', 'permissionIds must be an array', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error('Yêu cầu không hợp lệ', 'permissionIds phải là một mảng', StatusCodes.BAD_REQUEST))
       }
 
       await this.service.assignPermissions(parseInt(roleId), permissionIds)
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Permissions assigned to role successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Gán permissions cho role thành công'))
     } catch (error: any) {
       if (error.message.includes('not found')) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error(error.message, 'Not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error(error.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to assign permissions', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Gán permissions thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -257,24 +261,24 @@ export class UserRoleController {
       if (!AuthUtils.hasPermission(req, 'role.edit')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(ApiResponse.error('Insufficient permissions', 'ROLE_EDIT permission required', StatusCodes.FORBIDDEN))
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền ROLE_EDIT', StatusCodes.FORBIDDEN))
       }
 
       const { roleId, permissionId } = req.params
 
       await this.service.removePermission(parseInt(roleId), parseInt(permissionId))
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Permission removed from role successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Xóa permission khỏi role thành công'))
     } catch (error: any) {
       if (error.message.includes('not found')) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error(error.message, 'Not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error(error.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to remove permission', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Xóa permission khỏi role thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -285,7 +289,7 @@ export class UserRoleController {
       if (!AuthUtils.hasPermission(req, 'role.view')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(ApiResponse.error('Insufficient permissions', 'ROLE_VIEW permission required', StatusCodes.FORBIDDEN))
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền ROLE_VIEW', StatusCodes.FORBIDDEN))
       }
 
       const { roleId } = req.params
@@ -294,13 +298,13 @@ export class UserRoleController {
       res.status(StatusCodes.OK).send(
         ApiResponse.ok(
           users.map((ra: any) => ra.user),
-          'Role users retrieved successfully'
+          'Lấy người dùng của role thành công'
         )
       )
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get role users', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lấy người dùng của role thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 }

@@ -17,11 +17,11 @@ export class UserAssignmentController {
         keyword: keyword as string
       })
 
-      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Users retrieved successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Lấy danh sách người dùng thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(error.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+        .json(ApiResponse.error(error.message, 'Lỗi server', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -32,17 +32,19 @@ export class UserAssignmentController {
       if (isNaN(id)) {
         res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid user ID', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(ApiResponse.error('ID người dùng không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST))
         return
       }
 
       const result = await this.userService.getUserWithPermissions(id)
       if (!result) {
-        res.status(StatusCodes.NOT_FOUND).json(ApiResponse.error('User not found', 'Not found', StatusCodes.NOT_FOUND))
+        res
+          .status(StatusCodes.NOT_FOUND)
+          .json(ApiResponse.error('Không tìm thấy người dùng', 'Không tìm thấy', StatusCodes.NOT_FOUND))
         return
       }
 
-      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'User retrieved successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Lấy người dùng thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -59,23 +61,27 @@ export class UserAssignmentController {
       if (isNaN(userId) || !roleId) {
         res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid user ID or role ID', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(
+            ApiResponse.error('ID người dùng hoặc role không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST)
+          )
         return
       }
 
       const auditContext = { userId: (req as any).user?.id }
       await this.userService.assignRole(userId, Number(roleId), auditContext)
 
-      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Role assigned successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Gán role cho người dùng thành công'))
     } catch (error: any) {
       if (error.message.includes('not found')) {
-        res.status(StatusCodes.NOT_FOUND).json(ApiResponse.error(error.message, 'Not found', StatusCodes.NOT_FOUND))
+        res
+          .status(StatusCodes.NOT_FOUND)
+          .json(ApiResponse.error(error.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       } else if (error.message.includes('already has')) {
-        res.status(StatusCodes.CONFLICT).json(ApiResponse.error(error.message, 'Conflict', StatusCodes.CONFLICT))
+        res.status(StatusCodes.CONFLICT).json(ApiResponse.error(error.message, 'Trùng dữ liệu', StatusCodes.CONFLICT))
       } else {
         res
           .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json(ApiResponse.error(error.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+          .json(ApiResponse.error(error.message, 'Lỗi server', StatusCodes.INTERNAL_SERVER_ERROR))
       }
     }
   }
@@ -89,21 +95,25 @@ export class UserAssignmentController {
       if (isNaN(userId) || isNaN(roleId)) {
         res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid user ID or role ID', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(
+            ApiResponse.error('ID người dùng hoặc role không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST)
+          )
         return
       }
 
       const auditContext = { userId: (req as any).user?.id }
       await this.userService.removeRole(userId, roleId, auditContext)
 
-      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Role removed successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Xóa role khỏi người dùng thành công'))
     } catch (error: any) {
       if (error.message.includes('not found')) {
-        res.status(StatusCodes.NOT_FOUND).json(ApiResponse.error(error.message, 'Not found', StatusCodes.NOT_FOUND))
+        res
+          .status(StatusCodes.NOT_FOUND)
+          .json(ApiResponse.error(error.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       } else {
         res
           .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json(ApiResponse.error(error.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+          .json(ApiResponse.error(error.message, 'Lỗi server', StatusCodes.INTERNAL_SERVER_ERROR))
       }
     }
   }
@@ -115,16 +125,16 @@ export class UserAssignmentController {
       if (isNaN(userId)) {
         res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid user ID', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(ApiResponse.error('ID người dùng không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST))
         return
       }
 
       const roles = await this.userService.getUserRoles(userId)
-      res.status(StatusCodes.OK).json(ApiResponse.ok(roles, 'User roles retrieved successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(roles, 'Lấy role của người dùng thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(error.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+        .json(ApiResponse.error(error.message, 'Lỗi server', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -137,23 +147,31 @@ export class UserAssignmentController {
       if (isNaN(userId) || !permissionId) {
         res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid user ID or permission ID', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(
+            ApiResponse.error(
+              'ID người dùng hoặc permission không hợp lệ',
+              'Yêu cầu không hợp lệ',
+              StatusCodes.BAD_REQUEST
+            )
+          )
         return
       }
 
       const auditContext = { userId: (req as any).user?.id }
       await this.userService.assignPermission(userId, Number(permissionId), auditContext)
 
-      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Permission assigned successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Gán permission cho người dùng thành công'))
     } catch (error: any) {
       if (error.message.includes('not found')) {
-        res.status(StatusCodes.NOT_FOUND).json(ApiResponse.error(error.message, 'Not found', StatusCodes.NOT_FOUND))
+        res
+          .status(StatusCodes.NOT_FOUND)
+          .json(ApiResponse.error(error.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       } else if (error.message.includes('already has')) {
-        res.status(StatusCodes.CONFLICT).json(ApiResponse.error(error.message, 'Conflict', StatusCodes.CONFLICT))
+        res.status(StatusCodes.CONFLICT).json(ApiResponse.error(error.message, 'Trùng dữ liệu', StatusCodes.CONFLICT))
       } else {
         res
           .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json(ApiResponse.error(error.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+          .json(ApiResponse.error(error.message, 'Lỗi server', StatusCodes.INTERNAL_SERVER_ERROR))
       }
     }
   }
@@ -167,21 +185,29 @@ export class UserAssignmentController {
       if (isNaN(userId) || isNaN(permissionId)) {
         res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid user ID or permission ID', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(
+            ApiResponse.error(
+              'ID người dùng hoặc permission không hợp lệ',
+              'Yêu cầu không hợp lệ',
+              StatusCodes.BAD_REQUEST
+            )
+          )
         return
       }
 
       const auditContext = { userId: (req as any).user?.id }
       await this.userService.removePermission(userId, permissionId, auditContext)
 
-      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Permission removed successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Xóa permission khỏi người dùng thành công'))
     } catch (error: any) {
       if (error.message.includes('not found')) {
-        res.status(StatusCodes.NOT_FOUND).json(ApiResponse.error(error.message, 'Not found', StatusCodes.NOT_FOUND))
+        res
+          .status(StatusCodes.NOT_FOUND)
+          .json(ApiResponse.error(error.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       } else {
         res
           .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json(ApiResponse.error(error.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+          .json(ApiResponse.error(error.message, 'Lỗi server', StatusCodes.INTERNAL_SERVER_ERROR))
       }
     }
   }
@@ -193,16 +219,16 @@ export class UserAssignmentController {
       if (isNaN(userId)) {
         res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid user ID', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(ApiResponse.error('ID người dùng không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST))
         return
       }
 
       const permissions = await this.userService.listDirectPermissionsForUser(userId)
-      res.status(StatusCodes.OK).json(ApiResponse.ok(permissions, 'User direct permissions retrieved successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(permissions, 'Lấy permission trực tiếp của người dùng thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(error.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+        .json(ApiResponse.error(error.message, 'Lỗi server', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -213,16 +239,16 @@ export class UserAssignmentController {
       if (isNaN(userId)) {
         res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid user ID', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(ApiResponse.error('ID người dùng không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST))
         return
       }
 
       const permissions = await this.userService.listEffectivePermissionsForUser(userId)
-      res.status(StatusCodes.OK).json(ApiResponse.ok(permissions, 'User effective permissions retrieved successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(permissions, 'Lấy permission hiệu lực của người dùng thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(error.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+        .json(ApiResponse.error(error.message, 'Lỗi server', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -239,11 +265,11 @@ export class UserAssignmentController {
         limit: limit || 20
       })
 
-      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Users found successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Tìm kiếm người dùng thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(error.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+        .json(ApiResponse.error(error.message, 'Lỗi server', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -256,16 +282,22 @@ export class UserAssignmentController {
       if (isNaN(userId) || !permissionKey) {
         res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid user ID or permission key', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(
+            ApiResponse.error(
+              'ID người dùng hoặc permission key không hợp lệ',
+              'Yêu cầu không hợp lệ',
+              StatusCodes.BAD_REQUEST
+            )
+          )
         return
       }
 
       const hasPermission = await this.userService.hasPermission(userId, permissionKey)
-      res.status(StatusCodes.OK).json(ApiResponse.ok({ hasPermission }, 'Permission check completed'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok({ hasPermission }, 'Kiểm tra quyền thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(error.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+        .json(ApiResponse.error(error.message, 'Lỗi server', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 }

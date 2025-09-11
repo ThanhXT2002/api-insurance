@@ -14,9 +14,7 @@ export class PermissionController {
       if (!AuthUtils.hasPermission(req, 'permission.view')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(
-            ApiResponse.error('Insufficient permissions', 'PERMISSION_VIEW permission required', StatusCodes.FORBIDDEN)
-          )
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền PERMISSION_VIEW', StatusCodes.FORBIDDEN))
       }
 
       const { page, limit, keyword } = req.query
@@ -26,12 +24,12 @@ export class PermissionController {
         keyword: keyword as string
       })
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Permissions retrieved successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Lấy danh sách quyền thành công'))
     } catch (error: any) {
       console.error('Error in getAll permissions:', error)
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get permissions', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lấy danh sách quyền thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -42,9 +40,7 @@ export class PermissionController {
       if (!AuthUtils.hasPermission(req, 'permission.view')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(
-            ApiResponse.error('Insufficient permissions', 'PERMISSION_VIEW permission required', StatusCodes.FORBIDDEN)
-          )
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền PERMISSION_VIEW', StatusCodes.FORBIDDEN))
       }
 
       const { id } = req.params
@@ -53,7 +49,7 @@ export class PermissionController {
       if (!permission) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error('Permission not found', 'Permission not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error('Không tìm thấy quyền', 'Không tìm thấy quyền', StatusCodes.NOT_FOUND))
       }
 
       // Get usage information
@@ -65,7 +61,7 @@ export class PermissionController {
             ...permission,
             usage
           },
-          'Permission retrieved successfully'
+          'Lấy chi tiết quyền thành công'
         )
       )
     } catch (error: any) {
@@ -82,13 +78,7 @@ export class PermissionController {
       if (!AuthUtils.hasPermission(req, 'permission.manage')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(
-            ApiResponse.error(
-              'Insufficient permissions',
-              'PERMISSION_MANAGE permission required',
-              StatusCodes.FORBIDDEN
-            )
-          )
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền PERMISSION_MANAGE', StatusCodes.FORBIDDEN))
       }
 
       const { key, name, description } = req.body
@@ -97,29 +87,29 @@ export class PermissionController {
       if (!key || !name) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error('Missing required fields', 'Key and name are required', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error('Thiếu dữ liệu bắt buộc', 'Cần điền key và name', StatusCodes.BAD_REQUEST))
       }
 
       const auditContext = AuthUtils.getAuditContext(req)
       if (!auditContext.createdBy) {
         return res
           .status(StatusCodes.UNAUTHORIZED)
-          .send(ApiResponse.error('User not authenticated', 'Authentication required', StatusCodes.UNAUTHORIZED))
+          .send(ApiResponse.error('Người dùng chưa xác thực', 'Cần đăng nhập', StatusCodes.UNAUTHORIZED))
       }
 
       const permission = await this.service.create({ key, name, description }, { actorId: auditContext.createdBy })
 
-      res
-        .status(StatusCodes.CREATED)
-        .send(ApiResponse.ok(permission, 'Permission created successfully', StatusCodes.CREATED))
+      res.status(StatusCodes.CREATED).send(ApiResponse.ok(permission, 'Tạo quyền thành công', StatusCodes.CREATED))
     } catch (error: any) {
       if (error.message.includes('already exists')) {
-        return res.status(StatusCodes.CONFLICT).send(ApiResponse.error(error.message, 'Conflict', StatusCodes.CONFLICT))
+        return res
+          .status(StatusCodes.CONFLICT)
+          .send(ApiResponse.error(error.message, 'Trùng dữ liệu', StatusCodes.CONFLICT))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to create permission', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Tạo quyền thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -130,13 +120,7 @@ export class PermissionController {
       if (!AuthUtils.hasPermission(req, 'permission.manage')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(
-            ApiResponse.error(
-              'Insufficient permissions',
-              'PERMISSION_MANAGE permission required',
-              StatusCodes.FORBIDDEN
-            )
-          )
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền PERMISSION_MANAGE', StatusCodes.FORBIDDEN))
       }
 
       const { id } = req.params
@@ -146,7 +130,7 @@ export class PermissionController {
       if (!auditContext.updatedBy) {
         return res
           .status(StatusCodes.UNAUTHORIZED)
-          .send(ApiResponse.error('User not authenticated', 'Authentication required', StatusCodes.UNAUTHORIZED))
+          .send(ApiResponse.error('Người dùng chưa xác thực', 'Cần đăng nhập', StatusCodes.UNAUTHORIZED))
       }
 
       const permission = await this.service.update(
@@ -158,18 +142,20 @@ export class PermissionController {
       if (!permission) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error('Permission not found', 'Permission not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error('Không tìm thấy quyền', 'Không tìm thấy quyền', StatusCodes.NOT_FOUND))
       }
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(permission, 'Permission updated successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(permission, 'Cập nhật quyền thành công'))
     } catch (error: any) {
       if (error.message.includes('already exists')) {
-        return res.status(StatusCodes.CONFLICT).send(ApiResponse.error(error.message, 'Conflict', StatusCodes.CONFLICT))
+        return res
+          .status(StatusCodes.CONFLICT)
+          .send(ApiResponse.error(error.message, 'Trùng dữ liệu', StatusCodes.CONFLICT))
       }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to update permission', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Cập nhật quyền thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -180,13 +166,7 @@ export class PermissionController {
       if (!AuthUtils.hasPermission(req, 'permission.manage')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(
-            ApiResponse.error(
-              'Insufficient permissions',
-              'PERMISSION_MANAGE permission required',
-              StatusCodes.FORBIDDEN
-            )
-          )
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền PERMISSION_MANAGE', StatusCodes.FORBIDDEN))
       }
 
       const { id } = req.params
@@ -199,8 +179,8 @@ export class PermissionController {
           .status(StatusCodes.CONFLICT)
           .send(
             ApiResponse.error(
-              'Permission is in use',
-              `Cannot delete permission. Used by ${usage.rolesUsing} roles and ${usage.usersUsing} users`,
+              'Quyền đang được sử dụng',
+              `Không thể xóa quyền. Đang được ${usage.rolesUsing} role và ${usage.usersUsing} user sử dụng`,
               StatusCodes.CONFLICT
             )
           )
@@ -210,14 +190,14 @@ export class PermissionController {
       if (!deleted) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error('Permission not found', 'Permission not found', StatusCodes.NOT_FOUND))
+          .send(ApiResponse.error('Không tìm thấy quyền', 'Không tìm thấy quyền', StatusCodes.NOT_FOUND))
       }
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Permission deleted successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Xóa quyền thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to delete permission', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Xóa quyền thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -228,20 +208,22 @@ export class PermissionController {
       if (!AuthUtils.hasPermission(req, 'permission.view')) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(
-            ApiResponse.error('Insufficient permissions', 'PERMISSION_VIEW permission required', StatusCodes.FORBIDDEN)
-          )
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền PERMISSION_VIEW', StatusCodes.FORBIDDEN))
       }
 
       const { id } = req.params
       const users = await this.service.getUsersWithPermission(parseInt(id))
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(users, 'Users with permission retrieved successfully'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(users, 'Lấy danh sách người dùng có quyền thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .send(
-          ApiResponse.error(error.message, 'Failed to get users with permission', StatusCodes.INTERNAL_SERVER_ERROR)
+          ApiResponse.error(
+            error.message,
+            'Lấy danh sách người dùng có quyền thất bại',
+            StatusCodes.INTERNAL_SERVER_ERROR
+          )
         )
     }
   }
@@ -254,25 +236,23 @@ export class PermissionController {
       if (!userId || !permission) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .send(ApiResponse.error('Missing parameters', 'userId and permission are required', StatusCodes.BAD_REQUEST))
+          .send(ApiResponse.error('Thiếu tham số', 'Cần userId và permission', StatusCodes.BAD_REQUEST))
       }
 
       // Only allow users to check their own permissions, or admins to check anyone's
       if (!AuthUtils.isAdmin(req) && req.user?.id !== parseInt(userId as string)) {
         return res
           .status(StatusCodes.FORBIDDEN)
-          .send(
-            ApiResponse.error('Insufficient permissions', 'Can only check your own permissions', StatusCodes.FORBIDDEN)
-          )
+          .send(ApiResponse.error('Không đủ quyền', 'Chỉ được kiểm tra quyền của chính mình', StatusCodes.FORBIDDEN))
       }
 
       const result = await this.service.checkUserPermission(parseInt(userId as string), permission as string)
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Permission check completed'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Kiểm tra quyền hoàn tất'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to check permission', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Kiểm tra quyền thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 }

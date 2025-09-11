@@ -18,7 +18,7 @@ export class AuthService {
     if (error) throw error
 
     const user = data.user
-    if (!user) throw new Error('Supabase user not created')
+    if (!user) throw new Error('Không tạo được người dùng Supabase')
 
     // Tạo profile trong DB chỉ với email
     try {
@@ -52,50 +52,50 @@ export class AuthService {
   async getProfile(userId: number) {
     const user = await this.authRepository.findByIdWithRoles(userId)
     if (!user) {
-      throw new Error('User not found')
+      throw new Error('Không tìm thấy người dùng')
     }
 
     return this.toSafeProfile(user)
   }
 
   // Cập nhật thông tin profile
-async updateProfile(userId: number, data: { name?: string; addresses?: string }) {
-  const existingUser = await this.authRepository.findById({ where: { id: userId } })
-  if (!existingUser) throw new Error('User not found')
+  async updateProfile(userId: number, data: { name?: string; addresses?: string }) {
+    const existingUser = await this.authRepository.findById({ where: { id: userId } })
+    if (!existingUser) throw new Error('Không tìm thấy người dùng')
 
-  const updatedUser = await this.authRepository.updateById(userId, {
-    ...data,
-    updatedAt: new Date()
-  })
+    const updatedUser = await this.authRepository.updateById(userId, {
+      ...data,
+      updatedAt: new Date()
+    })
 
-  return this.toSafeProfile(updatedUser)
-}
+    return this.toSafeProfile(updatedUser)
+  }
 
   async updateAvatarUrl(userId: number, file: Buffer, originalName: string) {
-  const existingUser = await this.authRepository.findById({ where: { id: userId } })
-  if (!existingUser) throw new Error('User not found')
+    const existingUser = await this.authRepository.findById({ where: { id: userId } })
+    if (!existingUser) throw new Error('Không tìm thấy người dùng')
 
-  const { result: updatedUser, uploadedFile } = await UploadHelpers.updateFileWithCleanup(
-    () => fileUploadService.uploadAvatar(file, originalName),
-    async (newFileUrl: string) => {
-      return await this.authRepository.updateById(userId, {
-        avatarUrl: newFileUrl,
-        updatedAt: new Date()
-      })
-    },
-    existingUser.avatarUrl
-  )
-  return {
-    user: this.toSafeProfile(updatedUser),
-    uploadInfo: {
-      id: uploadedFile.id,
-      originalName: uploadedFile.originalName,
-      url: uploadedFile.url,
-      size: uploadedFile.size,
-      fileType: uploadedFile.fileType
+    const { result: updatedUser, uploadedFile } = await UploadHelpers.updateFileWithCleanup(
+      () => fileUploadService.uploadAvatar(file, originalName),
+      async (newFileUrl: string) => {
+        return await this.authRepository.updateById(userId, {
+          avatarUrl: newFileUrl,
+          updatedAt: new Date()
+        })
+      },
+      existingUser.avatarUrl
+    )
+    return {
+      user: this.toSafeProfile(updatedUser),
+      uploadInfo: {
+        id: uploadedFile.id,
+        originalName: uploadedFile.originalName,
+        url: uploadedFile.url,
+        size: uploadedFile.size,
+        fileType: uploadedFile.fileType
+      }
     }
   }
-}
 
   // Chuyển object user từ DB sang định dạng an toàn trả về FE
   private toSafeProfile(user: any): UserProfileSafe {

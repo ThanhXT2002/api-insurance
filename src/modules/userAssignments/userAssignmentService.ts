@@ -45,13 +45,13 @@ export class UserAssignmentService extends BaseService<any> {
       // Check if user exists
       const user = await this.userRepository.findById(userId)
       if (!user) {
-        throw new Error(`User with ID ${userId} not found`)
+        throw new Error(`Không tìm thấy người dùng với ID ${userId}`)
       }
 
       // Check if assignment already exists
       const hasRole = await this.userRepository.hasRole(userId, roleId)
       if (hasRole) {
-        throw new Error('User already has this role')
+        throw new Error('Người dùng đã có role này')
       }
 
       await this.userRepository.assignRole(userId, roleId)
@@ -66,7 +66,7 @@ export class UserAssignmentService extends BaseService<any> {
     try {
       const success = await this.userRepository.removeRole(userId, roleId)
       if (!success) {
-        throw new Error('Role assignment not found')
+        throw new Error('Không tìm thấy assignment role')
       }
 
       return true
@@ -87,14 +87,14 @@ export class UserAssignmentService extends BaseService<any> {
       // Check if user exists
       const user = await this.userRepository.findById(userId)
       if (!user) {
-        throw new Error(`User with ID ${userId} not found`)
+        throw new Error(`Không tìm thấy người dùng với ID ${userId}`)
       }
 
       // Check if assignment already exists
       const userPermissions = await this.userRepository.getUserPermissions(userId)
       const hasPermission = userPermissions.some((up: any) => up.permissionId === permissionId)
       if (hasPermission) {
-        throw new Error('User already has this permission')
+        throw new Error('Người dùng đã có permission này')
       }
 
       await this.userRepository.assignPermission(userId, permissionId)
@@ -109,7 +109,7 @@ export class UserAssignmentService extends BaseService<any> {
     try {
       const success = await this.userRepository.removePermission(userId, permissionId)
       if (!success) {
-        throw new Error('Permission assignment not found')
+        throw new Error('Không tìm thấy assignment permission')
       }
 
       return true

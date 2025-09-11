@@ -31,7 +31,7 @@ export class UserRoleService extends BaseService {
       // unique check inside transaction
       const existing = await tx.userRole.findUnique({ where: { key: data.key } })
       if (existing) {
-        throw new Error(`Role with key '${data.key}' already exists`)
+        throw new Error(`Role với key '${data.key}' đã tồn tại`)
       }
 
       // create role
@@ -47,7 +47,7 @@ export class UserRoleService extends BaseService {
         // validate permissions exist
         const perms = await tx.permission.findMany({ where: { id: { in: permissionIds } } })
         if (perms.length !== permissionIds.length) {
-          throw new Error('One or more permissions not found')
+          throw new Error('Không tìm thấy một hoặc nhiều permission')
         }
 
         const rpData = permissionIds.map((pid) => ({ roleId: role.id, permissionId: pid }))
@@ -92,7 +92,7 @@ export class UserRoleService extends BaseService {
         if (permissionIds.length) {
           const perms = await tx.permission.findMany({ where: { id: { in: permissionIds } } })
           if (perms.length !== permissionIds.length) {
-            throw new Error('One or more permissions not found')
+            throw new Error('Không tìm thấy một hoặc nhiều permission')
           }
         }
 
@@ -153,13 +153,13 @@ export class UserRoleService extends BaseService {
     // Check if role exists
     const role = await this.repo.findById(roleId)
     if (!role) {
-      throw new Error('Role not found')
+      throw new Error('Không tìm thấy role')
     }
 
     // Check if permission is already assigned
     const existing = await this.repo.getRolePermissions(roleId)
     if (existing.some((rp: any) => rp.permission.id === permissionId)) {
-      throw new Error('Permission already assigned to this role')
+      throw new Error('Permission đã được gán cho role này')
     }
 
     return this.repo.assignPermission(roleId, permissionId)
@@ -169,7 +169,7 @@ export class UserRoleService extends BaseService {
     // Check if role exists
     const role = await this.repo.findById(roleId)
     if (!role) {
-      throw new Error('Role not found')
+      throw new Error('Không tìm thấy role')
     }
 
     return this.repo.removePermission(roleId, permissionId)
@@ -191,7 +191,7 @@ export class UserRoleService extends BaseService {
           where: { id: permissionId }
         })
         if (!permission) {
-          throw new Error(`Permission with ID ${permissionId} not found`)
+          throw new Error(`Không tìm thấy permission với ID ${permissionId}`)
         }
       }
 
@@ -213,7 +213,7 @@ export class UserRoleService extends BaseService {
     // Check if role is in use
     const usage = await this.checkRoleUsage(roleId)
     if (!usage.canDelete) {
-      throw new Error(`Cannot delete role. ${usage.usersUsing} users are assigned to this role`)
+      throw new Error(`Không thể xóa role. Có ${usage.usersUsing} người dùng đang được gán role này`)
     }
 
     // Delete role permissions first

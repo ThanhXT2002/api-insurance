@@ -15,11 +15,11 @@ export class UserController {
         limit: limit ? Number(limit) : 20,
         keyword
       })
-      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Users retrieved successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Lấy danh sách người dùng thành công'))
     } catch (err: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(err.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+        .json(ApiResponse.error(err.message, 'Lỗi máy chủ', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -29,7 +29,7 @@ export class UserController {
       if (isNaN(id)) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid id', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(ApiResponse.error('Id không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST))
       }
 
       // Get user with roles for update operations (default behavior)
@@ -37,14 +37,14 @@ export class UserController {
       if (!result) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .json(ApiResponse.error('User not found', 'Not found', StatusCodes.NOT_FOUND))
+          .json(ApiResponse.error('Không tìm thấy người dùng', 'Không tìm thấy', StatusCodes.NOT_FOUND))
       }
 
-      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'User retrieved successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Lấy người dùng thành công'))
     } catch (err: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(err.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+        .json(ApiResponse.error(err.message, 'Lỗi máy chủ', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -54,7 +54,7 @@ export class UserController {
       if (isNaN(id)) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid id', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(ApiResponse.error('Id không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST))
       }
 
       // Get user with roles and permissions for detailed view
@@ -62,14 +62,14 @@ export class UserController {
       if (!result) {
         return res
           .status(StatusCodes.NOT_FOUND)
-          .json(ApiResponse.error('User not found', 'Not found', StatusCodes.NOT_FOUND))
+          .json(ApiResponse.error('Không tìm thấy người dùng', 'Không tìm thấy', StatusCodes.NOT_FOUND))
       }
 
-      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'User with full details retrieved successfully'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Lấy chi tiết người dùng thành công'))
     } catch (err: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(err.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+        .json(ApiResponse.error(err.message, 'Lỗi máy chủ', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -82,14 +82,14 @@ export class UserController {
       }
       const actorId = (req as any).user?.id
       const result = await this.userService.createUser(data, { actorId })
-      res.status(StatusCodes.CREATED).json(ApiResponse.ok(result, 'User created', StatusCodes.CREATED))
+      res.status(StatusCodes.CREATED).json(ApiResponse.ok(result, 'Tạo người dùng thành công', StatusCodes.CREATED))
     } catch (err: any) {
       if (err.message.includes('Unique')) {
-        res.status(StatusCodes.CONFLICT).json(ApiResponse.error(err.message, 'Conflict', StatusCodes.CONFLICT))
+        res.status(StatusCodes.CONFLICT).json(ApiResponse.error(err.message, 'Trùng dữ liệu', StatusCodes.CONFLICT))
       } else {
         res
           .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json(ApiResponse.error(err.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+          .json(ApiResponse.error(err.message, 'Lỗi máy chủ', StatusCodes.INTERNAL_SERVER_ERROR))
       }
     }
   }
@@ -100,7 +100,7 @@ export class UserController {
       if (isNaN(id)) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid id', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(ApiResponse.error('Id không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST))
       }
 
       // Support multipart/form-data with avatar file
@@ -110,14 +110,14 @@ export class UserController {
       }
       const actorId = (req as any).user?.id
       const result = await this.userService.updateById(id, data, { actorId })
-      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'User updated'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Cập nhật người dùng thành công'))
     } catch (err: any) {
       if (err.message.includes('not found')) {
-        res.status(StatusCodes.NOT_FOUND).json(ApiResponse.error(err.message, 'Not found', StatusCodes.NOT_FOUND))
+        res.status(StatusCodes.NOT_FOUND).json(ApiResponse.error(err.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       } else {
         res
           .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json(ApiResponse.error(err.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+          .json(ApiResponse.error(err.message, 'Lỗi máy chủ', StatusCodes.INTERNAL_SERVER_ERROR))
       }
     }
   }
@@ -128,19 +128,19 @@ export class UserController {
       if (isNaN(id)) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid id', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(ApiResponse.error('Id không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST))
       }
 
       const actorId = (req as any).user?.id
       await this.userService.deleteById(id, false, { actorId })
-      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'User deleted'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Xóa người dùng thành công'))
     } catch (err: any) {
       if (err.message.includes('not found')) {
-        res.status(StatusCodes.NOT_FOUND).json(ApiResponse.error(err.message, 'Not found', StatusCodes.NOT_FOUND))
+        res.status(StatusCodes.NOT_FOUND).json(ApiResponse.error(err.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       } else {
         res
           .status(StatusCodes.INTERNAL_SERVER_ERROR)
-          .json(ApiResponse.error(err.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+          .json(ApiResponse.error(err.message, 'Lỗi máy chủ', StatusCodes.INTERNAL_SERVER_ERROR))
       }
     }
   }
@@ -151,12 +151,14 @@ export class UserController {
       if (!Array.isArray(ids) || ids.length === 0) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid or empty ids array', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(
+            ApiResponse.error('Danh sách ids không hợp lệ hoặc rỗng', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST)
+          )
       }
 
       const actorId = (req as any).user?.id
       await this.userService.deleteMultiple(ids, false, { actorId })
-      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Users deleted'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Xóa người dùng thành công'))
     } catch (err: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -170,21 +172,23 @@ export class UserController {
       if (!Array.isArray(ids) || ids.length === 0) {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Invalid or empty ids array', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(
+            ApiResponse.error('Danh sách ids không hợp lệ hoặc rỗng', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST)
+          )
       }
       if (typeof active !== 'boolean') {
         return res
           .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Active field must be boolean', 'Bad request', StatusCodes.BAD_REQUEST))
+          .json(ApiResponse.error('Trường active phải là boolean', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST))
       }
 
       const actorId = (req as any).user?.id
       await this.userService.activeMultiple(ids, active, { actorId })
-      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Users updated'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Cập nhật người dùng thành công'))
     } catch (err: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(err.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))
+        .json(ApiResponse.error(err.message, 'Lỗi máy chủ', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 }

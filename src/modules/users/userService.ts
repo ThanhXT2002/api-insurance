@@ -46,7 +46,7 @@ export class UserService extends BaseService {
     return withRollback(async (rollback: RollbackManager) => {
       // 1) Supabase signup
       const supabase = getSupabase()
-      if (!data.email || !data.password) throw new Error('Email and password are required')
+      if (!data.email || !data.password) throw new Error('Email và mật khẩu là bắt buộc')
 
       const { data: sbData, error: sbError } = await supabase.auth.signUp({
         email: data.email,
@@ -55,7 +55,7 @@ export class UserService extends BaseService {
 
       if (sbError) throw sbError
       const sbUser = (sbData as any).user
-      if (!sbUser) throw new Error('Supabase user not created')
+      if (!sbUser) throw new Error('Không tạo được người dùng Supabase')
 
       // 2) Upload avatar if present
       let uploadedAvatarUrl: string | null = null
@@ -105,7 +105,7 @@ export class UserService extends BaseService {
 
   async updateById(id: number, data: any, ctx?: { actorId?: number }) {
     const existing = await this.repo.findById(id)
-    if (!existing) throw new Error('User not found')
+    if (!existing) throw new Error('Không tìm thấy người dùng')
 
     // Support updating avatar and roles atomically with rollback for uploaded file
     return withRollback(async (rollback: RollbackManager) => {
@@ -257,19 +257,19 @@ export class UserService extends BaseService {
 
   async deleteById(id: number, hard = false, ctx?: { actorId?: number }) {
     const existing = await this.repo.findById(id)
-    if (!existing) throw new Error('User not found')
+    if (!existing) throw new Error('Không tìm thấy người dùng')
     if (hard) return this.repo.delete({ id })
     return this.delete({ id }, false)
   }
 
   async deleteMultiple(ids: number[], hard = false, ctx?: { actorId?: number }) {
-    if (!Array.isArray(ids) || ids.length === 0) throw new Error('No ids provided')
+    if (!Array.isArray(ids) || ids.length === 0) throw new Error('Không có id nào được cung cấp')
     if (hard) return this.repo.deleteMany({ id: { in: ids } })
     return this.repo.updateMany({ id: { in: ids } }, { active: false, updatedBy: ctx?.actorId })
   }
 
   async activeMultiple(ids: number[], active: boolean, ctx?: { actorId?: number }) {
-    if (!Array.isArray(ids) || ids.length === 0) throw new Error('No ids provided')
+    if (!Array.isArray(ids) || ids.length === 0) throw new Error('Không có id nào được cung cấp')
     return this.repo.updateMany({ id: { in: ids } }, { active, updatedBy: ctx?.actorId })
   }
 }
