@@ -1,8 +1,9 @@
 import { BaseService } from '../../bases/baseService'
 import { UserRepository } from './userRepository'
-import { getSupabase } from '../../config/supabaseClient'
+import { getSupabase, getSupabaseAdmin } from '../../config/supabaseClient'
 import { fileUploadService } from '../../services/fileUploadService'
 import { withRollback, RollbackManager } from '../../utils/rollbackHelper'
+import { UserCreateDto } from '~/types/userType'
 
 export class UserService extends BaseService {
   constructor(protected repo: UserRepository) {
@@ -39,7 +40,6 @@ export class UserService extends BaseService {
     if (typeof active === 'boolean') baseParams.active = active
     return super.getAll(baseParams)
   }
-
   /**
    * Create user flow:
    * 1. Create user in Supabase (email/password)
@@ -48,9 +48,9 @@ export class UserService extends BaseService {
    * 4. On any error, rollback uploaded files and throw
    *
    * Expected data shape:
-   * { email, password, name?, avatarFile?: { buffer, originalname }, roleKeys?: string[] , ...other }
+   * UserCreateDto (see userCreate.dto.ts) — roleKeys and permissionKeys are arrays of keys (strings)
    */
-  async createUser(data: any, ctx?: { actorId?: number }) {
+  async createUser(data: UserCreateDto, ctx?: { actorId?: number }) {
     return withRollback(async (rollback: RollbackManager) => {
       // 1) Supabase signup
       const supabase = getSupabase()
@@ -65,49 +65,87 @@ export class UserService extends BaseService {
       const sbUser = (sbData as any).user
       if (!sbUser) throw new Error('Không tạo được người dùng Supabase')
 
+      // Register rollback to remove Supabase user if any subsequent step fails.
+      // Use the admin client helper which returns a service-role client when available.
+      rollback.addAsyncAction(async () => {
+        try {
+          const adminClient: any = getSupabaseAdmin()
+          if (adminClient?.auth?.admin?.deleteUser) {
+            await adminClient.auth.admin.deleteUser(sbUser.id)
+          } else if (adminClient?.auth?.deleteUser) {
+            await adminClient.auth.deleteUser(sbUser.id)
+          } else {
+            console.warn('Rollback: chức năng deleteUser của Supabase admin không có sẵn, có thể cần dọn dẹp thủ công')
+          }
+        } catch (err) {
+          console.error('Rollback: không thể xóa người dùng Supabase', err)
+        }
+      })
+
       // 2) Upload avatar if present
       let uploadedAvatarUrl: string | null = null
-      if (data.avatarFile && data.avatarFile.buffer) {
-        const uploaded = await fileUploadService.uploadAvatar(data.avatarFile.buffer, data.avatarFile.originalname)
+      if (data.avatarFile && (data.avatarFile as any).buffer) {
+        const uploaded = await fileUploadService.uploadAvatar(
+          (data.avatarFile as any).buffer,
+          (data.avatarFile as any).originalname
+        )
         uploadedAvatarUrl = uploaded.url
-        // register rollback action to delete uploaded file if anything fails later
         rollback.addFileDeleteAction(uploaded.url)
       }
 
-      // 3) create local user and role assignments in a transaction
+      // 3) create local user and role/permission assignments in a transaction
       const created = await this.repo.runTransaction(async (tx) => {
-        // create user profile in local DB (link to supabaseId)
         const userCreateData: any = {
           email: data.email,
           name: data.name ?? null,
           supabaseId: sbUser.id,
-          avatarUrl: uploadedAvatarUrl ?? null,
-          active: typeof data.active === 'boolean' ? data.active : true,
-          createdBy: ctx?.actorId ?? null,
-          updatedBy: ctx?.actorId ?? null
+          avatarUrl: uploadedAvatarUrl ?? data.avatarUrl ?? null,
+          active: typeof data.active === 'boolean' ? data.active : true
         }
 
         const newUser = await this.repo.create(userCreateData, tx)
 
-        // role assignments: data.roleKeys can be array of role keys
+        // role assignments by key
         if (Array.isArray(data.roleKeys) && data.roleKeys.length > 0) {
-          // find roles and create assignments using the transaction client `tx`
           const roles = await tx.userRole.findMany({ where: { key: { in: data.roleKeys } } })
-
           for (const r of roles) {
             await tx.userRoleAssignment.create({ data: { userId: newUser.id, roleId: r.id } })
           }
         }
 
-        // return created user with roles
+        // direct permissions by key -> create UserPermission with allowed = true
+        if (Array.isArray(data.permissionKeys) && data.permissionKeys.length > 0) {
+          const perms = await tx.permission.findMany({ where: { key: { in: data.permissionKeys } } })
+          for (const p of perms) {
+            await tx.userPermission.create({ data: { userId: newUser.id, permissionId: p.id, allowed: true } })
+          }
+        }
+
         return await this.repo.findById(
-          { where: { id: newUser.id }, include: { roleAssignments: { include: { role: true } } } },
+          {
+            where: { id: newUser.id },
+            include: {
+              // only select the role key and permission key to minimize data
+              roleAssignments: { include: { role: { select: { key: true } } } },
+              userPermissions: { include: { permission: { select: { key: true } } } }
+            }
+          },
           tx
         )
       })
 
-      // success: clear rollback actions implicitly by withRollback
-      return created
+      // Transform returned nested objects into arrays of keys for API response
+      const transformed: any = {
+        ...created,
+        roleKeys: (created?.roleAssignments || []).map((ra: any) => ra.role?.key).filter(Boolean),
+        permissionKeys: (created?.userPermissions || []).map((up: any) => up.permission?.key).filter(Boolean)
+      }
+
+      // Remove nested objects to keep response minimal
+      delete transformed.roleAssignments
+      delete transformed.userPermissions
+
+      return transformed
     })
   }
 
@@ -134,8 +172,8 @@ export class UserService extends BaseService {
         // Remove avatarFile from payload to avoid unexpected DB fields
         delete updateData.avatarFile
 
-        // Handle audit field
-        if (ctx?.actorId) updateData.updatedBy = ctx.actorId
+        // Note: User model in Prisma does not have audit fields (createdBy/updatedBy).
+        // Audit fields are present on other models (Post, PostCategory). Do not set updatedBy here.
 
         // Update user
         const user = await this.repo.update({ id }, updateData, tx)
@@ -273,12 +311,14 @@ export class UserService extends BaseService {
   async deleteMultiple(ids: number[], hard = false, ctx?: { actorId?: number }) {
     if (!Array.isArray(ids) || ids.length === 0) throw new Error('Không có id nào được cung cấp')
     if (hard) return this.repo.deleteMany({ id: { in: ids } })
-    return this.repo.updateMany({ id: { in: ids } }, { active: false, updatedBy: ctx?.actorId })
+    // Prisma User model doesn't have updatedBy — only toggle active flag
+    return this.repo.updateMany({ id: { in: ids } }, { active: false })
   }
 
   async activeMultiple(ids: number[], active: boolean, ctx?: { actorId?: number }) {
     if (!Array.isArray(ids) || ids.length === 0) throw new Error('Không có id nào được cung cấp')
-    return this.repo.updateMany({ id: { in: ids } }, { active, updatedBy: ctx?.actorId })
+    // Prisma User model doesn't have updatedBy — only update active
+    return this.repo.updateMany({ id: { in: ids } }, { active })
   }
 }
 

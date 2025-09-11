@@ -87,6 +87,43 @@ export class UserController {
     try {
       // Support multipart/form-data with an avatar file
       const data = { ...(req.body || {}) }
+      // Normalize boolean and array-like fields coming from form-data or JSON
+      if (typeof data.active === 'string') {
+        if (data.active.toLowerCase() === 'true') data.active = true
+        else if (data.active.toLowerCase() === 'false') data.active = false
+      }
+      // roleKeys/permissionKeys may be sent as repeated form fields (array) or JSON string
+      try {
+        if (typeof data.roleKeys === 'string') data.roleKeys = JSON.parse(data.roleKeys)
+      } catch (e) {
+        // leave as-is (could be a single string)
+      }
+      try {
+        if (typeof data.permissionKeys === 'string') data.permissionKeys = JSON.parse(data.permissionKeys)
+      } catch (e) {
+        // leave as-is
+      }
+      // Normalize single string values into arrays (common with form-data single fields)
+      if (data.roleKeys != null && !Array.isArray(data.roleKeys)) {
+        if (typeof data.roleKeys === 'string' && data.roleKeys.includes(',')) {
+          data.roleKeys = data.roleKeys
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        } else {
+          data.roleKeys = [data.roleKeys]
+        }
+      }
+      if (data.permissionKeys != null && !Array.isArray(data.permissionKeys)) {
+        if (typeof data.permissionKeys === 'string' && data.permissionKeys.includes(',')) {
+          data.permissionKeys = data.permissionKeys
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        } else {
+          data.permissionKeys = [data.permissionKeys]
+        }
+      }
       if ((req as any).file) {
         data.avatarFile = { buffer: (req as any).file.buffer, originalname: (req as any).file.originalname }
       }

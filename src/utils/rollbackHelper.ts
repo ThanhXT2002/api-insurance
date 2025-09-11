@@ -5,8 +5,11 @@ export interface RollbackAction {
   urls: string[]
 }
 
+export type RollbackAsyncAction = () => Promise<void>
+
 export class RollbackManager {
   private actions: RollbackAction[] = []
+  private asyncActions: RollbackAsyncAction[] = []
 
   /**
    * Add a rollback action to be executed if something fails
@@ -17,6 +20,13 @@ export class RollbackManager {
       type: 'delete_files',
       urls: urlArray
     })
+  }
+
+  /**
+   * Add a generic async rollback action
+   */
+  addAsyncAction(action: RollbackAsyncAction): void {
+    this.asyncActions.push(action)
   }
 
   /**
@@ -39,6 +49,15 @@ export class RollbackManager {
       }
     }
 
+    // Execute async actions (like deleting remote users) after file deletions
+    for (const a of this.asyncActions) {
+      try {
+        await a()
+      } catch (err: any) {
+        console.error('Rollback async action failed:', err?.message || err)
+      }
+    }
+
     // Clear actions after rollback
     this.actions = []
   }
@@ -48,6 +67,7 @@ export class RollbackManager {
    */
   clearActions(): void {
     this.actions = []
+    this.asyncActions = []
   }
 
   /**

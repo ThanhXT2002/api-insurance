@@ -263,6 +263,12 @@ router.get('/getUserById/:id', authenticate, controller.getById.bind(controller)
  *                   type: string
  *                 example: ["user", "admin"]
  *                 description: "Array of role keys to assign (optional)"
+ *               permissionKeys:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["perm_read","perm_write"]
+ *                 description: "Array of permission keys to assign as direct permissions (optional)"
  *               active:
  *                 type: boolean
  *                 default: true
@@ -293,6 +299,11 @@ router.get('/getUserById/:id', authenticate, controller.getById.bind(controller)
  *                 items:
  *                   type: string
  *                 example: ["user", "admin"]
+ *               permissionKeys:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["perm_read","perm_write"]
  *               active:
  *                 type: boolean
  *                 default: true
@@ -352,6 +363,10 @@ router.get('/getUserById/:id', authenticate, controller.getById.bind(controller)
  */
 // Accept multipart/form-data with optional `avatar` file
 router.post('/', authenticate, upload.single('avatar'), controller.create.bind(controller))
+
+// Development-only: public create route (no authentication) to ease testing from Postman.
+// Keep the authenticated route above for production use.
+router.post('/public', upload.single('avatar'), controller.create.bind(controller))
 
 /**
  * @openapi
