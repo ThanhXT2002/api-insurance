@@ -298,6 +298,12 @@ router.post('/', authenticate, upload.single('avatar'), controller.create.bind(c
  *                   type: string
  *                 example: ["user", "manager"]
  *                 description: "Mảng các key vai trò cần gán (không bắt buộc, thay thế vai trò hiện có)"
+ *               permissionKeys:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["perm_read","perm_write"]
+ *                 description: "Mảng các key quyền hạn trực tiếp (không bắt buộc)"
  *               active:
  *                 type: boolean
  *                 example: true
@@ -320,6 +326,12 @@ router.post('/', authenticate, upload.single('avatar'), controller.create.bind(c
  *                   type: string
  *                 example: ["user", "manager"]
  *                 description: "Mảng các key vai trò cần gán (không bắt buộc)"
+ *               permissionKeys:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["perm_read","perm_write"]
+ *                 description: "Mảng các key quyền hạn trực tiếp (không bắt buộc)"
  *               active:
  *                 type: boolean
  *                 example: true
@@ -384,7 +396,7 @@ router.put('/:id', authenticate, upload.single('avatar'), controller.update.bind
  *   delete:
  *     tags:
  *       - Users
- *     summary: Xóa người dùng 
+ *     summary: Xóa người dùng
  *     security:
  *       - bearerAuth: []
  *     parameters:

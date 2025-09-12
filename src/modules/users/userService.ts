@@ -169,8 +169,11 @@ export class UserService extends BaseService {
         if (newAvatarUrl) {
           updateData.avatarUrl = newAvatarUrl
         }
-        // Remove avatarFile from payload to avoid unexpected DB fields
+        // Remove fields that are not columns on User model to avoid Prisma errors
+        // (roleKeys and permissionKeys are handled via separate tables)
         delete updateData.avatarFile
+        delete updateData.roleKeys
+        delete updateData.permissionKeys
 
         // Note: User model in Prisma does not have audit fields (createdBy/updatedBy).
         // Audit fields are present on other models (Post, PostCategory). Do not set updatedBy here.
@@ -187,6 +190,19 @@ export class UserService extends BaseService {
             const roles = await tx.userRole.findMany({ where: { key: { in: data.roleKeys } } })
             for (const r of roles) {
               await tx.userRoleAssignment.create({ data: { userId: user.id, roleId: r.id } })
+            }
+          }
+        }
+
+        // If permissionKeys provided, replace direct user permissions inside the transaction
+        if (Array.isArray(data.permissionKeys)) {
+          // delete existing user permissions for user
+          await tx.userPermission.deleteMany({ where: { userId: user.id } })
+
+          if (data.permissionKeys.length > 0) {
+            const perms = await tx.permission.findMany({ where: { key: { in: data.permissionKeys } } })
+            for (const p of perms) {
+              await tx.userPermission.create({ data: { userId: user.id, permissionId: p.id, allowed: true } })
             }
           }
         }
@@ -282,11 +298,9 @@ export class UserService extends BaseService {
     }
   }
 
-
   async deleteById(id: number, hard = false, ctx?: { actorId?: number }) {
     const existing = await this.repo.findById(id)
     if (!existing) throw new Error('Không tìm thấy người dùng')
-    // Ở cấp module user: nếu gọi xóa (bất kể hard flag) thì nên dọn dẹp các bảng liên quan
     // Thực hiện xóa toàn bộ bằng helper chung để đảm bảo consistency
     const result = await this.hardDeleteIds([id], ctx)
     return result
