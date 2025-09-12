@@ -230,44 +230,30 @@ export class UserService extends BaseService {
     options?: { include?: any; select?: any; includeRoles?: boolean; includePermissions?: boolean }
   ) {
     try {
-      const includeRoles = options?.includeRoles !== false // default true
-      const includePermissions = options?.includePermissions || false
-
-      let include: any = options?.include || {}
-
-      if (includeRoles) {
-        include.roleAssignments = {
+      // Luôn include roleAssignments và userPermissions để trả về roleKeys/permissionKeys
+      // Nếu caller truyền options.include thì merge với default include
+      const defaultInclude = {
+        roleAssignments: {
           include: {
             role: {
-              select: {
-                id: true,
-                key: true,
-                name: true,
-                description: true
-              }
+              select: { id: true, key: true, name: true, description: true }
+            }
+          }
+        },
+        userPermissions: {
+          include: {
+            permission: {
+              select: { id: true, key: true, name: true, description: true }
             }
           }
         }
       }
 
-      if (includePermissions) {
-        include.userPermissions = {
-          include: {
-            permission: {
-              select: {
-                id: true,
-                key: true,
-                name: true,
-                description: true
-              }
-            }
-          }
-        }
-      }
+      const finalInclude = options?.include ? { ...defaultInclude, ...options.include } : defaultInclude
 
       const user = await this.repo.findById({
         where: { id: typeof id === 'string' ? parseInt(id) : id },
-        include: Object.keys(include).length > 0 ? include : undefined,
+        include: Object.keys(finalInclude).length > 0 ? finalInclude : undefined,
         select: options?.select
       })
 
@@ -296,10 +282,6 @@ export class UserService extends BaseService {
     }
   }
 
-  // Convenience method for getting user with full details
-  async getUserWithFullDetails(id: number) {
-    return this.getById(id, { includeRoles: true, includePermissions: true })
-  }
 
   async deleteById(id: number, hard = false, ctx?: { actorId?: number }) {
     const existing = await this.repo.findById(id)

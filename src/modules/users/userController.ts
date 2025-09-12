@@ -43,7 +43,7 @@ export class UserController {
       }
 
       // Get user with roles for update operations (default behavior)
-      const result = await this.userService.getUserWithFullDetails(id)
+      const result = await this.userService.getById(id)
       if (!result) {
         return res
           .status(StatusCodes.NOT_FOUND)
