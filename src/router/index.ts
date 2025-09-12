@@ -44,11 +44,7 @@ export function registerRoutes(app: Express) {
   // Permission management routes
   app.use('/api/permissions', permissionRouter)
   app.use('/api/user-roles', userRoleRouter)
-  // Debug: log types to detect invalid router import
-  // eslint-disable-next-line no-console
-  console.log('userAssignmentRouter type=', typeof userAssignmentRouter)
-  // eslint-disable-next-line no-console
-  console.log('userRouter type=', typeof userRouter)
+
   app.use('/api/user-assignments', userAssignmentRouter)
   app.use('/api/users', userRouter)
   app.use('/api/reports', reportsRouter)

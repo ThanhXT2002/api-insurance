@@ -43,31 +43,6 @@ export class UserController {
       }
 
       // Get user with roles for update operations (default behavior)
-      const result = await this.userService.getUserForUpdate(id)
-      if (!result) {
-        return res
-          .status(StatusCodes.NOT_FOUND)
-          .json(ApiResponse.error('Không tìm thấy người dùng', 'Không tìm thấy', StatusCodes.NOT_FOUND))
-      }
-
-      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Lấy người dùng thành công'))
-    } catch (err: any) {
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .json(ApiResponse.error(err.message, 'Lỗi máy chủ', StatusCodes.INTERNAL_SERVER_ERROR))
-    }
-  }
-
-  async getUserWithFullDetails(req: Request, res: Response) {
-    try {
-      const id = Number(req.params.id)
-      if (isNaN(id)) {
-        return res
-          .status(StatusCodes.BAD_REQUEST)
-          .json(ApiResponse.error('Id không hợp lệ', 'Yêu cầu không hợp lệ', StatusCodes.BAD_REQUEST))
-      }
-
-      // Get user with roles and permissions for detailed view
       const result = await this.userService.getUserWithFullDetails(id)
       if (!result) {
         return res
@@ -75,7 +50,7 @@ export class UserController {
           .json(ApiResponse.error('Không tìm thấy người dùng', 'Không tìm thấy', StatusCodes.NOT_FOUND))
       }
 
-      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Lấy chi tiết người dùng thành công'))
+      res.status(StatusCodes.OK).json(ApiResponse.ok(result, 'Lấy người dùng thành công'))
     } catch (err: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -152,6 +127,39 @@ export class UserController {
 
       // Support multipart/form-data with avatar file
       const data = { ...(req.body || {}) }
+
+      // Normalize boolean and array-like fields
+      if (typeof data.active === 'string') {
+        if (data.active.toLowerCase() === 'true') data.active = true
+        else if (data.active.toLowerCase() === 'false') data.active = false
+      }
+      try {
+        if (typeof data.roleKeys === 'string') data.roleKeys = JSON.parse(data.roleKeys)
+      } catch (e) {}
+      try {
+        if (typeof data.permissionKeys === 'string') data.permissionKeys = JSON.parse(data.permissionKeys)
+      } catch (e) {}
+      if (data.roleKeys != null && !Array.isArray(data.roleKeys)) {
+        if (typeof data.roleKeys === 'string' && data.roleKeys.includes(',')) {
+          data.roleKeys = data.roleKeys
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        } else {
+          data.roleKeys = [data.roleKeys]
+        }
+      }
+      if (data.permissionKeys != null && !Array.isArray(data.permissionKeys)) {
+        if (typeof data.permissionKeys === 'string' && data.permissionKeys.includes(',')) {
+          data.permissionKeys = data.permissionKeys
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean)
+        } else {
+          data.permissionKeys = [data.permissionKeys]
+        }
+      }
+
       if ((req as any).file) {
         data.avatarFile = { buffer: (req as any).file.buffer, originalname: (req as any).file.originalname }
       }

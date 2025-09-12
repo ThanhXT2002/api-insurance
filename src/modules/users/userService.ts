@@ -191,9 +191,24 @@ export class UserService extends BaseService {
           }
         }
 
-        // return updated user with roles
-        return tx.user.findUnique({ where: { id: user.id }, include: { roleAssignments: { include: { role: true } } } })
+        // return updated user with roles and permissions (select keys only)
+        return tx.user.findUnique({
+          where: { id: user.id },
+          include: {
+            roleAssignments: { include: { role: { select: { key: true } } } },
+            userPermissions: { include: { permission: { select: { key: true } } } }
+          }
+        })
       })
+
+      // Transform the returned object to arrays of keys
+      const transformedUpdated: any = {
+        ...updated,
+        roleKeys: (updated?.roleAssignments || []).map((ra: any) => ra.role?.key).filter(Boolean),
+        permissionKeys: (updated?.userPermissions || []).map((up: any) => up.permission?.key).filter(Boolean)
+      }
+      delete transformedUpdated.roleAssignments
+      delete transformedUpdated.userPermissions
 
       // If update succeeded and we replaced avatar, attempt to delete old avatar (best-effort)
       try {
@@ -205,7 +220,7 @@ export class UserService extends BaseService {
         console.error('Failed to delete old avatar:', err?.message || err)
       }
 
-      return updated
+      return transformedUpdated
     })
   }
 
@@ -258,32 +273,22 @@ export class UserService extends BaseService {
 
       if (!user) return null
 
-      // Transform the result to include role keys for easier frontend handling
+      // Transform the result to include roleKeys and permissionKeys when requested
       const transformed = this.transformUserAuditFields([user])[0]
 
-      if (includeRoles && transformed.roleAssignments) {
-        // Add roleKeys array for easier form handling
-        transformed.roleKeys = transformed.roleAssignments.map((assignment: any) => assignment.role.key)
+      // Always expose simple arrays of roleKeys and permissionKeys for API consumers
+      transformed.roleKeys = (transformed.roleAssignments || [])
+        .map((assignment: any) => assignment?.role?.key)
+        .filter(Boolean)
+      transformed.permissionKeys = (transformed.userPermissions || [])
+        .map((userPerm: any) => userPerm?.permission?.key)
+        .filter(Boolean)
 
-        // Add roles array with simplified structure
-        transformed.roles = transformed.roleAssignments.map((assignment: any) => ({
-          id: assignment.role.id,
-          key: assignment.role.key,
-          name: assignment.role.name,
-          description: assignment.role.description
-        }))
-      }
-
-      if (includePermissions && transformed.userPermissions) {
-        // Add direct permissions with simplified structure
-        transformed.directPermissions = transformed.userPermissions.map((userPerm: any) => ({
-          id: userPerm.permission.id,
-          key: userPerm.permission.key,
-          name: userPerm.permission.name,
-          description: userPerm.permission.description,
-          allowed: userPerm.allowed
-        }))
-      }
+      // Remove nested relation objects to keep response minimal and stable
+      delete transformed.roleAssignments
+      delete transformed.userPermissions
+      delete transformed.roles
+      delete transformed.directPermissions
 
       return transformed
     } catch (error) {
@@ -291,10 +296,6 @@ export class UserService extends BaseService {
     }
   }
 
-  // Convenience method for getting user with roles for update operations
-  async getUserForUpdate(id: number) {
-    return this.getById(id, { includeRoles: true, includePermissions: false })
-  }
 
   // Convenience method for getting user with full details
   async getUserWithFullDetails(id: number) {

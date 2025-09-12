@@ -17,7 +17,7 @@ const router = Router()
  *   get:
  *     tags:
  *       - Users
- *     summary: Get all users
+ *     summary: Lấy danh sách người dùng
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -25,22 +25,25 @@ const router = Router()
  *         name: page
  *         schema:
  *           type: integer
+ *         description: "Số trang (mặc định: 1)"
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
+ *         description: "Số lượng bản ghi mỗi trang (mặc định: 20)"
  *       - in: query
  *         name: keyword
  *         schema:
  *           type: string
+ *         description: "Từ khóa tìm kiếm theo email hoặc tên"
  *       - in: query
  *         name: active
  *         schema:
  *           type: boolean
- *         description: "Filter by active status (true/false)"
+ *         description: "Lọc theo trạng thái hoạt động (true/false)"
  *     responses:
  *       200:
- *         description: Users retrieved successfully
+ *         description: Lấy danh sách người dùng thành công
  */
 router.get('/', authenticate, controller.getAll.bind(controller))
 
@@ -50,7 +53,7 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *   get:
  *     tags:
  *       - Users
- *     summary: Get user by id with roles for update
+ *     summary: Lấy thông tin người dùng theo ID
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -59,11 +62,11 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: "User ID"
+ *         description: "ID người dùng"
  *         example: 1
  *     responses:
  *       200:
- *         description: User retrieved successfully with roles
+ *         description: Lấy thông tin người dùng thành công
  *         content:
  *           application/json:
  *             schema:
@@ -98,126 +101,17 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *                       items:
  *                         type: string
  *                       example: ["user", "customer"]
- *                     roles:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: integer
- *                           key:
- *                             type: string
- *                           name:
- *                             type: string
- *                           description:
- *                             type: string
- *                     roleAssignments:
- *                       type: array
- *                       items:
- *                         type: object
- *                 message:
- *                   type: string
- *                   example: "User retrieved successfully"
- *       404:
- *         description: User not found
- *       400:
- *         description: Invalid user ID
- */
-router.get('/:id', authenticate, controller.getById.bind(controller))
-
-/**
- * @openapi
- * /api/users/{id}/full-details:
- *   get:
- *     tags:
- *       - Users
- *     summary: Get user with full details (roles + permissions)
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: "User ID"
- *         example: 1
- *     responses:
- *       200:
- *         description: User with full details retrieved successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 1
- *                     email:
- *                       type: string
- *                       example: "john.doe@example.com"
- *                     name:
- *                       type: string
- *                       example: "John Doe"
- *                     roleKeys:
+ *                     permissionKeys:
  *                       type: array
  *                       items:
  *                         type: string
- *                       example: ["user", "customer"]
- *                     roles:
- *                       type: array
- *                       items:
- *                         type: object
- *                     directPermissions:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           id:
- *                             type: integer
- *                           key:
- *                             type: string
- *                           name:
- *                             type: string
- *                           allowed:
- *                             type: boolean
+ *                       example: ["post_category.view"]
  *                 message:
  *                   type: string
- *                   example: "User with full details retrieved successfully"
- *       404:
- *         description: User not found
- *       400:
- *         description: Invalid user ID
+ *                   example: "Lấy thông tin người dùng thành công"
+ *
  */
-router.get('/:id/full-details', authenticate, controller.getUserWithFullDetails.bind(controller))
-
-/**
- * @openapi
- * /api/users/getUserById/{id}:
- *   get:
- *     tags:
- *       - Users
- *     summary: Alias - get user by id
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: User retrieved successfully (alias)
- */
-// Alias route requested: getUserById
-router.get('/getUserById/:id', authenticate, controller.getById.bind(controller))
+router.get('/:id', authenticate, controller.getById.bind(controller))
 
 /**
  * @openapi
@@ -225,7 +119,7 @@ router.get('/getUserById/:id', authenticate, controller.getById.bind(controller)
  *   post:
  *     tags:
  *       - Users
- *     summary: Create user
+ *     summary: Tạo người dùng mới
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -239,40 +133,40 @@ router.get('/getUserById/:id', authenticate, controller.getById.bind(controller)
  *                 type: string
  *                 format: email
  *                 example: "john.doe@example.com"
- *                 description: "Email address (required)"
+ *                 description: "Địa chỉ email (bắt buộc)"
  *               password:
  *                 type: string
  *                 minLength: 6
  *                 example: "password123"
- *                 description: "Password (required, min 6 characters)"
+ *                 description: "Mật khẩu (bắt buộc, tối thiểu 6 ký tự)"
  *               name:
  *                 type: string
- *                 example: "John Doe"
- *                 description: "Full name (optional)"
+ *                 example: "Nguyễn Văn A"
+ *                 description: "Họ và tên (không bắt buộc)"
  *               addresses:
  *                 type: string
- *                 example: "123 Main St, City, Country"
- *                 description: "Address information (optional)"
+ *                 example: "123 Đường ABC, Quận 1, TP.HCM"
+ *                 description: "Địa chỉ (không bắt buộc)"
  *               avatar:
  *                 type: string
  *                 format: binary
- *                 description: "Avatar image file (optional, jpg/png)"
+ *                 description: "File ảnh đại diện (không bắt buộc, jpg/png)"
  *               roleKeys:
  *                 type: array
  *                 items:
  *                   type: string
  *                 example: ["user", "admin"]
- *                 description: "Array of role keys to assign (optional)"
+ *                 description: "Mảng các key vai trò cần gán (không bắt buộc)"
  *               permissionKeys:
  *                 type: array
  *                 items:
  *                   type: string
  *                 example: ["perm_read","perm_write"]
- *                 description: "Array of permission keys to assign as direct permissions (optional)"
+ *                 description: "Mảng các key quyền hạn trực tiếp (không bắt buộc)"
  *               active:
  *                 type: boolean
  *                 default: true
- *                 description: "User active status (optional)"
+ *                 description: "Trạng thái hoạt động của người dùng (không bắt buộc)"
  *             required:
  *               - email
  *               - password
@@ -312,7 +206,7 @@ router.get('/getUserById/:id', authenticate, controller.getById.bind(controller)
  *               - password
  *     responses:
  *       200:
- *         description: User created successfully
+ *         description: Tạo người dùng thành công
  *         content:
  *           application/json:
  *             schema:
@@ -339,34 +233,28 @@ router.get('/getUserById/:id', authenticate, controller.getById.bind(controller)
  *                     active:
  *                       type: boolean
  *                       example: true
- *                     roleAssignments:
+ *                     roleKeys:
  *                       type: array
  *                       items:
- *                         type: object
- *                         properties:
- *                           role:
- *                             type: object
- *                             properties:
- *                               key:
- *                                 type: string
- *                               name:
- *                                 type: string
+ *                         type: string
+ *                       example: ["user", "admin"]
+ *                     permissionKeys:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["perm_read", "perm_write"]
  *                 message:
  *                   type: string
- *                   example: "User created"
+ *                   example: "Tạo người dùng thành công"
  *       409:
- *         description: Email already exists
+ *         description: Email đã tồn tại
  *       400:
- *         description: Validation error
+ *         description: Lỗi xác thực dữ liệu
  *       500:
- *         description: Internal server error
+ *         description: Lỗi máy chủ nội bộ
  */
 // Accept multipart/form-data with optional `avatar` file
 router.post('/', authenticate, upload.single('avatar'), controller.create.bind(controller))
-
-// Development-only: public create route (no authentication) to ease testing from Postman.
-// Keep the authenticated route above for production use.
-router.post('/public', upload.single('avatar'), controller.create.bind(controller))
 
 /**
  * @openapi
@@ -374,7 +262,7 @@ router.post('/public', upload.single('avatar'), controller.create.bind(controlle
  *   put:
  *     tags:
  *       - Users
- *     summary: Update user
+ *     summary: Cập nhật thông tin người dùng
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -383,7 +271,7 @@ router.post('/public', upload.single('avatar'), controller.create.bind(controlle
  *         required: true
  *         schema:
  *           type: integer
- *         description: "User ID to update"
+ *         description: "ID người dùng cần cập nhật"
  *         example: 1
  *     requestBody:
  *       required: true
@@ -394,26 +282,26 @@ router.post('/public', upload.single('avatar'), controller.create.bind(controlle
  *             properties:
  *               name:
  *                 type: string
- *                 example: "John Doe Updated"
- *                 description: "Full name (optional)"
+ *                 example: "Nguyễn Văn A (Đã cập nhật)"
+ *                 description: "Họ và tên (không bắt buộc)"
  *               addresses:
  *                 type: string
- *                 example: "456 New Street, Updated City, Country"
- *                 description: "Address information (optional)"
+ *                 example: "456 Đường XYZ, Quận 3, TP.HCM"
+ *                 description: "Địa chỉ (không bắt buộc)"
  *               avatar:
  *                 type: string
  *                 format: binary
- *                 description: "New avatar image file (optional, jpg/png)"
+ *                 description: "File ảnh đại diện mới (không bắt buộc, jpg/png)"
  *               roleKeys:
  *                 type: array
  *                 items:
  *                   type: string
  *                 example: ["user", "manager"]
- *                 description: "Array of role keys to assign (optional, replaces existing roles)"
+ *                 description: "Mảng các key vai trò cần gán (không bắt buộc, thay thế vai trò hiện có)"
  *               active:
  *                 type: boolean
  *                 example: true
- *                 description: "User active status (optional)"
+ *                 description: "Trạng thái hoạt động của người dùng (không bắt buộc)"
  *         application/json:
  *           schema:
  *             type: object
@@ -424,21 +312,21 @@ router.post('/public', upload.single('avatar'), controller.create.bind(controlle
  *                 description: "Full name (optional)"
  *               addresses:
  *                 type: string
- *                 example: "456 New Street, Updated City, Country"
- *                 description: "Address information (optional)"
+ *                 example: "456 Đường XYZ, Quận 3, TP.HCM"
+ *                 description: "Địa chỉ (không bắt buộc)"
  *               roleKeys:
  *                 type: array
  *                 items:
  *                   type: string
  *                 example: ["user", "manager"]
- *                 description: "Array of role keys to assign (optional)"
+ *                 description: "Mảng các key vai trò cần gán (không bắt buộc)"
  *               active:
  *                 type: boolean
  *                 example: true
- *                 description: "User active status (optional)"
+ *                 description: "Trạng thái hoạt động của người dùng (không bắt buộc)"
  *     responses:
  *       200:
- *         description: User updated successfully
+ *         description: Cập nhật người dùng thành công
  *         content:
  *           application/json:
  *             schema:
@@ -468,27 +356,25 @@ router.post('/public', upload.single('avatar'), controller.create.bind(controlle
  *                     active:
  *                       type: boolean
  *                       example: true
- *                     roleAssignments:
+ *                     roleKeys:
  *                       type: array
  *                       items:
- *                         type: object
- *                         properties:
- *                           role:
- *                             type: object
- *                             properties:
- *                               key:
- *                                 type: string
- *                               name:
- *                                 type: string
+ *                         type: string
+ *                       example: ["user", "manager"]
+ *                     permissionKeys:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                       example: ["perm_read", "perm_write"]
  *                 message:
  *                   type: string
- *                   example: "User updated"
+ *                   example: "Cập nhật người dùng thành công"
  *       404:
- *         description: User not found
+ *         description: Không tìm thấy người dùng
  *       400:
- *         description: Invalid user ID
+ *         description: ID người dùng không hợp lệ
  *       500:
- *         description: Internal server error
+ *         description: Lỗi máy chủ nội bộ
  */
 router.put('/:id', authenticate, upload.single('avatar'), controller.update.bind(controller))
 
@@ -498,7 +384,7 @@ router.put('/:id', authenticate, upload.single('avatar'), controller.update.bind
  *   delete:
  *     tags:
  *       - Users
- *     summary: Delete user (soft)
+ *     summary: Xóa người dùng (xóa mềm)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -507,9 +393,10 @@ router.put('/:id', authenticate, upload.single('avatar'), controller.update.bind
  *         required: true
  *         schema:
  *           type: integer
+ *         description: "ID người dùng cần xóa"
  *     responses:
  *       200:
- *         description: User deleted successfully
+ *         description: Xóa người dùng thành công
  */
 router.delete('/:id', authenticate, controller.delete.bind(controller))
 
@@ -519,7 +406,7 @@ router.delete('/:id', authenticate, controller.delete.bind(controller))
  *   post:
  *     tags:
  *       - Users
- *     summary: Delete multiple users (soft)
+ *     summary: Xóa nhiều người dùng (xóa mềm)
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -533,9 +420,10 @@ router.delete('/:id', authenticate, controller.delete.bind(controller))
  *                 type: array
  *                 items:
  *                   type: integer
+ *                 description: "Mảng các ID người dùng cần xóa"
  *     responses:
  *       200:
- *         description: Users deleted
+ *         description: Xóa người dùng thành công
  */
 router.post('/delete-multiple', authenticate, controller.deleteMultiple.bind(controller))
 
@@ -545,7 +433,7 @@ router.post('/delete-multiple', authenticate, controller.deleteMultiple.bind(con
  *   post:
  *     tags:
  *       - Users
- *     summary: Activate/Deactivate multiple users
+ *     summary: Kích hoạt/Vô hiệu hóa nhiều người dùng
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -559,11 +447,13 @@ router.post('/delete-multiple', authenticate, controller.deleteMultiple.bind(con
  *                 type: array
  *                 items:
  *                   type: integer
+ *                 description: "Mảng các ID người dùng"
  *               active:
  *                 type: boolean
+ *                 description: "Trạng thái hoạt động (true: kích hoạt, false: vô hiệu hóa)"
  *     responses:
  *       200:
- *         description: Users updated
+ *         description: Cập nhật người dùng thành công
  */
 router.post('/active-multiple', authenticate, controller.activeMultiple.bind(controller))
 

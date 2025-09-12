@@ -5,7 +5,7 @@ export interface UserProfileSafe {
   active: boolean
   updatedAt: string | null
   addresses: string | null
-  roles: string[] 
+  roles: string[]
 }
 
 export interface UserCreateDto {
@@ -23,6 +23,17 @@ export interface UserCreateDto {
   active?: boolean
 
   // Role & Permission by key (client supplies keys only)
-  roleKeys?: string[]              // e.g. ['user','admin']
-  permissionKeys?: string[]        // e.g. ['user.view','project.create']
+  roleKeys?: string[] // e.g. ['user','admin']
+  permissionKeys?: string[] // e.g. ['user.view','project.create']
+}
+
+export interface UserUpdateDto {
+  name?: string | null
+  avatarUrl?: string | null
+  avatarFile?: { buffer: Buffer; originalname: string }
+  addresses?: string | null
+  active?: boolean
+  // Role & Permission by key for updates (replace existing role assignments)
+  roleKeys?: string[]
+  permissionKeys?: string[]
 }
