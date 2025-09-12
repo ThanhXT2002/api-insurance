@@ -296,7 +296,6 @@ export class UserService extends BaseService {
     }
   }
 
-
   // Convenience method for getting user with full details
   async getUserWithFullDetails(id: number) {
     return this.getById(id, { includeRoles: true, includePermissions: true })
@@ -305,15 +304,127 @@ export class UserService extends BaseService {
   async deleteById(id: number, hard = false, ctx?: { actorId?: number }) {
     const existing = await this.repo.findById(id)
     if (!existing) throw new Error('Không tìm thấy người dùng')
-    if (hard) return this.repo.delete({ id })
-    return this.delete({ id }, false)
+    // Ở cấp module user: nếu gọi xóa (bất kể hard flag) thì nên dọn dẹp các bảng liên quan
+    // Thực hiện xóa toàn bộ bằng helper chung để đảm bảo consistency
+    const result = await this.hardDeleteIds([id], ctx)
+    return result
   }
 
-  async deleteMultiple(ids: number[], hard = false, ctx?: { actorId?: number }) {
-    if (!Array.isArray(ids) || ids.length === 0) throw new Error('Không có id nào được cung cấp')
-    if (hard) return this.repo.deleteMany({ id: { in: ids } })
-    // Prisma User model doesn't have updatedBy — only toggle active flag
-    return this.repo.updateMany({ id: { in: ids } }, { active: false })
+  // NOTE: giữ chữ ký tương thích với BaseService.deleteMultiple(where, hard?)
+  // Nhưng ở cấp module user, chúng ta luôn thực hiện hard delete. Nếu caller truyền
+  // một mảng ids trực tiếp hoặc một object where ({ id: { in: [...] } }) đều được hỗ trợ.
+  async deleteMultiple(where: any, hard?: boolean, ctx?: { actorId?: number }) {
+    // Chuẩn hóa danh sách ids từ tham số 'where'
+    let ids: number[] = []
+    if (Array.isArray(where)) ids = where
+    else if (where && where.id && Array.isArray(where.id.in)) ids = where.id.in
+    else throw new Error('Không có id nào được cung cấp')
+
+    return this.hardDeleteIds(ids, ctx)
+  }
+
+  // Helper dùng chung để xóa nhiều user theo ids: xóa các bảng liên quan trong transaction,
+  // xác nhận hậu điều kiện, rồi dọn dẹp avatar và Supabase user (best-effort).
+  private async hardDeleteIds(ids: number[], ctx?: { actorId?: number }) {
+    // Lấy users để biết supabaseId và avatarUrl
+    const users = await this.repo.findMany({ where: { id: { in: ids } } })
+    if (!users || users.length === 0) return { deleted: 0, avatarFailures: [], supabaseFailures: [] }
+
+    const supabaseIds = users.map((u: any) => u.supabaseId).filter(Boolean)
+    const avatarUrls = users.map((u: any) => u.avatarUrl).filter(Boolean)
+
+    // Thực hiện xóa các bản ghi liên quan trong transaction
+    await this.repo.runTransaction(async (tx) => {
+      await tx.userPermission.deleteMany({ where: { userId: { in: ids } } })
+      await tx.userRoleAssignment.deleteMany({ where: { userId: { in: ids } } })
+
+      // Thêm các xóa khác nếu cần ở đây
+      await tx.user.deleteMany({ where: { id: { in: ids } } })
+    })
+
+    // Kiểm tra hậu điều kiện
+    const remaining = await this.repo.findMany({ where: { id: { in: ids } } })
+    if (remaining && remaining.length > 0) {
+      console.error(
+        '[hardDeleteIds] Sau transaction vẫn còn user trong DB, ids còn lại=',
+        remaining.map((r: any) => r.id)
+      )
+      return {
+        deleted: users.length - remaining.length,
+        remaining: remaining.map((r: any) => r.id),
+        avatarFailures: [],
+        supabaseFailures: []
+      }
+    }
+
+    // Xóa avatar (best-effort) -- song song với retry nhỏ
+    const avatarFailures: { url: string; error: any }[] = []
+    const avatarResults = await Promise.allSettled(
+      avatarUrls.map((url: string) =>
+        (async function tryDeleteAvatar(retries = 1) {
+          try {
+            await fileUploadService.deleteFileByUrl(url)
+            return { url, ok: true }
+          } catch (err: any) {
+            if (retries > 0) {
+              await new Promise((r) => setTimeout(r, 200))
+              return tryDeleteAvatar(retries - 1)
+            }
+            return { url, ok: false, error: err?.message || err }
+          }
+        })()
+      )
+    )
+
+    for (const r of avatarResults) {
+      if (r.status === 'fulfilled') {
+        const v: any = r.value
+        if (!v.ok) avatarFailures.push({ url: v.url, error: v.error })
+      } else {
+        avatarFailures.push({ url: 'unknown', error: r.reason })
+      }
+    }
+
+    // Xóa Supabase users (best-effort)
+    const supabaseFailures: { supabaseId: string; error: any }[] = []
+    if (supabaseIds.length > 0) {
+      const adminClient: any = getSupabaseAdmin()
+      const sbResults = await Promise.allSettled(
+        supabaseIds.map((sbId: string) =>
+          (async function tryDeleteSb(retries = 1) {
+            try {
+              if (adminClient?.auth?.admin?.deleteUser) {
+                return await adminClient.auth.admin.deleteUser(sbId)
+              } else if (adminClient?.auth?.deleteUser) {
+                return await adminClient.auth.deleteUser(sbId)
+              } else {
+                throw new Error('Supabase admin deleteUser không có sẵn')
+              }
+            } catch (err: any) {
+              if (retries > 0) {
+                await new Promise((r) => setTimeout(r, 200))
+                return tryDeleteSb(retries - 1)
+              }
+              throw err
+            }
+          })()
+        )
+      )
+
+      for (let i = 0; i < sbResults.length; i++) {
+        const res = sbResults[i]
+        const sbId = supabaseIds[i]
+        if (res.status === 'rejected') {
+          supabaseFailures.push({ supabaseId: sbId, error: res.reason?.message || res.reason })
+        }
+      }
+    }
+
+    return {
+      deleted: users.length,
+      avatarFailures,
+      supabaseFailures
+    }
   }
 
   async activeMultiple(ids: number[], active: boolean, ctx?: { actorId?: number }) {

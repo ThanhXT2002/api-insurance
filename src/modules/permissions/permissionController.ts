@@ -186,7 +186,7 @@ export class PermissionController {
           )
       }
 
-      const deleted = await this.service.delete({ id: permissionId }, true) // Hard delete
+      const deleted = await this.service.delete({ id: permissionId }) // Hard delete
       if (!deleted) {
         return res
           .status(StatusCodes.NOT_FOUND)

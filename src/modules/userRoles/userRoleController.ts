@@ -177,7 +177,7 @@ export class UserRoleController {
       const { id } = req.params
       const roleId = parseInt(id)
 
-      await this.service.delete({ id: roleId }, true)
+      await this.service.delete({ id: roleId })
 
       res.status(StatusCodes.OK).send(ApiResponse.ok(null, 'Xóa role thành công'))
     } catch (error: any) {

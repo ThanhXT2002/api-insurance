@@ -194,24 +194,19 @@ export class BaseService<T = any> {
     }
   }
 
-  // Khuyến nghị: mặc định soft-delete (toggle active) thay vì xóa cứng
-  async delete(where: any, hard = false): Promise<any> {
-    if (hard) {
-      return this.repository.delete(where)
-    }
-    return this.repository.update(where, { active: false })
+  // LƯU Ý: thay đổi chính sách xóa - luôn thực hiện xóa cứng (hard delete).
+  // Hàm này sẽ xóa bản ghi khỏi database hoàn toàn thay vì chỉ set `active=false`.
+  async delete(where: any): Promise<any> {
+    return this.repository.delete(where)
   }
 
   /**
-   * Xóa nhiều bản ghi cùng lúc.
-   * - Nếu hard=true => xóa cứng bằng deleteMany
-   * - Nếu hard=false => soft-delete bằng updateMany({ active: false })
+   * Xóa nhiều bản ghi cùng lúc (xóa cứng luôn - deleteMany).
+   * Trước đây BaseService hỗ trợ soft-delete bằng trường `active`;
+   * hiện tại chính sách thay đổi: gọi hàm này sẽ xóa thật các bản ghi.
    */
-  async deleteMultiple(where: any, hard = false): Promise<any> {
-    if (hard) {
-      return this.repository.deleteMany({ where })
-    }
-    return this.repository.updateMany({ where }, { active: false })
+  async deleteMultiple(where: any): Promise<any> {
+    return this.repository.deleteMany({ where })
   }
 
   /**

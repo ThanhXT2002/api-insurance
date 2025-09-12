@@ -212,9 +212,12 @@ export class UserController {
       }
 
       const actorId = (req as any).user?.id
-      await this.userService.deleteMultiple(ids, false, { actorId })
+      console.log('actorId', actorId)
+      // Gọi deleteMultiple: ở mức module user luôn hard-delete, truyền ids như where
+      await this.userService.deleteMultiple(ids, undefined, { actorId })
       res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Xóa người dùng thành công'))
     } catch (err: any) {
+      console.error(err)
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .json(ApiResponse.error(err.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))

@@ -384,7 +384,7 @@ router.put('/:id', authenticate, upload.single('avatar'), controller.update.bind
  *   delete:
  *     tags:
  *       - Users
- *     summary: Xóa người dùng (xóa mềm)
+ *     summary: Xóa người dùng 
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -406,7 +406,7 @@ router.delete('/:id', authenticate, controller.delete.bind(controller))
  *   post:
  *     tags:
  *       - Users
- *     summary: Xóa nhiều người dùng (xóa mềm)
+ *     summary: Xóa nhiều người dùng
  *     security:
  *       - bearerAuth: []
  *     requestBody:

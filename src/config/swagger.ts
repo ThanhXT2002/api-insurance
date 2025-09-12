@@ -68,11 +68,19 @@ export function setupSwagger(app: Express) {
   // Serve swagger.json
   app.get('/swagger.json', (_req, res) => {
     res.setHeader('Content-Type', 'application/json')
+    // Disable caching for swagger.json to ensure updates are reflected immediately
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Expires', '0')
     res.send(swaggerSpec)
   })
 
   // Custom Swagger UI HTML để tránh vấn đề với static files
   app.get('/docs', (_req, res) => {
+    // Disable caching for docs page too
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+    res.setHeader('Pragma', 'no-cache')
+    res.setHeader('Expires', '0')
     const html = `
 		<!DOCTYPE html>
 		<html lang="en">
@@ -93,7 +101,7 @@ export function setupSwagger(app: Express) {
 			<script>
 				window.onload = function() {
 					const ui = SwaggerUIBundle({
-						url: '/swagger.json',
+						url: '/swagger.json?t=' + Date.now(), // Cache-busting parameter
 						dom_id: '#swagger-ui',
 						deepLinking: true,
 						presets: [
