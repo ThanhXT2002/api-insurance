@@ -168,6 +168,7 @@ export class UserService extends BaseService {
         const userCreateData: any = {
           email: data.email,
           name: data.name ?? null,
+          addresses: data.addresses ?? null,
           phoneNumber: data.phoneNumber ?? null,
           supabaseId: sbUser.id,
           avatarUrl: uploadedAvatarUrl ?? data.avatarUrl ?? null,
