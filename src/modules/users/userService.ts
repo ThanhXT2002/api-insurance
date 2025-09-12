@@ -9,7 +9,7 @@ export class UserService extends BaseService {
   constructor(protected repo: UserRepository) {
     super(repo)
   }
-  // Override getAll to support keyword search on email/name
+  // Ghi đè `getAll` để hỗ trợ tìm kiếm theo keyword trên email/name
   async getAll(params: any = {}) {
     const { keyword, page, limit, active, ...other } = params
     const safePage = page || 1
@@ -17,7 +17,7 @@ export class UserService extends BaseService {
     const skip = (safePage - 1) * safeLimit
 
     if (keyword) {
-      // Build keyword search where clause. Include `active` if caller provided it.
+      // Xây dựng điều kiện where cho tìm kiếm theo keyword. Nếu caller truyền `active` thì thêm filter đó.
       const where: any = {
         OR: [
           { email: { contains: keyword, mode: 'insensitive' } },
@@ -27,23 +27,34 @@ export class UserService extends BaseService {
       }
 
       if (typeof active === 'boolean') {
-        // apply active filter in addition to keyword
+        // áp dụng filter `active` cùng với điều kiện keyword
         where.active = active
       }
 
-      // Use provided orderBy if caller gave one, otherwise default to newest-first
+      // Sử dụng orderBy do caller truyền nếu có, nếu không thì mặc định newest-first
       const orderBy = (params && (params as any).orderBy) || { id: 'desc' }
       const users = await (this.repo as any).findManyWithRoles({ where, skip, take: safeLimit, orderBy })
       const total = await this.repo.count(where)
-      // Transform audit fields first
+      // Giải thích (vi):
+      // 1) `findManyWithRoles` đã include `roleAssignments.role` và
+      //    `userPermissions.permission` (xem userRepository.findManyWithRoles).
+      // 2) Ở layer Service/API, không nên trả về các object relation lồng nhau
+      //    (roleAssignments, userPermissions) xuống frontend — frontend chỉ
+      //    cần các danh sách key (roleKeys, permissionKeys) để hiển thị hoặc gửi
+      //    lại khi cập nhật. Gom nested relations thành mảng key giúp response
+      //    phẳng, dễ tiêu thụ và ổn định.
+      // 3) `transformUserAuditFields` được gọi để chuyển các trường audit
+      //    (creator/updater) thành tên hiển thị trước khi trả về.
       const transformed = this.transformUserAuditFields(users)
 
-      // For each user, expose roleKeys and permissionKeys as arrays of keys and remove nested relation objects
+      // Chuyển các relation lồng nhau thành mảng key và loại bỏ các object lồng nhau
       const rows = (transformed || []).map((u: any) => {
         const out: any = { ...u }
+        // roleKeys: lấy trường `key` từ roleAssignments
         out.roleKeys = (u.roleAssignments || []).map((ra: any) => ra?.role?.key).filter(Boolean)
+        // permissionKeys: lấy trường `key` từ userPermissions
         out.permissionKeys = (u.userPermissions || []).map((up: any) => up?.permission?.key).filter(Boolean)
-        // Clean up nested relations to keep response compact
+        // Xóa các trường nested để giữ response gọn
         delete out.roleAssignments
         delete out.userPermissions
         return out
@@ -55,8 +66,15 @@ export class UserService extends BaseService {
     const baseParams: any = { page: safePage, limit: safeLimit, ...other }
     if (typeof active === 'boolean') baseParams.active = active
 
-    // For consistency with the keyword-search branch, use findManyWithRoles to fetch
-    // roleAssignments and userPermissions so we can expose roleKeys and permissionKeys.
+    // Để đồng nhất với nhánh tìm theo keyword, dùng `findManyWithRoles` để fetch
+    // cả roleAssignments và userPermissions nhằm có thể trả về roleKeys và permissionKeys.
+    //
+    // Giải thích (vi):
+    // - Trả về `roleKeys` và `permissionKeys` cho mọi endpoint giúp frontend
+    //   tránh phải xử lý nested relations hoặc gửi thêm nhiều request phụ.
+    // - Mặc định sắp xếp (`orderBy`) đặt về `{ id: 'desc' }` để trả về bản
+    //   ghi mới nhất trước (newest-first). Nếu caller muốn thứ tự khác,
+    //   họ có thể truyền `params.orderBy` và hàm sẽ tôn trọng.
     const where = { ...(other ?? {}) } as any
     if (typeof active === 'boolean') where.active = active
 
@@ -64,7 +82,7 @@ export class UserService extends BaseService {
     const users = await (this.repo as any).findManyWithRoles({ where, skip, take: safeLimit, orderBy })
     const total = await this.repo.count(where)
     const transformed = this.transformUserAuditFields(users)
-
+    // Chuyển các relation lồng nhau thành mảng key giống nhánh keyword
     const rows = (transformed || []).map((u: any) => {
       const out: any = { ...u }
       out.roleKeys = (u.roleAssignments || []).map((ra: any) => ra?.role?.key).filter(Boolean)
@@ -77,18 +95,23 @@ export class UserService extends BaseService {
     return { rows, total }
   }
   /**
-   * Create user flow:
-   * 1. Create user in Supabase (email/password)
-   * 2. Upload avatar (if provided)
-   * 3. Create local user record and role assignments in a DB transaction
-   * 4. On any error, rollback uploaded files and throw
+   * Luồng tạo người dùng:
+   * 1. Tạo người dùng trên Supabase (email/password)
+   * 2. Upload avatar (nếu có)
+   * 3. Tạo profile cục bộ và gán role/permission trong 1 transaction DB
+   * 4. Nếu có lỗi ở bất kỳ bước nào, rollback các file đã upload và ném lỗi
    *
-   * Expected data shape:
-   * UserCreateDto (see userCreate.dto.ts) — roleKeys and permissionKeys are arrays of keys (strings)
+   * Dạng dữ liệu mong đợi:
+   * UserCreateDto — roleKeys và permissionKeys là mảng key (chuỗi)
    */
   async createUser(data: UserCreateDto, ctx?: { actorId?: number }) {
+    // Gói vớiRollback giúp chúng ta đăng ký các hành động rollback (xóa file, xóa supabase user)
+    // nếu bất kỳ bước phụ trợ nào thất bại sau khi đã tạo tài nguyên bên ngoài DB.
+    // Mục tiêu: đảm bảo tính nguyên tử cho luồng business (không để rác file hoặc user Supabase khi transaction DB fail).
     return withRollback(async (rollback: RollbackManager) => {
-      // 1) Supabase signup
+      // 1) Tạo user trên Supabase (auth)
+      // - Bắt buộc có email và password cho signup.
+      // - Nếu Supabase trả lỗi ở bước này thì dừng và ném lỗi ngay — không có side-effect khác cần rollback.
       const supabase = getSupabase()
       if (!data.email || !data.password) throw new Error('Email và mật khẩu là bắt buộc')
 
@@ -101,8 +124,10 @@ export class UserService extends BaseService {
       const sbUser = (sbData as any).user
       if (!sbUser) throw new Error('Không tạo được người dùng Supabase')
 
-      // Register rollback to remove Supabase user if any subsequent step fails.
-      // Use the admin client helper which returns a service-role client when available.
+      // Đăng ký rollback để xóa người dùng Supabase nếu các bước tiếp theo thất bại.
+      // Lý do: sau khi tạo Supabase user, chúng ta có một tài nguyên bên ngoài DB; nếu
+      // tạo profile cục bộ trong DB fail, cần dọn dẹp Supabase user để không để rác account.
+      // rollback.addAsyncAction chạy khi withRollback bắt lỗi và thực hiện cleanup.
       rollback.addAsyncAction(async () => {
         try {
           const adminClient: any = getSupabaseAdmin()
@@ -114,11 +139,15 @@ export class UserService extends BaseService {
             console.warn('Rollback: chức năng deleteUser của Supabase admin không có sẵn, có thể cần dọn dẹp thủ công')
           }
         } catch (err) {
+          // Không throw nữa trong rollback — chỉ log vì rollback là best-effort
           console.error('Rollback: không thể xóa người dùng Supabase', err)
         }
       })
 
-      // 2) Upload avatar if present
+      // 2) Upload avatar (nếu có)
+      // - Thực hiện trước transaction DB để có URL lưu vào field avatarUrl.
+      // - Nếu upload thành công thì thêm action xóa file vào rollback manager nhằm dọn file nếu bước sau fail.
+      // - Lưu ý: upload có thể tốn thời gian; giữ nhỏ (resize) ở client nếu cần.
       let uploadedAvatarUrl: string | null = null
       if (data.avatarFile && (data.avatarFile as any).buffer) {
         const uploaded = await fileUploadService.uploadAvatar(
@@ -126,10 +155,15 @@ export class UserService extends BaseService {
           (data.avatarFile as any).originalname
         )
         uploadedAvatarUrl = uploaded.url
+        // Nếu transaction DB fail sau này, rollback sẽ gọi xóa file này
         rollback.addFileDeleteAction(uploaded.url)
       }
 
-      // 3) create local user and role/permission assignments in a transaction
+      // 3) Tạo profile cục bộ và gán role/permission trong 1 transaction
+      // - Mọi thao tác DB (user, userRoleAssignment, userPermission) được gói trong transaction
+      //   để đảm bảo tính nhất quán (rollback DB tự động khi có lỗi trong transaction).
+      // - Sau transaction, chúng ta thực hiện 1 query chọn lọc để trả về chỉ `key` của role/permission
+      //   (giúp frontend không cần xử lý nested relation).
       const created = await this.repo.runTransaction(async (tx) => {
         const userCreateData: any = {
           email: data.email,
@@ -142,7 +176,7 @@ export class UserService extends BaseService {
 
         const newUser = await this.repo.create(userCreateData, tx)
 
-        // role assignments by key
+        // Gán role dựa trên roleKeys (key là định danh chuỗi của role)
         if (Array.isArray(data.roleKeys) && data.roleKeys.length > 0) {
           const roles = await tx.userRole.findMany({ where: { key: { in: data.roleKeys } } })
           for (const r of roles) {
@@ -150,7 +184,7 @@ export class UserService extends BaseService {
           }
         }
 
-        // direct permissions by key -> create UserPermission with allowed = true
+        // Gán quyền trực tiếp cho user (nếu có) dưới dạng userPermission.allowed = true
         if (Array.isArray(data.permissionKeys) && data.permissionKeys.length > 0) {
           const perms = await tx.permission.findMany({ where: { key: { in: data.permissionKeys } } })
           for (const p of perms) {
@@ -158,11 +192,12 @@ export class UserService extends BaseService {
           }
         }
 
+        // Trả về bản ghi user vừa tạo, include chỉ các key cần thiết để chuyển sang response phẳng
         return await this.repo.findById(
           {
             where: { id: newUser.id },
             include: {
-              // only select the role key and permission key to minimize data
+              // chỉ lấy key để giảm payload và tránh lộ thông tin thừa
               roleAssignments: { include: { role: { select: { key: true } } } },
               userPermissions: { include: { permission: { select: { key: true } } } }
             }
@@ -171,14 +206,15 @@ export class UserService extends BaseService {
         )
       })
 
-      // Transform returned nested objects into arrays of keys for API response
+      // 4) Chuẩn bị response: chuyển nested relations thành mảng key
+      // - Giữ response phẳng (roleKeys, permissionKeys) để frontend dễ dùng
       const transformed: any = {
         ...created,
         roleKeys: (created?.roleAssignments || []).map((ra: any) => ra.role?.key).filter(Boolean),
         permissionKeys: (created?.userPermissions || []).map((up: any) => up.permission?.key).filter(Boolean)
       }
 
-      // Remove nested objects to keep response minimal
+      // Xóa các object nested trước khi trả về
       delete transformed.roleAssignments
       delete transformed.userPermissions
 
@@ -190,35 +226,40 @@ export class UserService extends BaseService {
     const existing = await this.repo.findById(id)
     if (!existing) throw new Error('Không tìm thấy người dùng')
 
-    // Support updating avatar and roles atomically with rollback for uploaded file
+    // Luồng cập nhật:
+    // - Nếu client gửi file avatar mới, upload trước để có URL (không ghi vào DB ngay lập tức).
+    // - Thực hiện các cập nhật DB (user, roleAssignments, userPermissions) trong 1 transaction.
+    // - Nếu transaction fail, rollback manager sẽ xóa file avatar mới đã upload (đã đăng ký ở trên).
+    // - Nếu update thành công và avatar được thay, cố gắng xóa avatar cũ (best-effort, không làm fail toàn bộ yêu cầu).
+    // Mục tiêu: đảm bảo cập nhật avatar và mapping role/permission có tính nguyên tử về business logic,
+    // đồng thời tránh để lại file rác nếu DB rollback.
     return withRollback(async (rollback: RollbackManager) => {
-      // If new avatar provided, upload it first and register rollback to delete if update fails
+      // Nếu có file avatar mới, upload trước và đăng ký hành động xóa trong rollback
       let newAvatarUrl: string | null = null
       if (data.avatarFile && data.avatarFile.buffer) {
         const uploaded = await fileUploadService.uploadAvatar(data.avatarFile.buffer, data.avatarFile.originalname)
         newAvatarUrl = uploaded.url
+        // Nếu transaction DB thất bại sẽ xóa file mới này
         rollback.addFileDeleteAction(newAvatarUrl)
       }
 
       const updated = await this.repo.runTransaction(async (tx) => {
-        // Prepare update payload
+        // Chuẩn bị payload cho update:
+        // - Merge dữ liệu gửi lên, thay avatarUrl nếu đã upload file mới.
+        // - Loại bỏ các trường tạm không tồn tại trên model User (avatarFile, roleKeys, permissionKeys)
+        //   để tránh lỗi Prisma khi update.
         const updateData: any = { ...data }
         if (newAvatarUrl) {
           updateData.avatarUrl = newAvatarUrl
         }
-        // Remove fields that are not columns on User model to avoid Prisma errors
-        // (roleKeys and permissionKeys are handled via separate tables)
         delete updateData.avatarFile
         delete updateData.roleKeys
         delete updateData.permissionKeys
 
-        // Note: User model in Prisma does not have audit fields (createdBy/updatedBy).
-        // Audit fields are present on other models (Post, PostCategory). Do not set updatedBy here.
-
-        // Update user
+        // Cập nhật bản ghi user chính
         const user = await this.repo.update({ id }, updateData, tx)
 
-        // If roleKeys provided, replace role assignments inside the transaction
+        // Nếu caller truyền roleKeys (mảng string key), thay toàn bộ roleAssignments trong transaction
         if (Array.isArray(data.roleKeys)) {
           // delete existing assignments for user
           await tx.userRoleAssignment.deleteMany({ where: { userId: user.id } })
@@ -231,7 +272,7 @@ export class UserService extends BaseService {
           }
         }
 
-        // If permissionKeys provided, replace direct user permissions inside the transaction
+        // Nếu caller truyền permissionKeys (mảng string key), thay toàn bộ userPermissions trong transaction
         if (Array.isArray(data.permissionKeys)) {
           // delete existing user permissions for user
           await tx.userPermission.deleteMany({ where: { userId: user.id } })
@@ -244,7 +285,8 @@ export class UserService extends BaseService {
           }
         }
 
-        // return updated user with roles and permissions (select keys only)
+        // Trả về user đã cập nhật kèm roleAssignments/userPermissions (chỉ select key) để thuận tiện cho việc
+        // chuyển sang response phẳng ở ngoài transaction.
         return tx.user.findUnique({
           where: { id: user.id },
           include: {
@@ -312,10 +354,10 @@ export class UserService extends BaseService {
 
       if (!user) return null
 
-      // Transform the result to include roleKeys and permissionKeys when requested
+      // Chuyển đổi kết quả để bao gồm roleKeys và permissionKeys khi được yêu cầu
       const transformed = this.transformUserAuditFields([user])[0]
 
-      // Always expose simple arrays of roleKeys and permissionKeys for API consumers
+      // Luôn cung cấp mảng đơn giản roleKeys và permissionKeys cho client/API sử dụng
       transformed.roleKeys = (transformed.roleAssignments || [])
         .map((assignment: any) => assignment?.role?.key)
         .filter(Boolean)
@@ -323,7 +365,7 @@ export class UserService extends BaseService {
         .map((userPerm: any) => userPerm?.permission?.key)
         .filter(Boolean)
 
-      // Remove nested relation objects to keep response minimal and stable
+      // Xóa các object relation lồng nhau để giữ response gọn và ổn định
       delete transformed.roleAssignments
       delete transformed.userPermissions
       delete transformed.roles
@@ -462,7 +504,7 @@ export class UserService extends BaseService {
 
   async activeMultiple(ids: number[], active: boolean, ctx?: { actorId?: number }) {
     if (!Array.isArray(ids) || ids.length === 0) throw new Error('Không có id nào được cung cấp')
-    // Prisma User model doesn't have updatedBy — only update active
+    // Model User của Prisma không có trường updatedBy — chỉ cập nhật cờ active ở đây
     return this.repo.updateMany({ id: { in: ids } }, { active })
   }
 }

@@ -8,7 +8,9 @@ function randInt(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-function pick<T>(arr: T[]) { return arr[randInt(0, arr.length - 1)] }
+function pick<T>(arr: T[]) {
+  return arr[randInt(0, arr.length - 1)]
+}
 
 function randomDateWithinYears(years: number) {
   const now = Date.now()
@@ -16,16 +18,34 @@ function randomDateWithinYears(years: number) {
   return new Date(randInt(past, now))
 }
 
-const firstNames = [
-  'Nguyen', 'Tran', 'Le', 'Pham', 'Hoang', 'Phan', 'Vu', 'Vo', 'Dang', 'Bui', 'Do', 'Ngo'
-]
+const firstNames = ['Nguyen', 'Tran', 'Le', 'Pham', 'Hoang', 'Phan', 'Vu', 'Vo', 'Dang', 'Bui', 'Do', 'Ngo']
 
 const givenNames = [
-  'Minh', 'Anh', 'Hoa', 'Lan', 'Nam', 'Huy', 'Thuy', 'Linh', 'Khanh', 'Duy', 'Huyen', 'Quang', 'Trang', 'Tuan'
+  'Minh',
+  'Anh',
+  'Hoa',
+  'Lan',
+  'Nam',
+  'Huy',
+  'Thuy',
+  'Linh',
+  'Khanh',
+  'Duy',
+  'Huyen',
+  'Quang',
+  'Trang',
+  'Tuan'
 ]
 
 const streets = [
-  'Nguyen Trai', 'Le Duan', 'Tran Hung Dao', 'Pham Ngu Lao', 'Vo Van Kiet', 'Le Loi', 'Tran Phu', 'Hoang Van Thu'
+  'Nguyen Trai',
+  'Le Duan',
+  'Tran Hung Dao',
+  'Pham Ngu Lao',
+  'Vo Van Kiet',
+  'Le Loi',
+  'Tran Phu',
+  'Hoang Van Thu'
 ]
 
 const districts = ['Quận 1', 'Quận 3', 'Quận 5', 'Quận 7', 'Hà Đông', 'Cầu Giấy', 'Đống Đa', 'Bình Thạnh']
@@ -53,14 +73,14 @@ async function main() {
     const first = pick(firstNames)
     const given = pick(givenNames)
     const fullName = `${given} ${first}`
-    const localPart = `${slugify(given)}.${slugify(first)}${randInt(1,999)}`
+    const localPart = `${slugify(given)}.${slugify(first)}${randInt(1, 999)}`
     const domain = pick(domains)
     const email = `${localPart}@${domain}`
 
     const street = pick(streets)
     const district = pick(districts)
     const city = pick(cities)
-    const addresses = `${randInt(1,200)} ${street}, ${district}, ${city}`
+    const addresses = `${randInt(1, 200)} ${street}, ${district}, ${city}`
 
     const userData = {
       email,
@@ -69,7 +89,7 @@ async function main() {
       addresses,
       phoneNumber: makePhone(),
       active: true,
-      createdAt: randomDateWithinYears(2),
+      createdAt: randomDateWithinYears(2)
       // note: supabaseId only set on create (unique)
     }
 
@@ -81,7 +101,7 @@ async function main() {
           avatarUrl: userData.avatarUrl,
           addresses: userData.addresses,
           phoneNumber: userData.phoneNumber,
-          active: userData.active,
+          active: userData.active
         },
         create: {
           email: userData.email,
@@ -91,7 +111,7 @@ async function main() {
           phoneNumber: userData.phoneNumber,
           active: userData.active,
           supabaseId: randomUUID(),
-          createdAt: userData.createdAt,
+          createdAt: userData.createdAt
         }
       })
 
