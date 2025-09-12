@@ -8,9 +8,14 @@ export class UserRepository extends BaseRepository<'user'> {
 
   // Find many with optional include (used by BaseService)
   async findManyWithRoles(args?: { skip?: number; take?: number; where?: any }) {
+    // Include both role assignments and direct user permissions so callers can derive
+    // roleKeys and permissionKeys without additional queries.
     return prisma.user.findMany({
       ...args,
-      include: { roleAssignments: { include: { role: true } } }
+      include: {
+        roleAssignments: { include: { role: true } },
+        userPermissions: { include: { permission: true } }
+      }
     })
   }
 

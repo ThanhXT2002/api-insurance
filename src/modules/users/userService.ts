@@ -31,15 +31,50 @@ export class UserService extends BaseService {
         where.active = active
       }
 
-      const users = await (this.repo as any).findManyWithRoles({ where, skip, take: safeLimit })
+      // Use provided orderBy if caller gave one, otherwise default to newest-first
+      const orderBy = (params && (params as any).orderBy) || { id: 'desc' }
+      const users = await (this.repo as any).findManyWithRoles({ where, skip, take: safeLimit, orderBy })
       const total = await this.repo.count(where)
+      // Transform audit fields first
       const transformed = this.transformUserAuditFields(users)
-      return { rows: transformed, total }
+
+      // For each user, expose roleKeys and permissionKeys as arrays of keys and remove nested relation objects
+      const rows = (transformed || []).map((u: any) => {
+        const out: any = { ...u }
+        out.roleKeys = (u.roleAssignments || []).map((ra: any) => ra?.role?.key).filter(Boolean)
+        out.permissionKeys = (u.userPermissions || []).map((up: any) => up?.permission?.key).filter(Boolean)
+        // Clean up nested relations to keep response compact
+        delete out.roleAssignments
+        delete out.userPermissions
+        return out
+      })
+
+      return { rows, total }
     }
 
     const baseParams: any = { page: safePage, limit: safeLimit, ...other }
     if (typeof active === 'boolean') baseParams.active = active
-    return super.getAll(baseParams)
+
+    // For consistency with the keyword-search branch, use findManyWithRoles to fetch
+    // roleAssignments and userPermissions so we can expose roleKeys and permissionKeys.
+    const where = { ...(other ?? {}) } as any
+    if (typeof active === 'boolean') where.active = active
+
+    const orderBy = (params && (params as any).orderBy) || { id: 'desc' }
+    const users = await (this.repo as any).findManyWithRoles({ where, skip, take: safeLimit, orderBy })
+    const total = await this.repo.count(where)
+    const transformed = this.transformUserAuditFields(users)
+
+    const rows = (transformed || []).map((u: any) => {
+      const out: any = { ...u }
+      out.roleKeys = (u.roleAssignments || []).map((ra: any) => ra?.role?.key).filter(Boolean)
+      out.permissionKeys = (u.userPermissions || []).map((up: any) => up?.permission?.key).filter(Boolean)
+      delete out.roleAssignments
+      delete out.userPermissions
+      return out
+    })
+
+    return { rows, total }
   }
   /**
    * Create user flow:
