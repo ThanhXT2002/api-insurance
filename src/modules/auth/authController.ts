@@ -96,8 +96,8 @@ export class AuthController {
           .send(ApiResponse.error('Không tìm thấy thông tin user', 'Unauthorized', StatusCodes.UNAUTHORIZED))
       }
 
-      const { name, addresses } = req.body
-      const updatedProfile = await this.authService.updateProfile(userId, { name, addresses })
+      const { name, phoneNumber, addresses } = req.body
+      const updatedProfile = await this.authService.updateProfile(userId, { name, phoneNumber, addresses })
 
       return res.status(StatusCodes.OK).send(ApiResponse.ok(updatedProfile, 'Cập nhật profile thành công'))
     } catch (err: any) {

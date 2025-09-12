@@ -87,6 +87,9 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *                     name:
  *                       type: string
  *                       example: "John Doe"
+ *                     phoneNumber:
+ *                       type: string
+ *                       example: "0123456789"
  *                     avatarUrl:
  *                       type: string
  *                       example: "https://storage.example.com/avatars/123.jpg"
@@ -143,6 +146,10 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *                 type: string
  *                 example: "Nguyễn Văn A"
  *                 description: "Họ và tên (không bắt buộc)"
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "0123456789"
+ *                 description: "Số điện thoại (không bắt buộc)"
  *               addresses:
  *                 type: string
  *                 example: "123 Đường ABC, Quận 1, TP.HCM"
@@ -155,52 +162,18 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *                 type: array
  *                 items:
  *                   type: string
- *                 example: ["user", "admin"]
+ *                 example: ["super_admin", "editor"]
  *                 description: "Mảng các key vai trò cần gán (không bắt buộc)"
  *               permissionKeys:
  *                 type: array
  *                 items:
  *                   type: string
- *                 example: ["perm_read","perm_write"]
+ *                 example: ["comment.delete","comment.view"]
  *                 description: "Mảng các key quyền hạn trực tiếp (không bắt buộc)"
  *               active:
  *                 type: boolean
  *                 default: true
  *                 description: "Trạng thái hoạt động của người dùng (không bắt buộc)"
- *             required:
- *               - email
- *               - password
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
- *                 example: "john.doe@example.com"
- *               password:
- *                 type: string
- *                 minLength: 6
- *                 example: "password123"
- *               name:
- *                 type: string
- *                 example: "John Doe"
- *               addresses:
- *                 type: string
- *                 example: "123 Main St, City, Country"
- *               roleKeys:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ["user", "admin"]
- *               permissionKeys:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ["perm_read","perm_write"]
- *               active:
- *                 type: boolean
- *                 default: true
  *             required:
  *               - email
  *               - password
@@ -227,6 +200,9 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *                     name:
  *                       type: string
  *                       example: "John Doe"
+ *                     phoneNumber:
+ *                       type: string
+ *                       example: "0123456789"
  *                     avatarUrl:
  *                       type: string
  *                       example: "https://storage.example.com/avatars/123.jpg"
@@ -282,8 +258,12 @@ router.post('/', authenticate, upload.single('avatar'), controller.create.bind(c
  *             properties:
  *               name:
  *                 type: string
- *                 example: "Nguyễn Văn A (Đã cập nhật)"
+ *                 example: "Trần Xuân Thành"
  *                 description: "Họ và tên (không bắt buộc)"
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "0123456789"
+ *                 description: "Số điện thoại (không bắt buộc)"
  *               addresses:
  *                 type: string
  *                 example: "456 Đường XYZ, Quận 3, TP.HCM"
@@ -296,41 +276,13 @@ router.post('/', authenticate, upload.single('avatar'), controller.create.bind(c
  *                 type: array
  *                 items:
  *                   type: string
- *                 example: ["user", "manager"]
+ *                 example: ["super_admin", "editor"]
  *                 description: "Mảng các key vai trò cần gán (không bắt buộc, thay thế vai trò hiện có)"
  *               permissionKeys:
  *                 type: array
  *                 items:
  *                   type: string
- *                 example: ["perm_read","perm_write"]
- *                 description: "Mảng các key quyền hạn trực tiếp (không bắt buộc)"
- *               active:
- *                 type: boolean
- *                 example: true
- *                 description: "Trạng thái hoạt động của người dùng (không bắt buộc)"
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 example: "John Doe Updated"
- *                 description: "Full name (optional)"
- *               addresses:
- *                 type: string
- *                 example: "456 Đường XYZ, Quận 3, TP.HCM"
- *                 description: "Địa chỉ (không bắt buộc)"
- *               roleKeys:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ["user", "manager"]
- *                 description: "Mảng các key vai trò cần gán (không bắt buộc)"
- *               permissionKeys:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ["perm_read","perm_write"]
+ *                 example: ["comment.delete","comment.moderate","comment.view"]
  *                 description: "Mảng các key quyền hạn trực tiếp (không bắt buộc)"
  *               active:
  *                 type: boolean
@@ -359,6 +311,9 @@ router.post('/', authenticate, upload.single('avatar'), controller.create.bind(c
  *                     name:
  *                       type: string
  *                       example: "John Doe Updated"
+ *                     phoneNumber:
+ *                       type: string
+ *                       example: "0123456789"
  *                     avatarUrl:
  *                       type: string
  *                       example: "https://storage.example.com/avatars/123-updated.jpg"
@@ -372,12 +327,12 @@ router.post('/', authenticate, upload.single('avatar'), controller.create.bind(c
  *                       type: array
  *                       items:
  *                         type: string
- *                       example: ["user", "manager"]
+ *                       example: ["super_admin", "editor"]
  *                     permissionKeys:
  *                       type: array
  *                       items:
  *                         type: string
- *                       example: ["perm_read", "perm_write"]
+ *                       example: ["comment.delete", "comment.moderate","comment.view"]
  *                 message:
  *                   type: string
  *                   example: "Cập nhật người dùng thành công"

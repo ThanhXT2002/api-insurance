@@ -1,6 +1,7 @@
 export interface UserProfileSafe {
   email: string
   name: string | null
+  phoneNumber: string | null
   avatarUrl: string | null
   active: boolean
   updatedAt: string | null
@@ -19,6 +20,7 @@ export interface UserCreateDto {
   // optional file shape when uploading via multipart (service handles upload)
   avatarFile?: { buffer: Buffer; originalname: string }
 
+  phoneNumber?: string | null
   addresses?: string | null
   active?: boolean
 
@@ -29,6 +31,7 @@ export interface UserCreateDto {
 
 export interface UserUpdateDto {
   name?: string | null
+  phoneNumber?: string | null
   avatarUrl?: string | null
   avatarFile?: { buffer: Buffer; originalname: string }
   addresses?: string | null

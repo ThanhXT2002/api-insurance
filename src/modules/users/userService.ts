@@ -3,7 +3,7 @@ import { UserRepository } from './userRepository'
 import { getSupabase, getSupabaseAdmin } from '../../config/supabaseClient'
 import { fileUploadService } from '../../services/fileUploadService'
 import { withRollback, RollbackManager } from '../../utils/rollbackHelper'
-import { UserCreateDto } from '~/types/userType'
+import { UserCreateDto, UserUpdateDto } from '~/types/userType'
 
 export class UserService extends BaseService {
   constructor(protected repo: UserRepository) {
@@ -21,6 +21,7 @@ export class UserService extends BaseService {
       const where: any = {
         OR: [
           { email: { contains: keyword, mode: 'insensitive' } },
+          { phoneNumber: { contains: keyword, mode: 'insensitive' } },
           { name: { contains: keyword, mode: 'insensitive' } }
         ]
       }
@@ -98,6 +99,7 @@ export class UserService extends BaseService {
         const userCreateData: any = {
           email: data.email,
           name: data.name ?? null,
+          phoneNumber: data.phoneNumber ?? null,
           supabaseId: sbUser.id,
           avatarUrl: uploadedAvatarUrl ?? data.avatarUrl ?? null,
           active: typeof data.active === 'boolean' ? data.active : true
@@ -149,7 +151,7 @@ export class UserService extends BaseService {
     })
   }
 
-  async updateById(id: number, data: any, ctx?: { actorId?: number }) {
+  async updateById(id: number, data: UserUpdateDto, ctx?: { actorId?: number }) {
     const existing = await this.repo.findById(id)
     if (!existing) throw new Error('Không tìm thấy người dùng')
 

@@ -59,7 +59,7 @@ export class AuthService {
   }
 
   // Cập nhật thông tin profile
-  async updateProfile(userId: number, data: { name?: string; addresses?: string }) {
+  async updateProfile(userId: number, data: { name?: string; phoneNumber?: string; addresses?: string }) {
     const existingUser = await this.authRepository.findById({ where: { id: userId } })
     if (!existingUser) throw new Error('Không tìm thấy người dùng')
 
@@ -110,6 +110,7 @@ export class AuthService {
     return {
       email: profile.email,
       name: profile.name ?? null,
+      phoneNumber: profile.phoneNumber ?? null,
       avatarUrl: profile.avatarUrl ?? null,
       active: !!profile.active,
       updatedAt: profile.updatedAt ?? null,

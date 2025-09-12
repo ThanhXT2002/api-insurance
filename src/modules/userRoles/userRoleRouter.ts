@@ -15,6 +15,67 @@ const router = Router()
  * OpenAPI schemas are centralized in `src/config/swagger.ts`.
  * Per-file `components` blocks were removed to avoid duplicate top-level keys.
  */
+
+/**
+ * @openapi
+ * /api/user-roles:
+ *   get:
+ *     tags:
+ *       - User Roles
+ *     summary: Get all user roles (supports pagination, filtering and sorting)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         required: false
+ *         description: 'Page number (default: 1)'
+ *       - in: query
+ *         name: pageSize
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         required: false
+ *         description: 'Items per page (default: 10)'
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: Keyword to search by role name or key
+ *       - in: query
+ *         name: sort
+ *         schema:
+ *           type: string
+ *         required: false
+ *         description: 'Sort expression, e.g. "name:asc" or "createdAt:desc"'
+ *     responses:
+ *       200:
+ *         description: List of user roles retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 total:
+ *                   type: integer
+ *                   description: Total number of roles
+ *                 page:
+ *                   type: integer
+ *                 pageSize:
+ *                   type: integer
+ *                 items:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/UserRole'
+ *       400:
+ *         description: Invalid query parameters
+ *       401:
+ *         description: Unauthorized
+ */
 router.get('/', authenticate, controller.getAll.bind(controller))
 
 /**

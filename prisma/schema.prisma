@@ -33,6 +33,7 @@ model User {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   addresses   String?
+  phoneNumber String?
 
   // Roles: many-to-many via UserRoleAssignment
   roleAssignments UserRoleAssignment[]

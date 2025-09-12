@@ -76,6 +76,9 @@ router.get('/profile', authenticate, authController.getProfile.bind(authControll
  *               name:
  *                 type: string
  *                 example: "Nguyễn Văn A"
+ *               phoneNumber:
+ *                 type: string
+ *                 example: "0123456789"
  *               addresses:
  *                 type: string
  *                 example: "123 Đường ABC, Quận 1, TP.HCM"
