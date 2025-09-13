@@ -115,13 +115,47 @@ export class UserService extends BaseService {
       const supabase = getSupabase()
       if (!data.email || !data.password) throw new Error('Email và mật khẩu là bắt buộc')
 
-      const { data: sbData, error: sbError } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password
-      })
+      // Nếu có ctx.actorId => giả định admin đang tạo user, sử dụng Supabase admin
+      // để tạo user và đánh dấu email đã xác nhận (nếu có thể) để user có thể
+      // đăng nhập ngay lập tức. Nếu không có ctx.actorId, fallback về signUp bình thường.
+      let sbUser: any = null
+      if (ctx && ctx.actorId) {
+        const adminClient: any = getSupabaseAdmin()
+        if (!adminClient) throw new Error('Supabase admin client không có sẵn')
+        // Thử cả hai dạng chữ ký thông dụng: một số phiên bản supabase-js nhận
+        // primitive id, một số nhận object { userId } hoặc có api khác nhau.
+        // Ưu tiên dùng admin.createUser nếu có.
+        try {
+          if (adminClient?.auth?.admin?.createUser) {
+            // Một số phiên bản supabase-js hỗ trợ createUser payload với cờ
+            // để đánh dấu email đã được xác nhận — ghi nhận ở đây để user admin
+            // tạo có thể đăng nhập ngay lập tức (best-effort tùy client).
+            const createPayload: any = { email: data.email, password: data.password }
+            // Đánh dấu email đã confirmed (best-effort; tên trường có thể khác tùy phiên bản)
+            createPayload.email_confirm = true
+            const res: any = await adminClient.auth.admin.createUser(createPayload)
+            sbUser = res?.user || res?.data?.user || res
+          } else if (adminClient?.auth?.createUser) {
+            // Một số client có auth.createUser (không nằm dưới admin)
+            const res: any = await adminClient.auth.createUser({ email: data.email, password: data.password })
+            sbUser = res?.user || res?.data?.user || res
+          } else {
+            throw new Error('Supabase admin createUser không có sẵn')
+          }
+        } catch (err) {
+          // Ném lỗi lên để caller xử lý (admin create lỗi thì dừng)
+          throw err
+        }
+      } else {
+        const { data: sbData, error: sbError } = await supabase.auth.signUp({
+          email: data.email,
+          password: data.password
+        })
 
-      if (sbError) throw sbError
-      const sbUser = (sbData as any).user
+        if (sbError) throw sbError
+        sbUser = (sbData as any).user
+      }
+
       if (!sbUser) throw new Error('Không tạo được người dùng Supabase')
 
       // Đăng ký rollback để xóa người dùng Supabase nếu các bước tiếp theo thất bại.
@@ -131,10 +165,33 @@ export class UserService extends BaseService {
       rollback.addAsyncAction(async () => {
         try {
           const adminClient: any = getSupabaseAdmin()
+          const userId = sbUser?.id || sbUser?.user?.id || sbUser
+          if (!adminClient) {
+            console.warn('Rollback: Supabase admin client không có sẵn')
+            return
+          }
+          // Thử dùng id nguyên thủy trước, fallback sang object { userId }
           if (adminClient?.auth?.admin?.deleteUser) {
-            await adminClient.auth.admin.deleteUser(sbUser.id)
+            try {
+              await adminClient.auth.admin.deleteUser(userId)
+            } catch (e) {
+              // một số phiên bản yêu cầu object { userId }
+              try {
+                await adminClient.auth.admin.deleteUser({ userId })
+              } catch (e2) {
+                console.warn('Rollback: admin.deleteUser failed for both signatures', e2)
+              }
+            }
           } else if (adminClient?.auth?.deleteUser) {
-            await adminClient.auth.deleteUser(sbUser.id)
+            try {
+              await adminClient.auth.deleteUser(userId)
+            } catch (e) {
+              try {
+                await adminClient.auth.deleteUser({ userId })
+              } catch (e2) {
+                console.warn('Rollback: auth.deleteUser thất bại với cả hai dạng', e2)
+              }
+            }
           } else {
             console.warn('Rollback: chức năng deleteUser của Supabase admin không có sẵn, có thể cần dọn dẹp thủ công')
           }
@@ -159,6 +216,12 @@ export class UserService extends BaseService {
         rollback.addFileDeleteAction(uploaded.url)
       }
 
+      // Chuẩn hoá và loại bỏ trùng lặp roleKeys/permissionKeys TRƯỚC transaction,
+      // Chuẩn hoá và loại bỏ trùng lặp roleKeys/permissionKeys TRƯỚC transaction
+      // Việc validate (nếu cần) sẽ thực hiện trong transaction bằng helper chung.
+      const requestedRoleKeys = this.normalizeKeys(data.roleKeys)
+      const requestedPermissionKeys = this.normalizeKeys(data.permissionKeys)
+
       // 3) Tạo profile cục bộ và gán role/permission trong 1 transaction
       // - Mọi thao tác DB (user, userRoleAssignment, userPermission) được gói trong transaction
       //   để đảm bảo tính nhất quán (rollback DB tự động khi có lỗi trong transaction).
@@ -177,21 +240,11 @@ export class UserService extends BaseService {
 
         const newUser = await this.repo.create(userCreateData, tx)
 
-        // Gán role dựa trên roleKeys (key là định danh chuỗi của role)
-        if (Array.isArray(data.roleKeys) && data.roleKeys.length > 0) {
-          const roles = await tx.userRole.findMany({ where: { key: { in: data.roleKeys } } })
-          for (const r of roles) {
-            await tx.userRoleAssignment.create({ data: { userId: newUser.id, roleId: r.id } })
-          }
-        }
+        // Gán role: sử dụng helper chung (validate + tạo mapping)
+        await this.assignRolesInTx(tx, newUser.id, requestedRoleKeys)
 
-        // Gán quyền trực tiếp cho user (nếu có) dưới dạng userPermission.allowed = true
-        if (Array.isArray(data.permissionKeys) && data.permissionKeys.length > 0) {
-          const perms = await tx.permission.findMany({ where: { key: { in: data.permissionKeys } } })
-          for (const p of perms) {
-            await tx.userPermission.create({ data: { userId: newUser.id, permissionId: p.id, allowed: true } })
-          }
-        }
+        // Gán quyền trực tiếp cho user (validate + tạo mapping) dùng helper chung
+        await this.assignPermissionsInTx(tx, newUser.id, requestedPermissionKeys)
 
         // Trả về bản ghi user vừa tạo, include chỉ các key cần thiết để chuyển sang response phẳng
         return await this.repo.findById(
@@ -209,17 +262,7 @@ export class UserService extends BaseService {
 
       // 4) Chuẩn bị response: chuyển nested relations thành mảng key
       // - Giữ response phẳng (roleKeys, permissionKeys) để frontend dễ dùng
-      const transformed: any = {
-        ...created,
-        roleKeys: (created?.roleAssignments || []).map((ra: any) => ra.role?.key).filter(Boolean),
-        permissionKeys: (created?.userPermissions || []).map((up: any) => up.permission?.key).filter(Boolean)
-      }
-
-      // Xóa các object nested trước khi trả về
-      delete transformed.roleAssignments
-      delete transformed.userPermissions
-
-      return transformed
+      return this.flattenUserRelations(created)
     })
   }
 
@@ -244,6 +287,12 @@ export class UserService extends BaseService {
         rollback.addFileDeleteAction(newAvatarUrl)
       }
 
+      // Chuẩn hoá + dedupe roleKeys/permissionKeys nếu caller truyền lên
+      const requestedRoleKeysForUpdate = Array.isArray(data.roleKeys) ? this.normalizeKeys(data.roleKeys) : null
+      const requestedPermissionKeysForUpdate = Array.isArray(data.permissionKeys)
+        ? this.normalizeKeys(data.permissionKeys)
+        : null
+
       const updated = await this.repo.runTransaction(async (tx) => {
         // Chuẩn bị payload cho update:
         // - Merge dữ liệu gửi lên, thay avatarUrl nếu đã upload file mới.
@@ -261,29 +310,19 @@ export class UserService extends BaseService {
         const user = await this.repo.update({ id }, updateData, tx)
 
         // Nếu caller truyền roleKeys (mảng string key), thay toàn bộ roleAssignments trong transaction
-        if (Array.isArray(data.roleKeys)) {
-          // delete existing assignments for user
+        if (requestedRoleKeysForUpdate !== null) {
+          // xóa assignments cũ
           await tx.userRoleAssignment.deleteMany({ where: { userId: user.id } })
-
-          if (data.roleKeys.length > 0) {
-            const roles = await tx.userRole.findMany({ where: { key: { in: data.roleKeys } } })
-            for (const r of roles) {
-              await tx.userRoleAssignment.create({ data: { userId: user.id, roleId: r.id } })
-            }
-          }
+          // dùng helper chung để validate và tạo mapping mới (nếu có)
+          await this.assignRolesInTx(tx, user.id, requestedRoleKeysForUpdate)
         }
 
         // Nếu caller truyền permissionKeys (mảng string key), thay toàn bộ userPermissions trong transaction
-        if (Array.isArray(data.permissionKeys)) {
-          // delete existing user permissions for user
+        if (requestedPermissionKeysForUpdate !== null) {
+          // xóa permissions cũ
           await tx.userPermission.deleteMany({ where: { userId: user.id } })
-
-          if (data.permissionKeys.length > 0) {
-            const perms = await tx.permission.findMany({ where: { key: { in: data.permissionKeys } } })
-            for (const p of perms) {
-              await tx.userPermission.create({ data: { userId: user.id, permissionId: p.id, allowed: true } })
-            }
-          }
+          // dùng helper chung để validate và tạo mapping mới (nếu có)
+          await this.assignPermissionsInTx(tx, user.id, requestedPermissionKeysForUpdate)
         }
 
         // Trả về user đã cập nhật kèm roleAssignments/userPermissions (chỉ select key) để thuận tiện cho việc
@@ -298,13 +337,7 @@ export class UserService extends BaseService {
       })
 
       // Transform the returned object to arrays of keys
-      const transformedUpdated: any = {
-        ...updated,
-        roleKeys: (updated?.roleAssignments || []).map((ra: any) => ra.role?.key).filter(Boolean),
-        permissionKeys: (updated?.userPermissions || []).map((up: any) => up.permission?.key).filter(Boolean)
-      }
-      delete transformedUpdated.roleAssignments
-      delete transformedUpdated.userPermissions
+      const transformedUpdated = this.flattenUserRelations(updated)
 
       // If update succeeded and we replaced avatar, attempt to delete old avatar (best-effort)
       try {
@@ -318,6 +351,51 @@ export class UserService extends BaseService {
 
       return transformedUpdated
     })
+  }
+
+  // Helper: chuẩn hoá mảng key (string) -> loại bỏ null/empty + dedupe
+  private normalizeKeys(keys: any): string[] {
+    if (!Array.isArray(keys)) return []
+    return Array.from(new Set(keys.map((k: any) => String(k).trim()).filter(Boolean)))
+  }
+
+  // Helper: validate role keys tồn tại và tạo userRoleAssignment trong transaction
+  private async assignRolesInTx(tx: any, userId: number, roleKeys: string[] = []) {
+    if (!Array.isArray(roleKeys) || roleKeys.length === 0) return
+    const roles = await tx.userRole.findMany({ where: { key: { in: roleKeys } } })
+    const foundRoleKeys = new Set(roles.map((r: any) => r.key))
+    const missingRoles = roleKeys.filter((k: string) => !foundRoleKeys.has(k))
+    if (missingRoles.length > 0) {
+      throw new Error(`Không tìm thấy role keys: ${missingRoles.join(', ')}`)
+    }
+    for (const r of roles) {
+      await tx.userRoleAssignment.create({ data: { userId, roleId: r.id } })
+    }
+  }
+
+  // Helper: validate permission keys tồn tại và tạo userPermission trong transaction
+  private async assignPermissionsInTx(tx: any, userId: number, permissionKeys: string[] = []) {
+    if (!Array.isArray(permissionKeys) || permissionKeys.length === 0) return
+    const perms = await tx.permission.findMany({ where: { key: { in: permissionKeys } } })
+    const foundPermKeys = new Set(perms.map((p: any) => p.key))
+    const missingPerms = permissionKeys.filter((k: string) => !foundPermKeys.has(k))
+    if (missingPerms.length > 0) {
+      throw new Error(`Không tìm thấy permission keys: ${missingPerms.join(', ')}`)
+    }
+    for (const p of perms) {
+      await tx.userPermission.create({ data: { userId, permissionId: p.id, allowed: true } })
+    }
+  }
+
+  // Helper: flatten nested relations (roleAssignments, userPermissions) -> roleKeys, permissionKeys
+  private flattenUserRelations(user: any) {
+    if (!user) return user
+    const out: any = { ...user }
+    out.roleKeys = (user?.roleAssignments || []).map((ra: any) => ra.role?.key).filter(Boolean)
+    out.permissionKeys = (user?.userPermissions || []).map((up: any) => up.permission?.key).filter(Boolean)
+    delete out.roleAssignments
+    delete out.userPermissions
+    return out
   }
 
   // Override getById to include roles and other necessary fields for update operations
