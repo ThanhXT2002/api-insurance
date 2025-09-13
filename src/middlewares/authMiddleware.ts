@@ -85,7 +85,6 @@ export class AuthMiddleware {
       req.user = userWithPermissions
       next()
     } catch (error) {
-      console.error('Auth middleware error:', error)
       res.status(500).json({
         success: false,
         message: 'Lỗi xác thực người dùng',
@@ -251,7 +250,6 @@ export class AuthMiddleware {
       try {
         decoded = jwt.verify(token, secret) as any
       } catch (rawError) {
-
         // Try 2: Base64 decoded secret
         try {
           const base64Secret = Buffer.from(secret, 'base64')
@@ -280,7 +278,6 @@ export class AuthMiddleware {
     }
   }
 
-
   private async getOrCreateLocalUser(supabaseUser: any) {
     // Try to find existing user by supabaseId
     let localUser = await this.authRepository.findBySupabaseId(supabaseUser.id)
@@ -291,11 +288,14 @@ export class AuthMiddleware {
 
       if (localUser) {
         // Link existing user with supabaseId
-        localUser = await this.authRepository.update(localUser.id, {
-          supabaseId: supabaseUser.id,
-          name: supabaseUser.user_metadata?.name || localUser.name,
-          avatarUrl: supabaseUser.user_metadata?.avatar_url || localUser.avatarUrl
-        })
+        localUser = await this.authRepository.update(
+          { id: localUser.id },
+          {
+            supabaseId: supabaseUser.id,
+            name: supabaseUser.user_metadata?.name || localUser.name,
+            avatarUrl: supabaseUser.user_metadata?.avatar_url || localUser.avatarUrl
+          }
+        )
       } else {
         // Create new user profile
         localUser = await this.authRepository.create({
@@ -322,7 +322,7 @@ export class AuthMiddleware {
         }
 
         if (Object.keys(updates).length > 0) {
-          localUser = await this.authRepository.update(localUser.id, updates)
+          localUser = await this.authRepository.update({ id: localUser.id }, updates)
         }
       }
     }
