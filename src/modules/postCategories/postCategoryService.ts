@@ -1,11 +1,15 @@
 import { BaseService } from '../../bases/baseService'
 import { PostCategoryRepository } from './postCategoryRepository'
+import { seoService, SeoDto } from '../../services/seoService'
+import { SeoableType } from '../../../generated/prisma'
+import { withRollback } from '../../utils/rollbackHelper'
 
 interface CreateCategoryData {
   name: string
   slug: string
   description?: string
   parentId?: number
+  seoMeta?: SeoDto
 }
 
 interface UpdateCategoryData {
@@ -14,6 +18,7 @@ interface UpdateCategoryData {
   description?: string
   parentId?: number
   active?: boolean
+  seoMeta?: SeoDto
 }
 
 export class PostCategoryService extends BaseService {
@@ -53,56 +58,90 @@ export class PostCategoryService extends BaseService {
     return this.transformUserAuditFields(children)
   }
 
-  // Tạo category mới với validation - with audit transformation
+  // Tạo category mới với validation và SEO - with audit transformation
   async create(data: CreateCategoryData, ctx?: { actorId?: number }) {
-    // Validate slug unique
-    const slugExists = await this.repo.slugExists(data.slug)
-    if (slugExists) {
-      throw new Error('Slug already exists')
-    }
-
-    // Validate parentId nếu có
-    if (data.parentId) {
-      const parent = await this.repo.findById(data.parentId)
-      if (!parent) {
-        throw new Error('Parent category not found')
-      }
-    }
-
-    const result = await super.create(data, ctx)
-    return this.transformUserAuditFields(result)
-  }
-
-  // Update category với validation - with audit transformation
-  async updateById(id: number, data: UpdateCategoryData, ctx?: { actorId?: number }) {
-    const existing = await this.repo.findById(id)
-    if (!existing) {
-      throw new Error('Category not found')
-    }
-
-    // Validate slug unique nếu thay đổi
-    if (data.slug && data.slug !== existing.slug) {
-      const slugExists = await this.repo.slugExists(data.slug, id)
+    return withRollback(async (rollbackManager) => {
+      // Validate slug unique
+      const slugExists = await this.repo.slugExists(data.slug)
       if (slugExists) {
         throw new Error('Slug already exists')
       }
-    }
 
-    // Validate parentId để tránh circular reference
-    if (data.parentId) {
-      if (data.parentId === id) {
-        throw new Error('Category cannot be parent of itself')
+      // Validate parentId nếu có
+      if (data.parentId) {
+        const parent = await this.repo.findById(data.parentId)
+        if (!parent) {
+          throw new Error('Parent category not found')
+        }
       }
 
-      // Kiểm tra có phải descendant không
-      const isDescendant = await this.isDescendant(id, data.parentId)
-      if (isDescendant) {
-        throw new Error('Cannot set parent to descendant category')
-      }
-    }
+      // Tạo category trước
+      const { seoMeta, ...categoryData } = data
+      const result = await super.create(categoryData, ctx)
 
-    const result = await super.update({ id }, data, ctx)
-    return this.transformUserAuditFields(result)
+      // Tạo SEO metadata nếu có
+      if (seoMeta) {
+        try {
+          await seoService.upsertSeoFor(SeoableType.POST_CATEGORY, result.id, seoMeta, {
+            actorId: ctx?.actorId,
+            rollback: rollbackManager
+          })
+        } catch (error) {
+          // Add rollback action to delete created category if SEO fails
+          rollbackManager.addAsyncAction(async () => {
+            await this.repo.delete({ id: result.id })
+          })
+          throw error
+        }
+      }
+
+      return this.transformUserAuditFields(result)
+    })
+  }
+
+  // Update category với validation và SEO - with audit transformation
+  async updateById(id: number, data: UpdateCategoryData, ctx?: { actorId?: number }) {
+    return withRollback(async (rollbackManager) => {
+      const existing = await this.repo.findById(id)
+      if (!existing) {
+        throw new Error('Category not found')
+      }
+
+      // Validate slug unique nếu thay đổi
+      if (data.slug && data.slug !== existing.slug) {
+        const slugExists = await this.repo.slugExists(data.slug, id)
+        if (slugExists) {
+          throw new Error('Slug already exists')
+        }
+      }
+
+      // Validate parentId để tránh circular reference
+      if (data.parentId) {
+        if (data.parentId === id) {
+          throw new Error('Category cannot be parent of itself')
+        }
+
+        // Kiểm tra có phải descendant không
+        const isDescendant = await this.isDescendant(id, data.parentId)
+        if (isDescendant) {
+          throw new Error('Cannot set parent to descendant category')
+        }
+      }
+
+      // Update category trước
+      const { seoMeta, ...categoryData } = data
+      const result = await super.update({ id }, categoryData, ctx)
+
+      // Update SEO metadata nếu có
+      if (seoMeta) {
+        await seoService.upsertSeoFor(SeoableType.POST_CATEGORY, id, seoMeta, {
+          actorId: ctx?.actorId,
+          rollback: rollbackManager
+        })
+      }
+
+      return this.transformUserAuditFields(result)
+    })
   }
 
   // Kiểm tra category A có phải là descendant của B không
@@ -188,5 +227,35 @@ export class PostCategoryService extends BaseService {
   async findBySlug(slug: string) {
     const result = await this.repo.findBySlug(slug, this.getAuditInclude())
     return this.transformUserAuditFields(result)
+  }
+
+  // Lấy category kèm SEO metadata
+  async findByIdWithSeo(id: number) {
+    const category = await this.repo.findById(id, this.getAuditInclude())
+    if (!category) {
+      return null
+    }
+
+    const seoMeta = await seoService.getSeoFor(SeoableType.POST_CATEGORY, id)
+
+    return {
+      ...this.transformUserAuditFields(category),
+      seoMeta
+    }
+  }
+
+  // Lấy theo slug kèm SEO metadata
+  async findBySlugWithSeo(slug: string) {
+    const category = await this.repo.findBySlug(slug, this.getAuditInclude())
+    if (!category) {
+      return null
+    }
+
+    const seoMeta = await seoService.getSeoFor(SeoableType.POST_CATEGORY, category.id)
+
+    return {
+      ...this.transformUserAuditFields(category),
+      seoMeta
+    }
   }
 }

@@ -12,8 +12,47 @@ const controller = new UserAssignmentController(service)
 const router = Router()
 
 /**
- * OpenAPI schemas are centralized in `src/config/swagger.ts`.
- * Per-file `components` blocks were removed to avoid duplicate top-level keys.
+ * @openapi
+ * components:
+ *   schemas:
+ *     AssignRoleRequest:
+ *       type: object
+ *       description: 'Yêu cầu gán vai trò cho người dùng'
+ *       required:
+ *         - roleId
+ *       properties:
+ *         roleId:
+ *           type: integer
+ *           description: 'ID vai trò'
+ *           example: 2
+ *     AssignPermissionRequest:
+ *       type: object
+ *       description: 'Yêu cầu gán quyền trực tiếp cho người dùng'
+ *       required:
+ *         - permissionKey
+ *       properties:
+ *         permissionKey:
+ *           type: string
+ *           description: 'Key quyền hạn, ví dụ: "user.edit"'
+ *           example: 'user.edit'
+ *     UserAssignmentSearchRequest:
+ *       type: object
+ *       description: 'Yêu cầu tìm kiếm nâng cao người dùng theo vai trò/quyền'
+ *       properties:
+ *         roleKeys:
+ *           type: array
+ *           items:
+ *             type: string
+ *         permissionKeys:
+ *           type: array
+ *           items:
+ *             type: string
+ *         keyword:
+ *           type: string
+ *         page:
+ *           type: integer
+ *         pageSize:
+ *           type: integer
  */
 
 /**
@@ -22,7 +61,7 @@ const router = Router()
  *   get:
  *     tags:
  *       - User Assignments
- *     summary: Get all user assignments with basic role information
+ *     summary: Lấy tất cả phân quyền người dùng với thông tin vai trò cơ bản
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -30,20 +69,20 @@ const router = Router()
  *         name: page
  *         schema:
  *           type: integer
- *         description: Page number
+ *         description: Số trang
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *         description: Items per page
+ *         description: Số item trên mỗi trang
  *       - in: query
  *         name: keyword
  *         schema:
  *           type: string
- *         description: Search keyword
+ *         description: Từ khóa tìm kiếm
  *     responses:
  *       200:
- *         description: User assignments retrieved successfully
+ *         description: Lấy phân quyền người dùng thành công
  */
 router.get('/', authenticate, controller.getAll.bind(controller))
 
@@ -53,7 +92,7 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *   get:
  *     tags:
  *       - User Assignments
- *     summary: Get user with full permission details
+ *     summary: Lấy người dùng với chi tiết quyền hạn đầy đủ
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -62,12 +101,12 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *     responses:
  *       200:
- *         description: User retrieved successfully
+ *         description: Lấy người dùng thành công
  *       404:
- *         description: User not found
+ *         description: Không tìm thấy người dùng
  */
 router.get('/:id', authenticate, controller.getById.bind(controller))
 
@@ -77,7 +116,7 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *   get:
  *     tags:
  *       - User Assignments
- *     summary: Get user roles
+ *     summary: Lấy vai trò của người dùng
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -86,14 +125,14 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *     responses:
  *       200:
- *         description: User roles retrieved successfully
+ *         description: Lấy vai trò người dùng thành công
  *   post:
  *     tags:
  *       - User Assignments
- *     summary: Assign role to user
+ *     summary: Gán vai trò cho người dùng
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -102,7 +141,7 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *     requestBody:
  *       required: true
  *       content:
@@ -111,11 +150,11 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *             $ref: '#/components/schemas/AssignRoleRequest'
  *     responses:
  *       200:
- *         description: Role assigned successfully
+ *         description: Gán vai trò thành công
  *       404:
- *         description: User or role not found
+ *         description: Không tìm thấy người dùng hoặc vai trò
  *       409:
- *         description: User already has this role
+ *         description: Người dùng đã có vai trò này
  */
 router.get('/:userId/roles', authenticate, controller.getUserRoles.bind(controller))
 router.post('/:userId/roles', authenticate, controller.assignRole.bind(controller))
@@ -126,7 +165,7 @@ router.post('/:userId/roles', authenticate, controller.assignRole.bind(controlle
  *   delete:
  *     tags:
  *       - User Assignments
- *     summary: Remove role from user
+ *     summary: Gỡ vai trò khỏi người dùng
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -135,18 +174,18 @@ router.post('/:userId/roles', authenticate, controller.assignRole.bind(controlle
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *       - in: path
  *         name: roleId
  *         required: true
  *         schema:
  *           type: integer
- *         description: Role ID
+ *         description: ID vai trò
  *     responses:
  *       200:
- *         description: Role removed successfully
+ *         description: Xóa vai trò thành công
  *       404:
- *         description: Role assignment not found
+ *         description: Không tìm thấy phân quyền vai trò
  */
 router.delete('/:userId/roles/:roleId', authenticate, controller.removeRole.bind(controller))
 
@@ -156,7 +195,7 @@ router.delete('/:userId/roles/:roleId', authenticate, controller.removeRole.bind
  *   get:
  *     tags:
  *       - User Assignments
- *     summary: List direct permission assignments for a user
+ *     summary: Liệt kê các quyền trực tiếp đã gán cho người dùng
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -165,14 +204,14 @@ router.delete('/:userId/roles/:roleId', authenticate, controller.removeRole.bind
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *     responses:
  *       200:
- *         description: User direct permissions retrieved successfully
+ *         description: Lấy quyền trực tiếp của người dùng thành công
  *   post:
  *     tags:
  *       - User Assignments
- *     summary: Assign direct permission to user
+ *     summary: Gán quyền trực tiếp cho người dùng
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -181,7 +220,7 @@ router.delete('/:userId/roles/:roleId', authenticate, controller.removeRole.bind
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *     requestBody:
  *       required: true
  *       content:
@@ -190,11 +229,11 @@ router.delete('/:userId/roles/:roleId', authenticate, controller.removeRole.bind
  *             $ref: '#/components/schemas/AssignPermissionRequest'
  *     responses:
  *       200:
- *         description: Permission assigned successfully
+ *         description: Gán quyền thành công
  *       404:
- *         description: User or permission not found
+ *         description: Không tìm thấy người dùng hoặc quyền
  *       409:
- *         description: User already has this permission
+ *         description: Người dùng đã có quyền này
  */
 router.get('/:userId/permissions', authenticate, controller.listDirectPermissions.bind(controller))
 router.post('/:userId/permissions', authenticate, controller.assignPermission.bind(controller))
@@ -205,7 +244,7 @@ router.post('/:userId/permissions', authenticate, controller.assignPermission.bi
  *   delete:
  *     tags:
  *       - User Assignments
- *     summary: Remove direct permission from user
+ *     summary: Xóa quyền trực tiếp khỏi người dùng
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -214,18 +253,18 @@ router.post('/:userId/permissions', authenticate, controller.assignPermission.bi
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *       - in: path
  *         name: permissionId
  *         required: true
  *         schema:
  *           type: integer
- *         description: Permission ID
+ *         description: ID quyền
  *     responses:
  *       200:
- *         description: Permission removed successfully
+ *         description: Xóa quyền thành công
  *       404:
- *         description: Permission assignment not found
+ *         description: Không tìm thấy phân quyền
  */
 router.delete('/:userId/permissions/:permissionId', authenticate, controller.removePermission.bind(controller))
 
@@ -235,7 +274,7 @@ router.delete('/:userId/permissions/:permissionId', authenticate, controller.rem
  *   get:
  *     tags:
  *       - User Assignments
- *     summary: List effective permissions for a user (role + direct)
+ *     summary: Liệt kê quyền hiệu lực của người dùng (từ vai trò và quyền trực tiếp)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -244,10 +283,10 @@ router.delete('/:userId/permissions/:permissionId', authenticate, controller.rem
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *     responses:
  *       200:
- *         description: User effective permissions retrieved successfully
+ *         description: Lấy quyền hiệu lực của người dùng thành công
  */
 router.get('/:userId/effective-permissions', authenticate, controller.listEffectivePermissions.bind(controller))
 
@@ -257,7 +296,7 @@ router.get('/:userId/effective-permissions', authenticate, controller.listEffect
  *   get:
  *     tags:
  *       - User Assignments
- *     summary: Check if user has specific permission
+ *     summary: Kiểm tra người dùng có quyền cụ thể hay không
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -266,16 +305,16 @@ router.get('/:userId/effective-permissions', authenticate, controller.listEffect
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *       - in: path
  *         name: permissionKey
  *         required: true
  *         schema:
  *           type: string
- *         description: Permission key (e.g., "user.edit")
+ *         description: 'Khóa quyền (ví dụ: "user.edit")'
  *     responses:
  *       200:
- *         description: Permission check completed
+ *         description: Hoàn tất kiểm tra quyền
  *         content:
  *           application/json:
  *             schema:
@@ -292,7 +331,7 @@ router.get('/:userId/has-permission/:permissionKey', authenticate, controller.ch
  *   post:
  *     tags:
  *       - User Assignments
- *     summary: Advanced user search with role/permission filters
+ *     summary: Tìm kiếm nâng cao người dùng với bộ lọc vai trò/quyền
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -303,7 +342,7 @@ router.get('/:userId/has-permission/:permissionKey', authenticate, controller.ch
  *             $ref: '#/components/schemas/UserAssignmentSearchRequest'
  *     responses:
  *       200:
- *         description: User assignments found successfully
+ *         description: Tìm thấy phân quyền người dùng thành công
  */
 router.post('/search', authenticate, controller.searchUsers.bind(controller))
 

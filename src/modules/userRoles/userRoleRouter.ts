@@ -12,8 +12,55 @@ const controller = new UserRoleController(service)
 const router = Router()
 
 /**
- * OpenAPI schemas are centralized in `src/config/swagger.ts`.
- * Per-file `components` blocks were removed to avoid duplicate top-level keys.
+ * @openapi
+ * components:
+ *   schemas:
+ *     UserRole:
+ *       type: object
+ *       description: 'Vai trò người dùng'
+ *       properties:
+ *         id:
+ *           type: integer
+ *           example: 1
+ *         name:
+ *           type: string
+ *           example: 'Admin'
+ *         key:
+ *           type: string
+ *           example: 'admin'
+ *         description:
+ *           type: string
+ *           example: 'Vai trò quản trị hệ thống'
+ *     CreateUserRoleRequest:
+ *       type: object
+ *       description: 'Yêu cầu tạo vai trò'
+ *       required:
+ *         - name
+ *         - key
+ *       properties:
+ *         name:
+ *           type: string
+ *           description: 'Tên vai trò'
+ *           example: 'Quản trị'
+ *         key:
+ *           type: string
+ *           description: 'Key vai trò'
+ *           example: 'admin'
+ *         description:
+ *           type: string
+ *           description: 'Mô tả vai trò'
+ *           example: 'Quyền quản trị hệ thống'
+ *     AssignPermissionsRequest:
+ *       type: object
+ *       description: 'Yêu cầu gán danh sách permission cho vai trò'
+ *       required:
+ *         - permissionKeys
+ *       properties:
+ *         permissionKeys:
+ *           type: array
+ *           items:
+ *             type: string
+ *           description: 'Danh sách key quyền hạn, ví dụ: ["user.edit","user.view"]'
  */
 
 /**
@@ -22,7 +69,7 @@ const router = Router()
  *   get:
  *     tags:
  *       - User Roles
- *     summary: Get all user roles (supports pagination, filtering and sorting)
+ *     summary: Lấy tất cả vai trò người dùng (hỗ trợ phân trang, lọc và sắp xếp)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -32,29 +79,29 @@ const router = Router()
  *           type: integer
  *           minimum: 1
  *         required: false
- *         description: 'Page number (default: 1)'
+ *         description: 'Số trang (mặc định: 1)'
  *       - in: query
  *         name: pageSize
  *         schema:
  *           type: integer
  *           minimum: 1
  *         required: false
- *         description: 'Items per page (default: 10)'
+ *         description: 'Số item trên mỗi trang (mặc định: 10)'
  *       - in: query
  *         name: search
  *         schema:
  *           type: string
  *         required: false
- *         description: Keyword to search by role name or key
+ *         description: Từ khóa tìm kiếm theo tên hoặc key vai trò
  *       - in: query
  *         name: sort
  *         schema:
  *           type: string
  *         required: false
- *         description: 'Sort expression, e.g. "name:asc" or "createdAt:desc"'
+ *         description: 'Biểu thức sắp xếp, ví dụ "name:asc" hoặc "createdAt:desc"'
  *     responses:
  *       200:
- *         description: List of user roles retrieved successfully
+ *         description: Lấy danh sách vai trò người dùng thành công
  *         content:
  *           application/json:
  *             schema:
@@ -62,7 +109,7 @@ const router = Router()
  *               properties:
  *                 total:
  *                   type: integer
- *                   description: Total number of roles
+ *                   description: Tổng số vai trò
  *                 page:
  *                   type: integer
  *                 pageSize:
@@ -72,9 +119,9 @@ const router = Router()
  *                   items:
  *                     $ref: '#/components/schemas/UserRole'
  *       400:
- *         description: Invalid query parameters
+ *         description: Tham số truy vấn không hợp lệ
  *       401:
- *         description: Unauthorized
+ *         description: Chưa xác thực
  */
 router.get('/', authenticate, controller.getAll.bind(controller))
 
@@ -84,7 +131,7 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *   get:
  *     tags:
  *       - User Roles
- *     summary: Get role by ID with permissions
+ *     summary: Lấy vai trò theo ID kèm quyền hạn
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -93,12 +140,12 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: Role ID
+ *         description: ID vai trò
  *     responses:
  *       200:
- *         description: Role retrieved successfully
+ *         description: Lấy vai trò thành công
  *       404:
- *         description: Role not found
+ *         description: Không tìm thấy vai trò
  */
 router.get('/:id', authenticate, controller.getById.bind(controller))
 
@@ -108,7 +155,7 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *   post:
  *     tags:
  *       - User Roles
- *     summary: Create new role
+ *     summary: Tạo vai trò mới
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -119,11 +166,11 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *             $ref: '#/components/schemas/CreateUserRoleRequest'
  *     responses:
  *       201:
- *         description: Role created successfully
+ *         description: Tạo vai trò thành công
  *       400:
- *         description: Validation error
+ *         description: Lỗi xác thực dữ liệu
  *       409:
- *         description: Role key already exists
+ *         description: Key vai trò đã tồn tại
  */
 router.post('/', authenticate, controller.create.bind(controller))
 
@@ -133,7 +180,7 @@ router.post('/', authenticate, controller.create.bind(controller))
  *   put:
  *     tags:
  *       - User Roles
- *     summary: Update role
+ *     summary: Cập nhật vai trò
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -142,7 +189,7 @@ router.post('/', authenticate, controller.create.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: Role ID
+ *         description: ID vai trò
  *     requestBody:
  *       required: true
  *       content:
@@ -151,11 +198,11 @@ router.post('/', authenticate, controller.create.bind(controller))
  *             $ref: '#/components/schemas/CreateUserRoleRequest'
  *     responses:
  *       200:
- *         description: Role updated successfully
+ *         description: Cập nhật vai trò thành công
  *       404:
- *         description: Role not found
+ *         description: Không tìm thấy vai trò
  *       409:
- *         description: Role key already exists
+ *         description: Key vai trò đã tồn tại
  */
 router.put('/:id', authenticate, controller.update.bind(controller))
 
@@ -165,7 +212,7 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *   delete:
  *     tags:
  *       - User Roles
- *     summary: Delete role
+ *     summary: Xóa vai trò
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -174,14 +221,14 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: Role ID
+ *         description: ID vai trò
  *     responses:
  *       200:
- *         description: Role deleted successfully
+ *         description: Xóa vai trò thành công
  *       404:
- *         description: Role not found
+ *         description: Không tìm thấy vai trò
  *       409:
- *         description: Role is in use
+ *         description: Vai trò đang được sử dụng
  */
 router.delete('/:id', authenticate, controller.delete.bind(controller))
 
@@ -191,7 +238,7 @@ router.delete('/:id', authenticate, controller.delete.bind(controller))
  *   get:
  *     tags:
  *       - User Roles
- *     summary: Get role permissions
+ *     summary: Lấy quyền hạn của vai trò
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -200,10 +247,10 @@ router.delete('/:id', authenticate, controller.delete.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: Role ID
+ *         description: ID vai trò
  *     responses:
  *       200:
- *         description: Role permissions retrieved successfully
+ *         description: Lấy quyền hạn vai trò thành công
  */
 router.get('/:roleId/permissions', authenticate, controller.getRolePermissions.bind(controller))
 
@@ -213,7 +260,7 @@ router.get('/:roleId/permissions', authenticate, controller.getRolePermissions.b
  *   post:
  *     tags:
  *       - User Roles
- *     summary: Assign permissions to role
+ *     summary: Gán quyền hạn cho vai trò
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -222,7 +269,7 @@ router.get('/:roleId/permissions', authenticate, controller.getRolePermissions.b
  *         required: true
  *         schema:
  *           type: integer
- *         description: Role ID
+ *         description: ID vai trò
  *     requestBody:
  *       required: true
  *       content:
@@ -231,9 +278,9 @@ router.get('/:roleId/permissions', authenticate, controller.getRolePermissions.b
  *             $ref: '#/components/schemas/AssignPermissionsRequest'
  *     responses:
  *       200:
- *         description: Permissions assigned successfully
+ *         description: Gán quyền hạn thành công
  *       404:
- *         description: Role or permission not found
+ *         description: Không tìm thấy vai trò hoặc quyền hạn
  */
 router.post('/:roleId/permissions', authenticate, controller.assignPermissions.bind(controller))
 
@@ -243,7 +290,7 @@ router.post('/:roleId/permissions', authenticate, controller.assignPermissions.b
  *   delete:
  *     tags:
  *       - User Roles
- *     summary: Remove permission from role
+ *     summary: Gỡ quyền khỏi vai trò
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -252,18 +299,18 @@ router.post('/:roleId/permissions', authenticate, controller.assignPermissions.b
  *         required: true
  *         schema:
  *           type: integer
- *         description: Role ID
+ *         description: ID vai trò
  *       - in: path
  *         name: permissionId
  *         required: true
  *         schema:
  *           type: integer
- *         description: Permission ID
+ *         description: ID quyền hạn
  *     responses:
  *       200:
- *         description: Permission removed successfully
+ *         description: Gỡ quyền thành công
  *       404:
- *         description: Role or permission not found
+ *         description: Không tìm thấy vai trò hoặc quyền hạn
  */
 router.delete('/:roleId/permissions/:permissionId', authenticate, controller.removePermission.bind(controller))
 
@@ -273,7 +320,7 @@ router.delete('/:roleId/permissions/:permissionId', authenticate, controller.rem
  *   get:
  *     tags:
  *       - User Roles
- *     summary: Get users with specific role
+ *     summary: Lấy người dùng có vai trò cụ thể
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -282,10 +329,10 @@ router.delete('/:roleId/permissions/:permissionId', authenticate, controller.rem
  *         required: true
  *         schema:
  *           type: integer
- *         description: Role ID
+ *         description: ID vai trò
  *     responses:
  *       200:
- *         description: Role users retrieved successfully
+ *         description: Lấy danh sách người dùng của vai trò thành công
  */
 router.get('/:roleId/users', authenticate, controller.getRoleUsers.bind(controller))
 

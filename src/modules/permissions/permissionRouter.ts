@@ -12,8 +12,28 @@ const controller = new PermissionController(service)
 const router = Router()
 
 /**
- * OpenAPI schemas are centralized in `src/config/swagger.ts`.
- * Per-file `components` blocks were removed to avoid duplicate top-level keys.
+ * @openapi
+ * components:
+ *   schemas:
+ *     CreatePermissionRequest:
+ *       type: object
+ *       description: 'Yêu cầu tạo quyền hạn'
+ *       required:
+ *         - name
+ *         - key
+ *       properties:
+ *         name:
+ *           type: string
+ *           description: 'Tên quyền hạn'
+ *           example: 'Quản lý người dùng'
+ *         key:
+ *           type: string
+ *           description: 'Key quyền hạn, chữ thường và dùng dấu chấm phân tách (ví dụ: "user.edit")'
+ *           example: 'user.edit'
+ *         description:
+ *           type: string
+ *           description: 'Mô tả quyền hạn'
+ *           example: 'Cho phép chỉnh sửa thông tin người dùng'
  */
 
 /**
@@ -22,7 +42,7 @@ const router = Router()
  *   get:
  *     tags:
  *       - Permissions
- *     summary: Get all permissions
+ *     summary: Lấy tất cả quyền hạn
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -30,22 +50,22 @@ const router = Router()
  *         name: page
  *         schema:
  *           type: integer
- *         description: Page number
+ *         description: Số trang
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *         description: Items per page
+ *         description: Số item trên mỗi trang
  *       - in: query
  *         name: keyword
  *         schema:
  *           type: string
- *         description: Search keyword
+ *         description: Từ khóa tìm kiếm
  *     responses:
  *       200:
- *         description: Permissions retrieved successfully
+ *         description: Lấy danh sách quyền hạn thành công
  *       403:
- *         description: Insufficient permissions
+ *         description: Không đủ quyền truy cập
  */
 router.get('/', authenticate, controller.getAll.bind(controller))
 
@@ -55,7 +75,7 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *   get:
  *     tags:
  *       - Permissions
- *     summary: Get permission by ID
+ *     summary: Lấy quyền hạn theo ID
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -64,12 +84,12 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: Permission ID
+ *         description: ID quyền hạn
  *     responses:
  *       200:
- *         description: Permission retrieved successfully
+ *         description: Lấy quyền hạn thành công
  *       404:
- *         description: Permission not found
+ *         description: Không tìm thấy quyền hạn
  */
 router.get('/:id', authenticate, controller.getById.bind(controller))
 
@@ -79,7 +99,7 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *   post:
  *     tags:
  *       - Permissions
- *     summary: Create new permission
+ *     summary: Tạo quyền hạn mới
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -90,11 +110,11 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *             $ref: '#/components/schemas/CreatePermissionRequest'
  *     responses:
  *       201:
- *         description: Permission created successfully
+ *         description: Tạo quyền hạn thành công
  *       400:
- *         description: Validation error
+ *         description: Lỗi xác thực dữ liệu
  *       409:
- *         description: Permission key already exists
+ *         description: Key quyền hạn đã tồn tại
  */
 router.post('/', authenticate, controller.create.bind(controller))
 
@@ -104,7 +124,7 @@ router.post('/', authenticate, controller.create.bind(controller))
  *   put:
  *     tags:
  *       - Permissions
- *     summary: Update permission
+ *     summary: Cập nhật quyền hạn
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -113,7 +133,7 @@ router.post('/', authenticate, controller.create.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: Permission ID
+ *         description: ID quyền hạn
  *     requestBody:
  *       required: true
  *       content:
@@ -122,11 +142,11 @@ router.post('/', authenticate, controller.create.bind(controller))
  *             $ref: '#/components/schemas/CreatePermissionRequest'
  *     responses:
  *       200:
- *         description: Permission updated successfully
+ *         description: Cập nhật quyền hạn thành công
  *       404:
- *         description: Permission not found
+ *         description: Không tìm thấy quyền hạn
  *       409:
- *         description: Permission key already exists
+ *         description: Key quyền hạn đã tồn tại
  */
 router.put('/:id', authenticate, controller.update.bind(controller))
 
@@ -136,7 +156,7 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *   delete:
  *     tags:
  *       - Permissions
- *     summary: Delete permission
+ *     summary: Xóa quyền hạn
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -145,14 +165,14 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: Permission ID
+ *         description: ID quyền hạn
  *     responses:
  *       200:
- *         description: Permission deleted successfully
+ *         description: Xóa quyền hạn thành công
  *       404:
- *         description: Permission not found
+ *         description: Không tìm thấy quyền hạn
  *       409:
- *         description: Permission is in use
+ *         description: Quyền hạn đang được sử dụng
  */
 router.delete('/:id', authenticate, controller.delete.bind(controller))
 
@@ -162,7 +182,7 @@ router.delete('/:id', authenticate, controller.delete.bind(controller))
  *   get:
  *     tags:
  *       - Permissions
- *     summary: Get users with specific permission
+ *     summary: Lấy người dùng có quyền hạn cụ thể
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -171,10 +191,10 @@ router.delete('/:id', authenticate, controller.delete.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: Permission ID
+ *         description: ID quyền hạn
  *     responses:
  *       200:
- *         description: Users with permission retrieved successfully
+ *         description: Lấy danh sách người dùng thành công
  */
 router.get('/:id/users', authenticate, controller.getUsersWithPermission.bind(controller))
 
@@ -184,7 +204,7 @@ router.get('/:id/users', authenticate, controller.getUsersWithPermission.bind(co
  *   get:
  *     tags:
  *       - Permissions
- *     summary: Check if user has specific permission
+ *     summary: Kiểm tra người dùng có quyền hạn cụ thể
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -193,18 +213,18 @@ router.get('/:id/users', authenticate, controller.getUsersWithPermission.bind(co
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *       - in: query
  *         name: permission
  *         required: true
  *         schema:
  *           type: string
- *         description: Permission key
+ *         description: Key quyền hạn
  *     responses:
  *       200:
- *         description: Permission check completed
+ *         description: Kiểm tra quyền hạn thành công
  *       400:
- *         description: Missing parameters
+ *         description: Thiếu tham số
  */
 router.get('/check', authenticate, controller.checkPermission.bind(controller))
 

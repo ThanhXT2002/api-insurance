@@ -3,6 +3,7 @@ import { StatusCodes } from 'http-status-codes'
 import { ApiResponse } from '../../bases/apiResponse'
 import { PostCategoryService } from './postCategoryService'
 import { AuthUtils } from '../../middlewares/authUtils'
+import { SeoDto } from '../../services/seoService'
 
 export class PostCategoryController {
   constructor(private service: PostCategoryService) {}
@@ -101,7 +102,7 @@ export class PostCategoryController {
     }
   }
 
-  // POST /api/post-categories - Tạo category mới
+  // POST /api/post-categories - Tạo category mới với SEO support
   async create(req: Request, res: Response) {
     try {
       // Check permissions
@@ -111,7 +112,7 @@ export class PostCategoryController {
           .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền POST_CATEGORY_CREATE', StatusCodes.FORBIDDEN))
       }
 
-      const { name, slug, description, parentId } = req.body
+      const { name, slug, description, parentId, seoMeta } = req.body
 
       // Validate required fields
       if (!name || !slug) {
@@ -128,12 +129,27 @@ export class PostCategoryController {
           .send(ApiResponse.error('Người dùng chưa xác thực', 'Cần đăng nhập', StatusCodes.UNAUTHORIZED))
       }
 
+      // Handle file upload for seoImage
+      let processedSeoMeta: SeoDto | undefined = undefined
+      if (seoMeta || (req as any).files?.seoImage) {
+        processedSeoMeta = seoMeta ? { ...seoMeta } : {}
+
+        // Check for uploaded file
+        const seoImageFile = (req as any).files?.seoImage
+        if (seoImageFile && processedSeoMeta) {
+          processedSeoMeta.seoImage = {
+            buffer: seoImageFile.data,
+            originalName: seoImageFile.name
+          }
+        }
+      }
       const category = await this.service.create(
         {
           name,
           slug,
           description,
-          parentId: parentId ? parseInt(parentId) : undefined
+          parentId: parentId ? parseInt(parentId) : undefined,
+          seoMeta: processedSeoMeta
         },
         { actorId: auditContext.createdBy }
       )
@@ -146,6 +162,11 @@ export class PostCategoryController {
           .status(StatusCodes.CONFLICT)
           .send(ApiResponse.error(error.message, 'Trùng dữ liệu', StatusCodes.CONFLICT))
       }
+      if (error.message.includes('Invalid canonical URL')) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .send(ApiResponse.error(error.message, 'Dữ liệu không hợp lệ', StatusCodes.BAD_REQUEST))
+      }
 
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
@@ -153,7 +174,7 @@ export class PostCategoryController {
     }
   }
 
-  // PUT /api/post-categories/:id - Cập nhật category
+  // PUT /api/post-categories/:id - Cập nhật category với SEO support
   async update(req: Request, res: Response) {
     try {
       // Check permissions
@@ -164,7 +185,7 @@ export class PostCategoryController {
       }
 
       const { id } = req.params
-      const { name, slug, description, parentId, active } = req.body
+      const { name, slug, description, parentId, active, seoMeta } = req.body
 
       const auditContext = AuthUtils.getAuditContext(req)
       if (!auditContext.updatedBy) {
@@ -175,6 +196,21 @@ export class PostCategoryController {
 
       const actorId = auditContext.updatedBy
 
+      // Handle file upload for seoImage
+      let processedSeoMeta: SeoDto | undefined = undefined
+      if (seoMeta || (req as any).files?.seoImage) {
+        processedSeoMeta = seoMeta ? { ...seoMeta } : {}
+
+        // Check for uploaded file
+        const seoImageFile = (req as any).files?.seoImage
+        if (seoImageFile && processedSeoMeta) {
+          processedSeoMeta.seoImage = {
+            buffer: seoImageFile.data,
+            originalName: seoImageFile.name
+          }
+        }
+      }
+
       const category = await this.service.updateById(
         parseInt(id),
         {
@@ -182,7 +218,8 @@ export class PostCategoryController {
           slug,
           description,
           parentId: parentId ? parseInt(parentId) : undefined,
-          active
+          active,
+          seoMeta: processedSeoMeta
         },
         { actorId }
       )
@@ -202,6 +239,11 @@ export class PostCategoryController {
         return res
           .status(StatusCodes.BAD_REQUEST)
           .send(ApiResponse.error(error.message, 'Lỗi xác thực dữ liệu', StatusCodes.BAD_REQUEST))
+      }
+      if (error.message.includes('Invalid canonical URL')) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .send(ApiResponse.error(error.message, 'Dữ liệu không hợp lệ', StatusCodes.BAD_REQUEST))
       }
 
       res
@@ -306,6 +348,46 @@ export class PostCategoryController {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .send(ApiResponse.error(error.message, 'Cập nhật chuyên mục thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
+
+  // GET /api/post-categories/:id/with-seo - Lấy category theo ID kèm SEO
+  async getByIdWithSeo(req: Request, res: Response) {
+    try {
+      const { id } = req.params
+      const category = await this.service.findByIdWithSeo(parseInt(id))
+
+      if (!category) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .send(ApiResponse.error('Không tìm thấy chuyên mục', 'Không tìm thấy chuyên mục', StatusCodes.NOT_FOUND))
+      }
+
+      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Lấy chuyên mục với SEO thành công'))
+    } catch (error: any) {
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(error.message, 'Failed to get category with SEO', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
+
+  // GET /api/post-categories/slug/:slug/with-seo - Lấy category theo slug kèm SEO
+  async getBySlugWithSeo(req: Request, res: Response) {
+    try {
+      const { slug } = req.params
+      const category = await this.service.findBySlugWithSeo(slug)
+
+      if (!category) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .send(ApiResponse.error('Không tìm thấy chuyên mục', 'Không tìm thấy chuyên mục', StatusCodes.NOT_FOUND))
+      }
+
+      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Lấy chuyên mục với SEO thành công'))
+    } catch (error: any) {
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(error.message, 'Failed to get category with SEO', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 }

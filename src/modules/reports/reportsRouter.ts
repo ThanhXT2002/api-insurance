@@ -17,12 +17,12 @@ const router = Router()
  *   get:
  *     tags:
  *       - Reports
- *     summary: Get permissions summary statistics
+ *     summary: Lấy thống kê tổng hợp quyền hạn
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Permissions summary retrieved successfully
+ *         description: Lấy thống kê quyền hạn thành công
  *         content:
  *           application/json:
  *             schema:
@@ -53,12 +53,12 @@ router.get('/permissions-summary', authenticate, controller.getPermissionsSummar
  *   get:
  *     tags:
  *       - Reports
- *     summary: Get user count by role with percentages
+ *     summary: Lấy số lượng người dùng theo vai trò với phần trăm
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: User count by role retrieved successfully
+ *         description: Lấy thống kê người dùng theo vai trò thành công
  */
 router.get('/users-by-role', authenticate, controller.getUsersByRole.bind(controller))
 
@@ -68,12 +68,12 @@ router.get('/users-by-role', authenticate, controller.getUsersByRole.bind(contro
  *   get:
  *     tags:
  *       - Reports
- *     summary: Get permission count by role
+ *     summary: Lấy số lượng quyền hạn theo vai trò
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Permission count by role retrieved successfully
+ *         description: Lấy thống kê quyền hạn theo vai trò thành công
  */
 router.get('/permissions-by-role', authenticate, controller.getPermissionsByRole.bind(controller))
 
@@ -83,12 +83,12 @@ router.get('/permissions-by-role', authenticate, controller.getPermissionsByRole
  *   get:
  *     tags:
  *       - Reports
- *     summary: Get most used permissions with usage analysis
+ *     summary: Lấy các quyền sử dụng nhiều nhất và phân tích mức độ sử dụng
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Most used permissions retrieved successfully
+ *         description: Lấy danh sách quyền sử dụng nhiều nhất thành công
  */
 router.get('/most-used-permissions', authenticate, controller.getMostUsedPermissions.bind(controller))
 
@@ -98,12 +98,12 @@ router.get('/most-used-permissions', authenticate, controller.getMostUsedPermiss
  *   get:
  *     tags:
  *       - Reports
- *     summary: Get users with multiple roles and complexity analysis
+ *     summary: Lấy người dùng có nhiều vai trò và phân tích độ phức tạp
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Users with multiple roles retrieved successfully
+ *         description: Lấy người dùng có nhiều vai trò thành công
  */
 router.get('/users-with-multiple-roles', authenticate, controller.getUsersWithMultipleRoles.bind(controller))
 
@@ -113,12 +113,12 @@ router.get('/users-with-multiple-roles', authenticate, controller.getUsersWithMu
  *   get:
  *     tags:
  *       - Reports
- *     summary: Get permissions not assigned to any role or user
+ *     summary: Lấy các quyền không được gán cho vai trò hoặc người dùng nào
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Orphaned permissions retrieved successfully
+ *         description: Lấy các quyền không được gán thành công
  */
 router.get('/orphaned-permissions', authenticate, controller.getOrphanedPermissions.bind(controller))
 
@@ -128,12 +128,12 @@ router.get('/orphaned-permissions', authenticate, controller.getOrphanedPermissi
  *   get:
  *     tags:
  *       - Reports
- *     summary: Get role-permission matrix with coverage statistics
+ *     summary: Lấy ma trận vai trò-quyền kèm thống kê bao phủ
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: Role-permission matrix retrieved successfully
+ *         description: Lấy ma trận vai trò-quyền thành công
  */
 router.get('/role-permission-matrix', authenticate, controller.getRolePermissionMatrix.bind(controller))
 
@@ -143,7 +143,7 @@ router.get('/role-permission-matrix', authenticate, controller.getRolePermission
  *   get:
  *     tags:
  *       - Reports
- *     summary: Get comprehensive access audit for a specific user
+ *     summary: Lấy báo cáo kiểm toán quyền truy cập chi tiết của người dùng
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -152,14 +152,14 @@ router.get('/role-permission-matrix', authenticate, controller.getRolePermission
  *         required: true
  *         schema:
  *           type: integer
- *         description: User ID
+ *         description: ID người dùng
  *     responses:
  *       200:
- *         description: User access audit retrieved successfully
+ *         description: Lấy báo cáo kiểm toán người dùng thành công
  *       400:
- *         description: Invalid user ID
+ *         description: ID người dùng không hợp lệ
  *       404:
- *         description: User not found
+ *         description: Không tìm thấy người dùng
  */
 router.get('/user-access-audit/:userId', authenticate, controller.getUserAccessAudit.bind(controller))
 

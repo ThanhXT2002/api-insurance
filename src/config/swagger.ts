@@ -51,6 +51,149 @@ const options: swaggerJsdoc.Options = {
             message: { type: 'string', example: 'Hoạt động thành công' },
             timestamp: { type: 'string', format: 'date-time', example: new Date().toISOString() }
           }
+        },
+        SeoDto: {
+          type: 'object',
+          description: 'Thông tin SEO cho bất kỳ tài nguyên nào',
+          properties: {
+            seoTitle: {
+              type: 'string',
+              description: 'Tiêu đề SEO (khuyến nghị tối đa 60 ký tự)',
+              example: 'Chuyên mục Bảo hiểm Tốt nhất - Tên công ty'
+            },
+            metaDescription: {
+              type: 'string',
+              description: 'Mô tả Meta (khuyến nghị tối đa 160 ký tự)',
+              example:
+                'Khám phá chuyên mục bảo hiểm toàn diện với các gói bảo hiểm tốt nhất phù hợp với nhu cầu của bạn.'
+            },
+            canonicalUrl: {
+              type: 'string',
+              description: 'URL chính tắc (URL đầy đủ hoặc slug)',
+              example: 'https://example.com/category/bao-hiem-suc-khoe'
+            },
+            focusKeyword: {
+              type: 'string',
+              description: 'Từ khóa SEO chính',
+              example: 'bảo hiểm sức khỏe'
+            },
+            seoImage: {
+              type: 'string',
+              description: 'URL ảnh SEO (khi cung cấp dưới dạng string)',
+              example: 'https://example.com/images/seo/category.jpg'
+            },
+            ogType: {
+              type: 'string',
+              description: 'Loại Open Graph',
+              example: 'article',
+              default: 'article'
+            },
+            noindex: {
+              type: 'boolean',
+              description: 'Ngăn công cụ tìm kiếm lập chỉ mục',
+              example: false,
+              default: false
+            },
+            nofollow: {
+              type: 'boolean',
+              description: 'Ngăn công cụ tìm kiếm theo dõi liên kết',
+              example: false,
+              default: false
+            }
+          }
+        },
+        // Module-specific schemas (permissions, roles, assignments) moved to their router files
+        PostCategory: {
+          type: 'object',
+          description: 'Chuyên mục bài viết',
+          properties: {
+            id: {
+              type: 'integer',
+              description: 'ID chuyên mục',
+              example: 1
+            },
+            name: {
+              type: 'string',
+              description: 'Tên chuyên mục',
+              example: 'Bảo hiểm sức khỏe'
+            },
+            slug: {
+              type: 'string',
+              description: 'Slug chuyên mục',
+              example: 'bao-hiem-suc-khoe'
+            },
+            description: {
+              type: 'string',
+              description: 'Mô tả chuyên mục',
+              example: 'Chuyên mục về các sản phẩm bảo hiểm sức khỏe'
+            },
+            parentId: {
+              type: 'integer',
+              nullable: true,
+              description: 'ID chuyên mục cha',
+              example: null
+            },
+            active: {
+              type: 'boolean',
+              description: 'Trạng thái hoạt động',
+              example: true
+            },
+            createdAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Thời gian tạo',
+              example: '2023-01-01T00:00:00.000Z'
+            },
+            updatedAt: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Thời gian cập nhật',
+              example: '2023-01-01T00:00:00.000Z'
+            },
+            creatorName: {
+              type: 'string',
+              description: 'Tên người tạo',
+              example: 'Admin User'
+            },
+            updaterName: {
+              type: 'string',
+              description: 'Tên người cập nhật',
+              example: 'Admin User'
+            },
+            parent: {
+              $ref: '#/components/schemas/PostCategory',
+              description: 'Chuyên mục cha'
+            },
+            children: {
+              type: 'array',
+              items: {
+                $ref: '#/components/schemas/PostCategory'
+              },
+              description: 'Danh sách chuyên mục con'
+            },
+            posts: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: {
+                    type: 'integer'
+                  },
+                  title: {
+                    type: 'string'
+                  },
+                  slug: {
+                    type: 'string'
+                  }
+                }
+              },
+              description: 'Danh sách bài viết trong chuyên mục'
+            },
+            seoMeta: {
+              $ref: '#/components/schemas/SeoDto',
+              description: 'Thông tin SEO'
+            }
+          }
         }
       }
     }

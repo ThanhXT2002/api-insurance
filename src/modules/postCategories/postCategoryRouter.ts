@@ -22,38 +22,38 @@ const router = Router()
  *   get:
  *     tags:
  *       - Post Categories
- *     summary: Get all categories with pagination and search
+ *     summary: Lấy danh sách chuyên mục với phân trang và tìm kiếm
  *     parameters:
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
  *           default: 1
- *         description: Page number
+ *         description: Số trang
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           default: 10
- *         description: Items per page
+ *         description: Số lượng item trên mỗi trang
  *       - in: query
  *         name: keyword
  *         schema:
  *           type: string
- *         description: Search keyword
+ *         description: Từ khóa tìm kiếm
  *       - in: query
  *         name: active
  *         schema:
  *           type: boolean
- *         description: Filter by active status
+ *         description: Lọc theo trạng thái hoạt động
  *       - in: query
  *         name: parentId
  *         schema:
  *           type: integer
- *         description: Filter by parent category
+ *         description: Lọc theo chuyên mục cha
  *     responses:
  *       200:
- *         description: Categories retrieved successfully
+ *         description: Lấy danh sách chuyên mục thành công
  *         content:
  *           application/json:
  *             schema:
@@ -80,10 +80,10 @@ router.get('/', optionalAuthenticate, controller.getAll.bind(controller))
  *   get:
  *     tags:
  *       - Post Categories
- *     summary: Get category tree hierarchy
+ *     summary: Lấy cây phân cấp chuyên mục
  *     responses:
  *       200:
- *         description: Category tree retrieved successfully
+ *         description: Lấy cây chuyên mục thành công
  */
 router.get('/tree', optionalAuthenticate, controller.getTree.bind(controller))
 
@@ -93,10 +93,10 @@ router.get('/tree', optionalAuthenticate, controller.getTree.bind(controller))
  *   get:
  *     tags:
  *       - Post Categories
- *     summary: Get root categories (no parent)
+ *     summary: Lấy các chuyên mục gốc (không có cha)
  *     responses:
  *       200:
- *         description: Root categories retrieved successfully
+ *         description: Lấy chuyên mục gốc thành công
  */
 router.get('/roots', optionalAuthenticate, controller.getRoots.bind(controller))
 
@@ -106,19 +106,19 @@ router.get('/roots', optionalAuthenticate, controller.getRoots.bind(controller))
  *   get:
  *     tags:
  *       - Post Categories
- *     summary: Get category by slug
+ *     summary: Lấy chuyên mục theo slug
  *     parameters:
  *       - in: path
  *         name: slug
  *         required: true
  *         schema:
  *           type: string
- *         description: Category slug
+ *         description: Slug chuyên mục
  *     responses:
  *       200:
- *         description: Category retrieved successfully
+ *         description: Lấy chuyên mục thành công
  *       404:
- *         description: Category not found
+ *         description: Không tìm thấy chuyên mục
  */
 router.get('/slug/:slug', optionalAuthenticate, controller.getBySlug.bind(controller))
 
@@ -128,19 +128,19 @@ router.get('/slug/:slug', optionalAuthenticate, controller.getBySlug.bind(contro
  *   get:
  *     tags:
  *       - Post Categories
- *     summary: Get category by ID
+ *     summary: Lấy chuyên mục theo ID
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: integer
- *         description: Category ID
+ *         description: ID chuyên mục
  *     responses:
  *       200:
- *         description: Category retrieved successfully
+ *         description: Lấy chuyên mục thành công
  *       404:
- *         description: Category not found
+ *         description: Không tìm thấy chuyên mục
  */
 router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
 
@@ -150,7 +150,7 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *   post:
  *     tags:
  *       - Post Categories
- *     summary: Create new category
+ *     summary: Tạo chuyên mục mới với hỗ trợ SEO
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -158,18 +158,58 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/CreateCategoryRequest'
+ *             type: object
+ *             required:
+ *               - name
+ *               - slug
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 description: Tên chuyên mục
+ *               slug:
+ *                 type: string
+ *                 description: Slug chuyên mục (duy nhất)
+ *               description:
+ *                 type: string
+ *                 description: Mô tả chuyên mục
+ *               parentId:
+ *                 type: integer
+ *                 description: ID chuyên mục cha
+ *               seoMeta:
+ *                 $ref: '#/components/schemas/SeoDto'
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *               - slug
+ *             properties:
+ *               name:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               parentId:
+ *                 type: integer
+ *               seoMeta:
+ *                 type: string
+ *                 description: Chuỗi JSON chứa thông tin SEO
+ *               seoImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: File ảnh SEO (khuyến nghị 1200x630)
  *     responses:
  *       201:
- *         description: Category created successfully
+ *         description: Tạo chuyên mục thành công
  *       400:
- *         description: Bad request - validation error
+ *         description: Lỗi xác thực dữ liệu
  *       401:
- *         description: Unauthorized
+ *         description: Chưa xác thực
  *       403:
- *         description: Forbidden - insufficient permissions
+ *         description: Không đủ quyền truy cập
  *       409:
- *         description: Conflict - slug already exists
+ *         description: Slug đã tồn tại
  */
 // Protected endpoints (require authentication and permissions)
 router.post('/', authenticate, controller.create.bind(controller))
@@ -180,7 +220,7 @@ router.post('/', authenticate, controller.create.bind(controller))
  *   put:
  *     tags:
  *       - Post Categories
- *     summary: Update category
+ *     summary: Cập nhật chuyên mục với hỗ trợ SEO
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -206,17 +246,40 @@ router.post('/', authenticate, controller.create.bind(controller))
  *                 type: integer
  *               active:
  *                 type: boolean
+ *               seoMeta:
+ *                 $ref: '#/components/schemas/SeoDto'
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *               slug:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               parentId:
+ *                 type: integer
+ *               active:
+ *                 type: boolean
+ *               seoMeta:
+ *                 type: string
+ *                 description: Chuỗi JSON chứa thông tin SEO
+ *               seoImage:
+ *                 type: string
+ *                 format: binary
+ *                 description: File ảnh SEO (khuyến nghị 1200x630)
  *     responses:
  *       200:
- *         description: Category updated successfully
+ *         description: Cập nhật chuyên mục thành công
  *       400:
- *         description: Bad request - validation error
+ *         description: Lỗi xác thực dữ liệu
  *       401:
- *         description: Unauthorized
+ *         description: Chưa xác thực
  *       403:
- *         description: Forbidden - insufficient permissions
+ *         description: Không đủ quyền truy cập
  *       404:
- *         description: Category not found
+ *         description: Không tìm thấy chuyên mục
  */
 router.put('/:id', authenticate, controller.update.bind(controller))
 
@@ -226,7 +289,7 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *   delete:
  *     tags:
  *       - Post Categories
- *     summary: Delete category (soft delete)
+ *     summary: Xóa chuyên mục (xóa mềm)
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -239,18 +302,18 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *         name: force
  *         schema:
  *           type: boolean
- *         description: Force delete even if has posts/children
+ *         description: Ép buộc xóa ngay cả khi có bài viết/chuyên mục con
  *     responses:
  *       200:
- *         description: Category deleted successfully
+ *         description: Xóa chuyên mục thành công
  *       400:
- *         description: Cannot delete - has posts or children
+ *         description: Không thể xóa - có bài viết hoặc chuyên mục con
  *       401:
- *         description: Unauthorized
+ *         description: Chưa xác thực
  *       403:
- *         description: Forbidden - insufficient permissions
+ *         description: Không đủ quyền truy cập
  *       404:
- *         description: Category not found
+ *         description: Không tìm thấy chuyên mục
  */
 router.delete('/:id', authenticate, requirePermissions(['post_category.delete']), controller.delete.bind(controller))
 
@@ -260,7 +323,7 @@ router.delete('/:id', authenticate, requirePermissions(['post_category.delete'])
  *   post:
  *     tags:
  *       - Post Categories
- *     summary: Delete multiple categories
+ *     summary: Xóa nhiều chuyên mục cùng lúc
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -276,19 +339,19 @@ router.delete('/:id', authenticate, requirePermissions(['post_category.delete'])
  *                 type: array
  *                 items:
  *                   type: integer
- *                 description: Array of category IDs
+ *                 description: Mảng ID các chuyên mục
  *               force:
  *                 type: boolean
- *                 description: Force delete even if has posts/children
+ *                 description: Ép buộc xóa ngay cả khi có bài viết/chuyên mục con
  *     responses:
  *       200:
- *         description: Categories deleted successfully
+ *         description: Xóa các chuyên mục thành công
  *       400:
- *         description: Validation error
+ *         description: Lỗi xác thực dữ liệu
  *       401:
- *         description: Unauthorized
+ *         description: Chưa xác thực
  *       403:
- *         description: Forbidden - insufficient permissions
+ *         description: Không đủ quyền truy cập
  */
 // Admin-only batch operations
 router.post(
@@ -304,7 +367,7 @@ router.post(
  *   post:
  *     tags:
  *       - Post Categories
- *     summary: Activate/deactivate multiple categories
+ *     summary: Kích hoạt/vô hiệu hóa nhiều chuyên mục cùng lúc
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -321,19 +384,19 @@ router.post(
  *                 type: array
  *                 items:
  *                   type: integer
- *                 description: Array of category IDs
+ *                 description: Mảng ID các chuyên mục
  *               active:
  *                 type: boolean
- *                 description: New active status
+ *                 description: Trạng thái hoạt động mới
  *     responses:
  *       200:
- *         description: Categories updated successfully
+ *         description: Cập nhật các chuyên mục thành công
  *       400:
- *         description: Validation error
+ *         description: Lỗi xác thực dữ liệu
  *       401:
- *         description: Unauthorized
+ *         description: Chưa xác thực
  *       403:
- *         description: Forbidden - insufficient permissions
+ *         description: Không đủ quyền truy cập
  */
 router.post(
   '/batch/active',
@@ -341,5 +404,49 @@ router.post(
   requirePermissions(['post_category.edit']),
   controller.batchActive.bind(controller)
 )
+
+/**
+ * @openapi
+ * /api/post-categories/{id}/with-seo:
+ *   get:
+ *     tags:
+ *       - Post Categories
+ *     summary: Lấy chuyên mục theo ID kèm thông tin SEO
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: ID chuyên mục
+ *     responses:
+ *       200:
+ *         description: Lấy chuyên mục với thông tin SEO thành công
+ *       404:
+ *         description: Không tìm thấy chuyên mục
+ */
+router.get('/:id/with-seo', optionalAuthenticate, controller.getByIdWithSeo.bind(controller))
+
+/**
+ * @openapi
+ * /api/post-categories/slug/{slug}/with-seo:
+ *   get:
+ *     tags:
+ *       - Post Categories
+ *     summary: Lấy chuyên mục theo slug kèm thông tin SEO
+ *     parameters:
+ *       - in: path
+ *         name: slug
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Slug chuyên mục
+ *     responses:
+ *       200:
+ *         description: Lấy chuyên mục với thông tin SEO thành công
+ *       404:
+ *         description: Không tìm thấy chuyên mục
+ */
+router.get('/slug/:slug/with-seo', optionalAuthenticate, controller.getBySlugWithSeo.bind(controller))
 
 export default router

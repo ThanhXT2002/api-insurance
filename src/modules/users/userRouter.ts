@@ -25,22 +25,22 @@ const router = Router()
  *         name: page
  *         schema:
  *           type: integer
- *         description: "Số trang (mặc định: 1)"
+ *         description: 'Số trang (mặc định: 1)'
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
- *         description: "Số lượng bản ghi mỗi trang (mặc định: 20)"
+ *         description: 'Số lượng bản ghi mỗi trang (mặc định: 20)'
  *       - in: query
  *         name: keyword
  *         schema:
  *           type: string
- *         description: "Từ khóa tìm kiếm theo email hoặc tên"
+ *         description: 'Từ khóa tìm kiếm theo email hoặc tên'
  *       - in: query
  *         name: active
  *         schema:
  *           type: boolean
- *         description: "Lọc theo trạng thái hoạt động (true/false)"
+ *         description: 'Lọc theo trạng thái hoạt động (true/false)'
  *     responses:
  *       200:
  *         description: Lấy danh sách người dùng thành công
@@ -62,7 +62,7 @@ router.get('/', authenticate, controller.getAll.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
- *         description: "ID người dùng"
+ *         description: 'ID người dùng'
  *         example: 1
  *     responses:
  *       200:
@@ -136,44 +136,44 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *                 type: string
  *                 format: email
  *                 example: "john.doe@example.com"
- *                 description: "Địa chỉ email (bắt buộc)"
+ *                 description: 'Địa chỉ email (bắt buộc)'
  *               password:
  *                 type: string
  *                 minLength: 6
  *                 example: "password123"
- *                 description: "Mật khẩu (bắt buộc, tối thiểu 6 ký tự)"
+ *                 description: 'Mật khẩu (bắt buộc, tối thiểu 6 ký tự)'
  *               name:
  *                 type: string
  *                 example: "Nguyễn Văn A"
- *                 description: "Họ và tên (không bắt buộc)"
+ *                 description: 'Họ và tên (không bắt buộc)'
  *               phoneNumber:
  *                 type: string
  *                 example: "0123456789"
- *                 description: "Số điện thoại (không bắt buộc)"
+ *                 description: 'Số điện thoại (không bắt buộc)'
  *               addresses:
  *                 type: string
  *                 example: "123 Đường ABC, Quận 1, TP.HCM"
- *                 description: "Địa chỉ (không bắt buộc)"
+ *                 description: 'Địa chỉ (không bắt buộc)'
  *               avatar:
  *                 type: string
  *                 format: binary
- *                 description: "File ảnh đại diện (không bắt buộc, jpg/png)"
+ *                 description: 'File ảnh đại diện (không bắt buộc, jpg/png)'
  *               roleKeys:
  *                 type: array
  *                 items:
  *                   type: string
  *                 example: ["super_admin", "editor"]
- *                 description: "Mảng các key vai trò cần gán (không bắt buộc)"
+ *                 description: 'Mảng các key vai trò cần gán (không bắt buộc)'
  *               permissionKeys:
  *                 type: array
  *                 items:
  *                   type: string
  *                 example: ["comment.delete","comment.view"]
- *                 description: "Mảng các key quyền hạn trực tiếp (không bắt buộc)"
+ *                 description: 'Mảng các key quyền hạn trực tiếp (không bắt buộc)'
  *               active:
  *                 type: boolean
  *                 default: true
- *                 description: "Trạng thái hoạt động của người dùng (không bắt buộc)"
+ *                 description: 'Trạng thái hoạt động của người dùng (không bắt buộc)'
  *             required:
  *               - email
  *               - password
@@ -247,7 +247,7 @@ router.post('/', authenticate, upload.single('avatar'), controller.create.bind(c
  *         required: true
  *         schema:
  *           type: integer
- *         description: "ID người dùng cần cập nhật"
+ *         description: 'ID người dùng cần cập nhật'
  *         example: 1
  *     requestBody:
  *       required: true
@@ -259,35 +259,35 @@ router.post('/', authenticate, upload.single('avatar'), controller.create.bind(c
  *               name:
  *                 type: string
  *                 example: "Trần Xuân Thành"
- *                 description: "Họ và tên (không bắt buộc)"
+ *                 description: 'Họ và tên (không bắt buộc)'
  *               phoneNumber:
  *                 type: string
  *                 example: "0123456789"
- *                 description: "Số điện thoại (không bắt buộc)"
+ *                 description: 'Số điện thoại (không bắt buộc)'
  *               addresses:
  *                 type: string
  *                 example: "456 Đường XYZ, Quận 3, TP.HCM"
- *                 description: "Địa chỉ (không bắt buộc)"
+ *                 description: 'Địa chỉ (không bắt buộc)'
  *               avatar:
  *                 type: string
  *                 format: binary
- *                 description: "File ảnh đại diện mới (không bắt buộc, jpg/png)"
+ *                 description: 'File ảnh đại diện mới (không bắt buộc, jpg/png)'
  *               roleKeys:
  *                 type: array
  *                 items:
  *                   type: string
  *                 example: ["super_admin", "editor"]
- *                 description: "Mảng các key vai trò cần gán (không bắt buộc, thay thế vai trò hiện có)"
+ *                 description: 'Mảng các key vai trò cần gán (không bắt buộc, thay thế vai trò hiện có)'
  *               permissionKeys:
  *                 type: array
  *                 items:
  *                   type: string
  *                 example: ["comment.delete","comment.moderate","comment.view"]
- *                 description: "Mảng các key quyền hạn trực tiếp (không bắt buộc)"
+ *                 description: 'Mảng các key quyền hạn trực tiếp (không bắt buộc)'
  *               active:
  *                 type: boolean
  *                 example: true
- *                 description: "Trạng thái hoạt động của người dùng (không bắt buộc)"
+ *                 description: 'Trạng thái hoạt động của người dùng (không bắt buộc)'
  *     responses:
  *       200:
  *         description: Cập nhật người dùng thành công
@@ -360,7 +360,7 @@ router.put('/:id', authenticate, upload.single('avatar'), controller.update.bind
  *         required: true
  *         schema:
  *           type: integer
- *         description: "ID người dùng cần xóa"
+ *         description: 'ID người dùng cần xóa'
  *     responses:
  *       200:
  *         description: Xóa người dùng thành công
@@ -387,7 +387,7 @@ router.delete('/:id', authenticate, controller.delete.bind(controller))
  *                 type: array
  *                 items:
  *                   type: integer
- *                 description: "Mảng các ID người dùng cần xóa"
+ *                 description: 'Mảng các ID người dùng cần xóa'
  *     responses:
  *       200:
  *         description: Xóa người dùng thành công
@@ -414,10 +414,10 @@ router.post('/delete-multiple', authenticate, controller.deleteMultiple.bind(con
  *                 type: array
  *                 items:
  *                   type: integer
- *                 description: "Mảng các ID người dùng"
+ *                 description: 'Mảng các ID người dùng'
  *               active:
  *                 type: boolean
- *                 description: "Trạng thái hoạt động (true: kích hoạt, false: vô hiệu hóa)"
+ *                 description: 'Trạng thái hoạt động (true: kích hoạt, false: vô hiệu hóa)'
  *     responses:
  *       200:
  *         description: Cập nhật người dùng thành công

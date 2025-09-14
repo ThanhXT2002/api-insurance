@@ -208,6 +208,26 @@ export class FileUploadService {
   }
 
   /**
+   * Upload image for SEO (Open Graph / social preview)
+   * Uses a dedicated folder and a larger aspect size for OG images
+   */
+  async uploadSeoImage(file: Buffer, originalName: string): Promise<UploadedFile> {
+    return this.uploadSingleFile(file, originalName, {
+      folderName: 'project-insurance/seo',
+      maxFileSize: 5 * 1024 * 1024, // 5MB
+      allowedTypes: ['image/'],
+      processImages: true,
+      imageProcessing: {
+        // Open Graph recommended 1200x630 — keep aspect and limit
+        maxWidth: 1200,
+        maxHeight: 630,
+        quality: 90,
+        format: 'webp'
+      }
+    })
+  }
+
+  /**
    * Upload document/file
    */
   async uploadDocument(file: Buffer, originalName: string, folder?: string): Promise<UploadedFile> {

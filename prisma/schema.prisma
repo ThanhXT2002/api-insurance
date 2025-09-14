@@ -229,7 +229,7 @@ model SeoMeta {
   // SEO cơ bản
   seoTitle        String? @db.VarChar(120)
   metaDescription String? @db.VarChar(255)
-  canonicalUrl    String?
+  canonicalUrl    String? @unique
   focusKeyword    String? @db.VarChar(100)
 
   seoImage String?
@@ -316,7 +316,6 @@ model PostComment {
 
   @@map("post_comments")
 }
-
 
 // npx prisma migrate dev --name add_seo_meta_model
 // npx prisma generate
