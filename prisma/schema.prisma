@@ -3,7 +3,7 @@ generator client {
   provider = "prisma-client-js"
   // Sinh client vào thư mục `generated/prisma` ở root project để phù hợp với import
   // đường dẫn ../../generated/prisma từ thư mục src/base
-  output = "../generated/prisma"
+  output   = "../generated/prisma"
 }
 
 // Datasource: cấu hình kết nối DB.
@@ -19,49 +19,49 @@ datasource db {
 
 // User: thiết kế để dễ mở rộng và liên kết với Supabase Auth thông qua `supabaseId` (UUID)
 model User {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   // Nếu bạn dùng Supabase Auth, lưu id của user (UUID) tại đây để liên kết profile
   // (ví dụ: 'supabaseId' sẽ chứa giá trị UUID do Supabase cấp). Trường này để
   // tùy chọn để vẫn hỗ trợ user cục bộ không dùng Supabase.
   // Lưu ý: với Postgres/Supabase trường này dùng native UUID để tương thích với
   // id do Supabase cấp. Đây là kiểu chỉ hỗ trợ với Postgres connector.
-  supabaseId  String?   @unique @db.Uuid
-  email       String    @unique
+  supabaseId  String?  @unique @db.Uuid
+  email       String   @unique
   name        String?
   avatarUrl   String?
-  active      Boolean   @default(true)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   addresses   String?
   phoneNumber String?
 
   // Roles: many-to-many via UserRoleAssignment
   roleAssignments UserRoleAssignment[]
   // Quyền gán trực tiếp cho user (nếu có)
-  userPermissions  UserPermission[]
+  userPermissions UserPermission[]
 
   // Relations với Post và Category
-  createdPosts        Post[]            @relation("PostCreatedBy")
-  updatedPosts        Post[]            @relation("PostUpdatedBy")
-  createdCategories   PostCategory[]    @relation("CategoryCreatedBy")
-  updatedCategories   PostCategory[]    @relation("CategoryUpdatedBy")
-  createdSeoMeta      SeoMeta[]         @relation("SeoCreatedBy")
-  updatedSeoMeta      SeoMeta[]         @relation("SeoUpdatedBy")
-  createdPostComments PostComment[]     @relation("PostCommentCreatedBy")
-  updatedPostComments PostComment[]     @relation("PostCommentUpdatedBy")
-  userComments        PostComment[]     @relation("UserComments")
+  createdPosts        Post[]         @relation("PostCreatedBy")
+  updatedPosts        Post[]         @relation("PostUpdatedBy")
+  createdCategories   PostCategory[] @relation("CategoryCreatedBy")
+  updatedCategories   PostCategory[] @relation("CategoryUpdatedBy")
+  createdSeoMeta      SeoMeta[]      @relation("SeoCreatedBy")
+  updatedSeoMeta      SeoMeta[]      @relation("SeoUpdatedBy")
+  createdPostComments PostComment[]  @relation("PostCommentCreatedBy")
+  updatedPostComments PostComment[]  @relation("PostCommentUpdatedBy")
+  userComments        PostComment[]  @relation("UserComments")
 
   @@map("users")
 }
 
 // UserRole: lưu các vai trò (role) có thể mở rộng (ví dụ: admin, user, support)
 model UserRole {
-  id          Int      @id @default(autoincrement())
-  key         String   @unique // machine-friendly key, e.g. 'admin'
-  name        String   // human-friendly name
+  id          Int     @id @default(autoincrement())
+  key         String  @unique // machine-friendly key, e.g. 'admin'
+  name        String // human-friendly name
   description String?
 
-  assignments UserRoleAssignment[]
+  assignments     UserRoleAssignment[]
   // Quyền gán cho role
   rolePermissions RolePermission[]
 
@@ -70,13 +70,13 @@ model UserRole {
 
 // Bảng nối many-to-many giữa User và UserRole
 model UserRoleAssignment {
-  id      Int     @id @default(autoincrement())
-  user    User    @relation(fields: [userId], references: [id])
-  userId  Int
-  role    UserRole @relation(fields: [roleId], references: [id])
-  roleId  Int
+  id     Int      @id @default(autoincrement())
+  user   User     @relation(fields: [userId], references: [id])
+  userId Int
+  role   UserRole @relation(fields: [roleId], references: [id])
+  roleId Int
   // tùy chọn: dùng để phân vùng vai trò theo tổ chức hoặc resource trong tương lai
-  scope   String?
+  scope  String?
 
   @@unique([userId, roleId, scope])
   @@map("user_role_assignments")
@@ -90,7 +90,7 @@ model UserRoleAssignment {
 model Permission {
   id          Int     @id @default(autoincrement())
   key         String  @unique // ví dụ: 'user.view'
-  name        String  // ví dụ: 'Xem người dùng'
+  name        String // ví dụ: 'Xem người dùng'
   description String? // mô tả chi tiết quyền
 
   // Các mapping
@@ -128,27 +128,27 @@ model UserPermission {
 
 // Model PostCategory
 model PostCategory {
-  id          Int      @id @default(autoincrement())
+  id          Int     @id @default(autoincrement())
   name        String
-  slug        String   @unique
+  slug        String  @unique
   description String?
-  parentId    Int?     // Self-reference cho category con
-  active      Boolean  @default(true)
-  
+  parentId    Int? // Self-reference cho category con
+  active      Boolean @default(true)
+
   // Audit fields
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   Int
-  updatedBy   Int
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy Int
+  updatedBy Int
+
   // Relations
-  taggedPosts Post[] @relation("PostTaggedCategories")
-  creator     User     @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
-  updater     User     @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
-  parent      PostCategory? @relation("CategoryParent", fields: [parentId], references: [id])
+  taggedPosts Post[]         @relation("PostTaggedCategories")
+  creator     User           @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
+  updater     User           @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
+  parent      PostCategory?  @relation("CategoryParent", fields: [parentId], references: [id])
   children    PostCategory[] @relation("CategoryParent")
-  posts       Post[] @relation("PostPrimaryCategory")
-  
+  posts       Post[]         @relation("PostPrimaryCategory")
+
   // Note: SEO metadata handled via polymorphic SeoMeta table with seoableType='POST_CATEGORY'
 
   @@map("post_categories")
@@ -156,31 +156,31 @@ model PostCategory {
 
 // Model Post
 model Post {
-  id          Int      @id @default(autoincrement())
-  title       String
-  slug        String   @unique
-  excerpt     String?
-  content     String
+  id            Int        @id @default(autoincrement())
+  title         String
+  slug          String     @unique
+  excerpt       String?
+  content       String
   featuredImage String?
-  status      PostStatus @default(DRAFT)
+  status        PostStatus @default(DRAFT)
 
-  albumImages Json?    // Array URLs: ["img1.jpg", "img2.jpg", "img3.jpg"]
-  videoUrl    String?  // URL video YouTube/Vimeo cho video tutorials
+  albumImages Json? // Array URLs: ["img1.jpg", "img2.jpg", "img3.jpg"]
+  videoUrl    String? // URL video YouTube/Vimeo cho video tutorials
 
   // Content Enhancement  
-  note        String?  // Ghi chú nội bộ cho editor/admin
-  
+  note String? // Ghi chú nội bộ cho editor/admin
+
   // Content Organization
-  priority    Int      @default(0) // Độ ưu tiên hiển thị (0=normal, 1=high, 2=urgent)
+  priority      Int     @default(0) // Độ ưu tiên hiển thị (0=normal, 1=high, 2=urgent)
   isHighlighted Boolean @default(false) // Bài viết nổi bật
-  isFeatured  Boolean  @default(false) // Hiển thị ở homepage/featured section
-  
+  isFeatured    Boolean @default(false) // Hiển thị ở homepage/featured section
+
   // Publishing Control
   scheduledAt DateTime? // Đăng theo lịch (scheduled publishing)
   expiredAt   DateTime? // Ngày hết hạn (cho tin khuyến mãi)
-  
+
   // Insurance Specific
-  targetAudience Json? // ["individual", "business", "family"] - đối tượng mục tiêu
+  targetAudience  Json? // ["individual", "business", "family"] - đối tượng mục tiêu
   relatedProducts Json? // [1, 2, 3] - IDs của sản phẩm bảo hiểm liên quan
 
   // Content Metadata
@@ -188,22 +188,22 @@ model Post {
 
   publishedAt DateTime?
   categoryId  Int?
-  
+
   // Audit fields
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   Int
-  updatedBy   Int
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy Int
+  updatedBy Int
+
   // Relations
-  creator     User     @relation("PostCreatedBy", fields: [createdBy], references: [id])
-  updater     User     @relation("PostUpdatedBy", fields: [updatedBy], references: [id])
-  category    PostCategory? @relation("PostPrimaryCategory", fields: [categoryId], references: [id])
+  creator  User          @relation("PostCreatedBy", fields: [createdBy], references: [id])
+  updater  User          @relation("PostUpdatedBy", fields: [updatedBy], references: [id])
+  category PostCategory? @relation("PostPrimaryCategory", fields: [categoryId], references: [id])
 
   taggedCategories PostCategory[] @relation("PostTaggedCategories") // Mối quan hệ với thẻ bài viết
-  comments        PostComment[] @relation("PostComments") // Comments của post
-  postType      PostType  @default(ARTICLE) // ARTICLE, GUIDE, NEWS, PRODUCT
-  
+  comments         PostComment[]  @relation("PostComments") // Comments của post
+  postType         PostType       @default(ARTICLE) // ARTICLE, GUIDE, NEWS, PRODUCT
+
   // Note: SEO metadata handled via polymorphic SeoMeta table with seoableType='POST'
 
   @@map("posts")
@@ -213,7 +213,7 @@ model Post {
 //   id    Int    @id @default(autoincrement()) // ID thẻ
 //   name  String // Tên thẻ
 //   slug  String @unique // URL thân thiện của thẻ
-  
+
 //   posts Post[] @relation("PostTags") // Liên kết với bài viết
 
 //   @@index([slug])
@@ -221,46 +221,34 @@ model Post {
 
 // Model SEO chung cho tất cả
 model SeoMeta {
-  id          Int      @id @default(autoincrement())
-  
+  id          Int         @id @default(autoincrement())
   // Polymorphic fields
   seoableType SeoableType
   seoableId   Int
-  
+
   // SEO cơ bản
-  seoTitle        String?  @db.VarChar(60)
-  metaDescription String?  @db.VarChar(160)
+  seoTitle        String? @db.VarChar(120)
+  metaDescription String? @db.VarChar(255)
   canonicalUrl    String?
-  focusKeyword    String?  @db.VarChar(100)
-  
-  // Open Graph (cho Facebook, Instagram, Threads)
-  ogTitle       String? @db.VarChar(95)
-  ogDescription String?
-  ogImage       String?
-  ogType        String? @default("article") @db.VarChar(20)
-  
-  // Zalo riêng
-  zaloTitle       String? @db.VarChar(100)
-  zaloDescription String?
-  zaloImage       String?
-  
+  focusKeyword    String? @db.VarChar(100)
+
+  seoImage String?
+  // Riêng MXH chỉ cần thêm loại nội dung Open Graph (cho Facebook, Instagram, Threads)
+  ogType   String? @default("article") @db.VarChar(20)
+
   // Kỹ thuật SEO
-  noindex     Boolean @default(false)
-  nofollow    Boolean @default(false)
-  
+  noindex  Boolean @default(false)
+  nofollow Boolean @default(false)
+
   // Audit fields
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   Int
-  updatedBy   Int
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy Int
+  updatedBy Int
   // Relations
-  creator     User @relation("SeoCreatedBy", fields: [createdBy], references: [id])
-  updater     User @relation("SeoUpdatedBy", fields: [updatedBy], references: [id])
-  
-  // Note: Polymorphic implementation - these will be handled in application logic
-  // Only one of these should be populated based on seoableType
-  
+  creator   User     @relation("SeoCreatedBy", fields: [createdBy], references: [id])
+  updater   User     @relation("SeoUpdatedBy", fields: [updatedBy], references: [id])
+
   // Composite unique index cho polymorphic
   @@unique([seoableType, seoableId])
   @@index([seoableType, seoableId])
@@ -268,11 +256,11 @@ model SeoMeta {
 }
 
 enum PostType {
-  ARTICLE     // Bài viết thông thường
-  GUIDE       // Hướng dẫn
-  NEWS        // Tin tức
-  PRODUCT     // Giới thiệu sản phẩm bảo hiểm
-  FAQ         // Câu hỏi thường gặp
+  ARTICLE // Bài viết thông thường
+  GUIDE // Hướng dẫn
+  NEWS // Tin tức
+  PRODUCT // Giới thiệu sản phẩm bảo hiểm
+  FAQ // Câu hỏi thường gặp
 }
 
 // Enums
@@ -285,25 +273,25 @@ enum PostStatus {
 enum SeoableType {
   POST
   POST_CATEGORY
-  
+
   // Insurance Products
   PRODUCT
   PRODUCT_CATEGORY
   INSURANCE_PLAN
-  
+
   // Customer & Reviews  
   REVIEW
   TESTIMONIAL
-  
+
   // Content & Guides
   CLAIM_GUIDE
   FAQ_ITEM
   LEGAL_PAGE
-  
+
   // Company Info
   BRANCH_OFFICE
   AGENT_PROFILE
-  
+
   // Có thể thêm nhiều hơn khi cần
 }
 
@@ -311,20 +299,24 @@ model PostComment {
   id        Int      @id @default(autoincrement())
   content   String
   postId    Int
-  userId    Int?     // nullable cho guest comments
-  email     String?  // cho guest
-  name      String?  // cho guest
+  userId    Int? // nullable cho guest comments
+  email     String? // cho guest
+  name      String? // cho guest
   approved  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   Int
-  updatedBy   Int
-  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy Int
+  updatedBy Int
+
   // Relations
-  post        Post     @relation("PostComments", fields: [postId], references: [id])
-  user        User?    @relation("UserComments", fields: [userId], references: [id])
-  creator     User     @relation("PostCommentCreatedBy", fields: [createdBy], references: [id])
-  updater     User     @relation("PostCommentUpdatedBy", fields: [updatedBy], references: [id])
+  post    Post  @relation("PostComments", fields: [postId], references: [id])
+  user    User? @relation("UserComments", fields: [userId], references: [id])
+  creator User  @relation("PostCommentCreatedBy", fields: [createdBy], references: [id])
+  updater User  @relation("PostCommentUpdatedBy", fields: [updatedBy], references: [id])
 
   @@map("post_comments")
 }
+
+
+// npx prisma migrate dev --name add_seo_meta_model
+// npx prisma generate
