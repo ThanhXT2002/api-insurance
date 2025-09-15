@@ -157,25 +157,6 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - name
- *             properties:
- *               name:
- *                 type: string
- *                 description: Tên chuyên mục slug sẽ được sinh tự động từ tên
- *               description:
- *                 type: string
- *                 description: Mô tả chuyên mục
- *               parentId:
- *                 type: integer
- *                 description: ID chuyên mục cha
- *               active:
- *                 type: boolean
- *               seoMeta:
- *                 $ref: '#/components/schemas/SeoDto'
  *         multipart/form-data:
  *           schema:
  *             type: object
@@ -232,7 +213,7 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *         description: Slug đã tồn tại
  */
 // Protected endpoints (require authentication and permissions)
-// Expect multipart/form-data with optional `seoImage` file and stringified `seoMeta`
+// Expect multipart/form-data with discrete SEO fields (seoTitle, metaDescription, ...) and optional `seoImage` file
 router.post('/', authenticate, upload.single('seoImage'), controller.create.bind(controller))
 
 /**
@@ -254,24 +235,6 @@ router.post('/', authenticate, upload.single('seoImage'), controller.create.bind
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *                 description: Tên chuyên mục
- *               description:
- *                 type: string
- *                 description: Mô tả chuyên mục
- *               parentId:
- *                 type: integer
- *                 description: ID chuyên mục cha
- *               active:
- *                 type: boolean
- *                 description: Trạng thái hoạt động
- *               seoMeta:
- *                 $ref: '#/components/schemas/SeoDto'
  *         multipart/form-data:
  *           schema:
  *             type: object

@@ -69,7 +69,7 @@ export class SeoService {
       }
 
       // 3. Prepare SEO data
-      const seoData = {
+      const createData: any = {
         seoTitle: seoDto.seoTitle || null,
         metaDescription: seoDto.metaDescription || null,
         canonicalUrl: canonicalUrl,
@@ -82,6 +82,23 @@ export class SeoService {
           createdBy: actorId,
           updatedBy: actorId
         })
+      }
+
+      // For update, only include seoImage if the caller provided a value (either string or uploaded file)
+      const updateData: any = {
+        seoTitle: seoDto.seoTitle || null,
+        metaDescription: seoDto.metaDescription || null,
+        canonicalUrl: canonicalUrl,
+        focusKeyword: seoDto.focusKeyword || null,
+        ogType: seoDto.ogType || 'article',
+        noindex: seoDto.noindex || false,
+        nofollow: seoDto.nofollow || false,
+        ...(actorId && { updatedBy: actorId })
+      }
+
+      // If seoDto.seoImage was provided (either as file uploaded -> seoImageUrl set, or as string), then include it in update.
+      if (typeof (seoDto as any).seoImage !== 'undefined') {
+        updateData.seoImage = seoImageUrl
       }
 
       // 4. Upsert SeoMeta
@@ -99,10 +116,10 @@ export class SeoService {
           create: {
             seoableType: resourceType,
             seoableId: resourceId,
-            ...seoData
+            ...createData
           },
           update: {
-            ...seoData,
+            ...updateData,
             updatedAt: new Date()
           }
         })
@@ -138,7 +155,7 @@ export class SeoService {
       }
     }
 
-    const seoData = {
+    const createData: any = {
       seoTitle: seoDto.seoTitle || null,
       metaDescription: seoDto.metaDescription || null,
       canonicalUrl: canonicalUrl,
@@ -153,6 +170,22 @@ export class SeoService {
       })
     }
 
+    const updateData: any = {
+      seoTitle: seoDto.seoTitle || null,
+      metaDescription: seoDto.metaDescription || null,
+      canonicalUrl: canonicalUrl,
+      focusKeyword: seoDto.focusKeyword || null,
+      ogType: seoDto.ogType || 'article',
+      noindex: seoDto.noindex || false,
+      nofollow: seoDto.nofollow || false,
+      ...(actorId && { updatedBy: actorId })
+    }
+
+    // Only set seoImage on update if caller provided seoImage (as string). Caller must handle uploading and pass URL.
+    if (typeof (seoDto as any).seoImage !== 'undefined') {
+      updateData.seoImage = seoDto.seoImage && typeof seoDto.seoImage === 'string' ? seoDto.seoImage : null
+    }
+
     return tx.seoMeta.upsert({
       where: {
         seoableType_seoableId: {
@@ -163,10 +196,10 @@ export class SeoService {
       create: {
         seoableType: resourceType,
         seoableId: resourceId,
-        ...seoData
+        ...createData
       },
       update: {
-        ...seoData,
+        ...updateData,
         updatedAt: new Date()
       }
     })
