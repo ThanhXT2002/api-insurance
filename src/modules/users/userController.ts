@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 import { UserService } from './userService'
 import { ApiResponse } from '../../bases/apiResponse'
 import { StatusCodes } from 'http-status-codes'
-import { upload } from '../auth/authController'
+import { upload } from '../../utils/upload'
 
 export class UserController {
   constructor(private userService: UserService) {}

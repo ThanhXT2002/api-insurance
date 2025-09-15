@@ -1,14 +1,17 @@
 import { BaseService } from '../../bases/baseService'
 import { PostCategoryRepository } from './postCategoryRepository'
 import { seoService, SeoDto } from '../../services/seoService'
+import { normalizeSlug } from '../../utils/urlHelper'
 import { SeoableType } from '../../../generated/prisma'
 import { withRollback } from '../../utils/rollbackHelper'
 
 interface CreateCategoryData {
   name: string
-  slug: string
+  // slug is generated from name; frontend should not provide it
+  slug?: string
   description?: string
   parentId?: number
+  active?: boolean
   seoMeta?: SeoDto
 }
 
@@ -61,8 +64,10 @@ export class PostCategoryService extends BaseService {
   // Tạo category mới với validation và SEO - with audit transformation
   async create(data: CreateCategoryData, ctx?: { actorId?: number }) {
     return withRollback(async (rollbackManager) => {
+      // Derive slug from name (frontend should not provide slug)
+      const normalizedSlug = normalizeSlug(data.name)
       // Validate slug unique
-      const slugExists = await this.repo.slugExists(data.slug)
+      const slugExists = await this.repo.slugExists(normalizedSlug)
       if (slugExists) {
         throw new Error('Slug already exists')
       }
@@ -75,9 +80,29 @@ export class PostCategoryService extends BaseService {
         }
       }
 
-      // Tạo category trước
+      // Tạo category trước (gán slug được tạo từ name)
       const { seoMeta, ...categoryData } = data
-      const result = await super.create(categoryData, ctx)
+      // Ensure slug is taken from name, ignore any client-provided slug
+      categoryData.slug = normalizedSlug
+
+      // Prisma nested relation: translate parentId => parent.connect
+      if (categoryData.parentId !== undefined && categoryData.parentId !== null) {
+        // connect to existing parent by id
+        ;(categoryData as any).parent = { connect: { id: categoryData.parentId } }
+      }
+      // Remove scalar parentId so Prisma client receives relation object
+      delete (categoryData as any).parentId
+
+      // Build explicit payload for Prisma to avoid accidental scalar fields
+      const prismaPayload: any = {
+        name: categoryData.name,
+        slug: categoryData.slug,
+        description: categoryData.description,
+        active: categoryData.active
+      }
+      if ((categoryData as any).parent) prismaPayload.parent = (categoryData as any).parent
+
+      const result = await super.create(prismaPayload, ctx)
 
       // Tạo SEO metadata nếu có
       if (seoMeta) {
@@ -94,7 +119,6 @@ export class PostCategoryService extends BaseService {
           throw error
         }
       }
-
       return this.transformUserAuditFields(result)
     })
   }
@@ -107,11 +131,16 @@ export class PostCategoryService extends BaseService {
         throw new Error('Category not found')
       }
 
-      // Validate slug unique nếu thay đổi
-      if (data.slug && data.slug !== existing.slug) {
-        const slugExists = await this.repo.slugExists(data.slug, id)
-        if (slugExists) {
-          throw new Error('Slug already exists')
+      // If name is being updated, derive slug from the new name and validate uniqueness
+      if (data.name) {
+        const normalizedSlug = normalizeSlug(data.name)
+        if (normalizedSlug !== existing.slug) {
+          const slugExists = await this.repo.slugExists(normalizedSlug, id)
+          if (slugExists) {
+            throw new Error('Slug already exists')
+          }
+          // Use derived slug from name regardless of client-provided slug
+          data.slug = normalizedSlug
         }
       }
 
@@ -128,9 +157,33 @@ export class PostCategoryService extends BaseService {
         }
       }
 
-      // Update category trước
+      // Update category trước (gắn slug đã chuẩn hoá nếu có)
       const { seoMeta, ...categoryData } = data
-      const result = await super.update({ id }, categoryData, ctx)
+      if (data.slug) {
+        categoryData.slug = data.slug
+      }
+
+      // Handle parent update via relation operations
+      if ((data as any).parentId !== undefined) {
+        if ((data as any).parentId === null) {
+          // disconnect parent
+          ;(categoryData as any).parent = { disconnect: true }
+        } else {
+          // connect to another parent
+          ;(categoryData as any).parent = { connect: { id: (data as any).parentId } }
+        }
+        delete (categoryData as any).parentId
+      }
+
+      // Build explicit payload for update to avoid passing scalar parentId
+      const updatePayload: any = {}
+      if (categoryData.name !== undefined) updatePayload.name = categoryData.name
+      if ((categoryData as any).slug !== undefined) updatePayload.slug = (categoryData as any).slug
+      if (categoryData.description !== undefined) updatePayload.description = categoryData.description
+      if ((categoryData as any).active !== undefined) updatePayload.active = (categoryData as any).active
+      if ((categoryData as any).parent !== undefined) updatePayload.parent = (categoryData as any).parent
+
+      const result = await super.update({ id }, updatePayload, ctx)
 
       // Update SEO metadata nếu có
       if (seoMeta) {

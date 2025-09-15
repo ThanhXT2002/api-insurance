@@ -3,7 +3,7 @@ import { UserController } from './userController'
 import { UserService } from './userService'
 import { UserRepository } from './userRepository'
 import { authenticate } from '../../middlewares/authMiddleware'
-import { upload } from '../auth/authController'
+import { upload } from '../../utils/upload'
 
 const repo = new UserRepository()
 const service = new UserService(repo)

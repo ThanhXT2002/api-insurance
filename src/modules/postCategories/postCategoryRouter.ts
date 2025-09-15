@@ -3,6 +3,7 @@ import { PostCategoryController } from './postCategoryController'
 import { PostCategoryService } from './postCategoryService'
 import { PostCategoryRepository } from './postCategoryRepository'
 import { authenticate, optionalAuthenticate, requirePermissions } from '../../middlewares/authMiddleware'
+import { upload } from '../../utils/upload'
 
 // Initialize dependencies
 const repository = new PostCategoryRepository()
@@ -93,7 +94,7 @@ router.get('/tree', optionalAuthenticate, controller.getTree.bind(controller))
  *   get:
  *     tags:
  *       - Post Categories
- *     summary: Lấy các chuyên mục gốc (không có cha)
+ *     summary: Lấy các chuyên mục gốc không có cha
  *     responses:
  *       200:
  *         description: Lấy chuyên mục gốc thành công
@@ -161,20 +162,18 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *             type: object
  *             required:
  *               - name
- *               - slug
  *             properties:
  *               name:
  *                 type: string
- *                 description: Tên chuyên mục
- *               slug:
- *                 type: string
- *                 description: Slug chuyên mục (duy nhất)
+ *                 description: Tên chuyên mục slug sẽ được sinh tự động từ tên
  *               description:
  *                 type: string
  *                 description: Mô tả chuyên mục
  *               parentId:
  *                 type: integer
  *                 description: ID chuyên mục cha
+ *               active:
+ *                 type: boolean
  *               seoMeta:
  *                 $ref: '#/components/schemas/SeoDto'
  *         multipart/form-data:
@@ -182,23 +181,44 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *             type: object
  *             required:
  *               - name
- *               - slug
  *             properties:
  *               name:
  *                 type: string
- *               slug:
- *                 type: string
+ *                 description: Tên chuyên mục
  *               description:
  *                 type: string
+ *                 description: Mô tả chuyên mục
  *               parentId:
  *                 type: integer
- *               seoMeta:
+ *                 description: ID chuyên mục cha
+ *               active:
+ *                 type: boolean
+ *                 description: Trạng thái hoạt động
+ *               seoTitle:
  *                 type: string
- *                 description: Chuỗi JSON chứa thông tin SEO
+ *                 description: Tiêu đề SEO
+ *               metaDescription:
+ *                 type: string
+ *                 description: Mô tả meta SEO
+ *               canonicalUrl:
+ *                 type: string
+ *                 description: URL chính tắc
+ *               focusKeyword:
+ *                 type: string
+ *                 description: Từ khóa chính
+ *               ogType:
+ *                 type: string
+ *                 description: Open Graph type ví dụ article
+ *               noindex:
+ *                 type: boolean
+ *                 description: Không index trang
+ *               nofollow:
+ *                 type: boolean
+ *                 description: Không follow link
  *               seoImage:
  *                 type: string
  *                 format: binary
- *                 description: File ảnh SEO (khuyến nghị 1200x630)
+ *                 description: File ảnh SEO khuyến nghị 1200x630
  *     responses:
  *       201:
  *         description: Tạo chuyên mục thành công
@@ -212,7 +232,8 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *         description: Slug đã tồn tại
  */
 // Protected endpoints (require authentication and permissions)
-router.post('/', authenticate, controller.create.bind(controller))
+// Expect multipart/form-data with optional `seoImage` file and stringified `seoMeta`
+router.post('/', authenticate, upload.single('seoImage'), controller.create.bind(controller))
 
 /**
  * @openapi
@@ -229,6 +250,7 @@ router.post('/', authenticate, controller.create.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
+ *         description: ID chuyên mục cần cập nhật
  *     requestBody:
  *       required: true
  *       content:
@@ -238,14 +260,16 @@ router.post('/', authenticate, controller.create.bind(controller))
  *             properties:
  *               name:
  *                 type: string
- *               slug:
- *                 type: string
+ *                 description: Tên chuyên mục
  *               description:
  *                 type: string
+ *                 description: Mô tả chuyên mục
  *               parentId:
  *                 type: integer
+ *                 description: ID chuyên mục cha
  *               active:
  *                 type: boolean
+ *                 description: Trạng thái hoạt động
  *               seoMeta:
  *                 $ref: '#/components/schemas/SeoDto'
  *         multipart/form-data:
@@ -254,21 +278,41 @@ router.post('/', authenticate, controller.create.bind(controller))
  *             properties:
  *               name:
  *                 type: string
- *               slug:
- *                 type: string
+ *                 description: Tên chuyên mục
  *               description:
  *                 type: string
+ *                 description: Mô tả chuyên mục
  *               parentId:
  *                 type: integer
+ *                 description: ID chuyên mục cha
  *               active:
  *                 type: boolean
- *               seoMeta:
+ *                 description: Trạng thái hoạt động
+ *               seoTitle:
  *                 type: string
- *                 description: Chuỗi JSON chứa thông tin SEO
- *               seoImage:
+ *                 description: Tiêu đề SEO
+ *               metaDescription:
+ *                 type: string
+ *                 description: Mô tả meta SEO
+ *               canonicalUrl:
+ *                 type: string
+ *                 description: URL chính tắc
+ *               focusKeyword:
+ *                 type: string
+ *                 description: Từ khóa chính
+ *               ogType:
+ *                 type: string
+ *                 description: Open Graph type ví dụ article
+ *               noindex:
+ *                 type: boolean
+ *                 description: Không index trang
+ *               nofollow:
+ *                 type: boolean
+ *                 description: Không follow link
+ *               seoImageFile:
  *                 type: string
  *                 format: binary
- *                 description: File ảnh SEO (khuyến nghị 1200x630)
+ *                 description: File ảnh SEO khuyến nghị 1200x630
  *     responses:
  *       200:
  *         description: Cập nhật chuyên mục thành công
@@ -281,7 +325,8 @@ router.post('/', authenticate, controller.create.bind(controller))
  *       404:
  *         description: Không tìm thấy chuyên mục
  */
-router.put('/:id', authenticate, controller.update.bind(controller))
+// Expect multipart/form-data with optional `seoImage` file and stringified `seoMeta`
+router.put('/:id', authenticate, upload.single('seoImage'), controller.update.bind(controller))
 
 /**
  * @openapi
@@ -289,7 +334,7 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *   delete:
  *     tags:
  *       - Post Categories
- *     summary: Xóa chuyên mục (xóa mềm)
+ *     summary: Xóa chuyên mục xóa mềm
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -298,16 +343,17 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *         required: true
  *         schema:
  *           type: integer
+ *         description: ID chuyên mục cần xóa
  *       - in: query
  *         name: force
  *         schema:
  *           type: boolean
- *         description: Ép buộc xóa ngay cả khi có bài viết/chuyên mục con
+ *         description: Ép buộc xóa ngay cả khi có bài viết hoặc chuyên mục con
  *     responses:
  *       200:
  *         description: Xóa chuyên mục thành công
  *       400:
- *         description: Không thể xóa - có bài viết hoặc chuyên mục con
+ *         description: Không thể xóa có bài viết hoặc chuyên mục con
  *       401:
  *         description: Chưa xác thực
  *       403:
@@ -342,7 +388,7 @@ router.delete('/:id', authenticate, requirePermissions(['post_category.delete'])
  *                 description: Mảng ID các chuyên mục
  *               force:
  *                 type: boolean
- *                 description: Ép buộc xóa ngay cả khi có bài viết/chuyên mục con
+ *                 description: Ép buộc xóa ngay cả khi có bài viết hoặc chuyên mục con
  *     responses:
  *       200:
  *         description: Xóa các chuyên mục thành công
@@ -367,7 +413,7 @@ router.post(
  *   post:
  *     tags:
  *       - Post Categories
- *     summary: Kích hoạt/vô hiệu hóa nhiều chuyên mục cùng lúc
+ *     summary: Kích hoạt hoặc vô hiệu hóa nhiều chuyên mục cùng lúc
  *     security:
  *       - bearerAuth: []
  *     requestBody:

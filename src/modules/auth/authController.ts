@@ -3,25 +3,7 @@ import { StatusCodes } from 'http-status-codes'
 import { ApiResponse } from '../../bases/apiResponse'
 import { AuthService } from './authService'
 import { AuthRepository } from './authRepository'
-import multer from 'multer'
-
-// Multer config cho upload file
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024 // 5MB limit
-  },
-  fileFilter: (req: any, file: any, cb: any) => {
-    // Chỉ cho phép image files
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true)
-    } else {
-      cb(new Error('Only image files are allowed'))
-    }
-  }
-})
-
-export { upload }
+import { upload } from '../../utils/upload'
 
 export class AuthController {
   private authService: AuthService

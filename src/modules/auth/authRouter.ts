@@ -1,5 +1,6 @@
 import { Router } from 'express'
-import { AuthController, upload } from './authController'
+import { AuthController } from './authController'
+import { upload } from '../../utils/upload'
 import { authenticate } from '../../middlewares/authMiddleware'
 
 const authController = new AuthController()
