@@ -1,4 +1,4 @@
-import { fileUploadService } from '../services/fileUploadService'
+import { fileUploadService, DeleteFilesResult } from '../services/fileUploadService'
 
 export interface RollbackAction {
   type: 'delete_files'
@@ -38,10 +38,19 @@ export class RollbackManager {
     for (const action of this.actions) {
       try {
         switch (action.type) {
-          case 'delete_files':
-            await fileUploadService.deleteFilesByUrls(action.urls)
-            console.log(`Rollback: Deleted ${action.urls.length} files`)
+          case 'delete_files': {
+            try {
+              const res: DeleteFilesResult = await fileUploadService.deleteFilesByUrls(action.urls)
+              if (res && res.success) {
+                console.log(`Rollback: Deleted ${action.urls.length} files`)
+              } else {
+                console.error(`Rollback: Failed to delete files`, res)
+              }
+            } catch (err: any) {
+              console.error(`Rollback: deleteFilesByUrls threw unexpected error:`, err?.message || err)
+            }
             break
+          }
         }
       } catch (error: any) {
         console.error(`Rollback action failed:`, error.message)

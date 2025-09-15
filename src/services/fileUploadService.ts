@@ -36,6 +36,13 @@ export interface UploadOptions {
   }
 }
 
+export interface DeleteFilesResult {
+  success: boolean
+  code?: number
+  data?: any
+  message?: string
+}
+
 export class FileUploadService {
   private static instance: FileUploadService
 
@@ -271,9 +278,9 @@ export class FileUploadService {
   /**
    * Delete files by URLs - for rollback purposes
    */
-  async deleteFilesByUrls(urls: string[]): Promise<void> {
+  async deleteFilesByUrls(urls: string[]): Promise<DeleteFilesResult> {
     if (!urls || urls.length === 0) {
-      return
+      return { success: true }
     }
 
     try {
@@ -288,17 +295,41 @@ export class FileUploadService {
         data: { urls }
       })
 
+      // If upstream returns a body indicating failure, surface it instead of hiding
+      const respData: any = response.data
+      if (respData && respData.code && respData.code !== 200) {
+        // Upstream reported failure in body — return result for caller to decide/log details
+        console.warn('Delete endpoint indicated failure (see caller logs)')
+        return { success: false, code: respData.code, data: respData, message: respData.message }
+      }
+
       console.log(`Rollback delete response:`, response.status)
+      return { success: true, code: response.status, data: response.data }
     } catch (error: any) {
-      console.error(`Rollback delete failed:`, error.response?.data || error.message)
-      // Don't throw error here as this is cleanup operation
+      // If axios provided a response body, return that to caller so they can decide
+      if (error.response?.data) {
+        const errData: any = error.response.data
+        // Return body for caller; avoid duplicating full body in logs here
+        console.warn('Delete request returned error response (see caller for details)')
+        return {
+          success: false,
+          code: error.response.status || errData?.code,
+          data: errData,
+          message: errData?.message
+        }
+      }
+
+      // Network/other error
+      console.error('Rollback delete failed (network/exception):', error.message || error)
+      return { success: false, message: error.message || 'Unknown error' }
     }
   }
 
   /**
    * Delete single file by URL - convenience method
    */
-  async deleteFileByUrl(url: string): Promise<void> {
+  async deleteFileByUrl(url: string): Promise<DeleteFilesResult> {
+    if (!url) return { success: true }
     return this.deleteFilesByUrls([url])
   }
 

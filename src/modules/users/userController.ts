@@ -190,7 +190,22 @@ export class UserController {
       await this.userService.deleteById(id, false, { actorId })
       res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Xóa người dùng thành công'))
     } catch (err: any) {
-      if (err.message.includes('not found')) {
+      // Prisma foreign key constraint (P2003) - return clearer message
+      if (err && (err as any).code === 'P2003') {
+        const meta = (err as any).meta || {}
+        const detail = meta.constraint || meta.modelName || (err as any).message
+        return res
+          .status(StatusCodes.CONFLICT)
+          .json(
+            ApiResponse.error(
+              `Không thể xóa người dùng do ràng buộc phụ thuộc: ${detail}`,
+              'Xóa thất bại',
+              StatusCodes.CONFLICT
+            )
+          )
+      }
+
+      if (err.message && err.message.includes('not found')) {
         res.status(StatusCodes.NOT_FOUND).json(ApiResponse.error(err.message, 'Không tìm thấy', StatusCodes.NOT_FOUND))
       } else {
         res
@@ -218,6 +233,21 @@ export class UserController {
       res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Xóa người dùng thành công'))
     } catch (err: any) {
       console.error(err)
+      // Prisma foreign key constraint (P2003) - return clearer message
+      if (err && (err as any).code === 'P2003') {
+        const meta = (err as any).meta || {}
+        const detail = meta.constraint || meta.modelName || (err as any).message
+        return res
+          .status(StatusCodes.CONFLICT)
+          .json(
+            ApiResponse.error(
+              `Không thể xóa người dùng do ràng buộc phụ thuộc: ${detail}`,
+              'Xóa thất bại',
+              StatusCodes.CONFLICT
+            )
+          )
+      }
+
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .json(ApiResponse.error(err.message, 'Internal server error', StatusCodes.INTERNAL_SERVER_ERROR))

@@ -1,4 +1,4 @@
-import { fileUploadService, UploadedFile } from './fileUploadService'
+import { fileUploadService, UploadedFile, DeleteFilesResult } from './fileUploadService'
 import { withRollback, RollbackManager } from '../utils/rollbackHelper'
 
 /**
@@ -93,34 +93,56 @@ export class UploadHelpers {
    * Update file with old file cleanup - pattern for replacing existing files
    */
   static async updateFileWithCleanup<T>(
-    uploadOperation: () => Promise<UploadedFile>,
-    databaseOperation: (newFileUrl: string, uploadedFile: UploadedFile) => Promise<T>,
-    oldFileUrl?: string | null
+    uploadFn: () => Promise<UploadedFile>,
+    updateDbFn: (newFileUrl: string) => Promise<T>,
+    oldFileUrl?: string
   ): Promise<{ result: T; uploadedFile: UploadedFile }> {
-    return withRollback(async (rollbackManager) => {
-      // Upload new file
-      const uploadedFile = await uploadOperation()
+    // 1) upload file mới
+    const uploadedFile = await uploadFn()
 
-      // Add rollback for new file in case database operation fails
-      rollbackManager.addFileDeleteAction(uploadedFile.url)
+    try {
+      // 2) cập nhật DB với link mới — bắt buộc, không phụ thuộc kết quả xóa file cũ
+      const result = await updateDbFn(uploadedFile.url)
+      try {
+        // Log minimal info to confirm DB persisted the new URL (caller can decide details)
+        const maybeAvatar = (result as any)?.avatarUrl ?? (result as any)?.avatar?.url
+        console.log('DB update completed for file replacement. newUrl:', uploadedFile.url, 'dbAvatar:', maybeAvatar)
+      } catch (logErr) {
+        // swallow logging errors
+      }
 
-      // Update database with new file URL
-      const result = await databaseOperation(uploadedFile.url, uploadedFile)
-
-      // After successful database update, delete old file
-      if (oldFileUrl && oldFileUrl !== uploadedFile.url) {
+      // 3) cố gắng xóa file cũ nhưng không ném lỗi nếu thất bại
+      if (oldFileUrl) {
         try {
-          console.log(`Cleaning up old file: ${oldFileUrl}`)
-          await fileUploadService.deleteFileByUrl(oldFileUrl)
-          console.log(`Old file deleted successfully`)
-        } catch (error: any) {
-          console.warn(`Failed to delete old file: ${error.message}`)
-          // Don't fail the operation if cleanup fails
+          const delRes = await fileUploadService.deleteFileByUrl(oldFileUrl)
+          if (delRes && delRes.success) {
+            console.log('Old file deleted successfully')
+          } else {
+            console.warn('Non-fatal: failed to delete old file:', delRes)
+          }
+        } catch (deleteErr: any) {
+          console.warn(
+            'Non-fatal: unexpected error when deleting old file:',
+            deleteErr?.response?.data || deleteErr?.message
+          )
         }
       }
 
       return { result, uploadedFile }
-    })
+    } catch (dbErr) {
+      // Nếu cập nhật DB thất bại thì rollback: xóa file mới (nỗ lực, nhưng không làm mất nguyên lỗi gốc)
+      try {
+        const rollbackRes = await fileUploadService.deleteFileByUrl(uploadedFile.url)
+        if (rollbackRes && rollbackRes.success) {
+          console.log('Rolled back new upload after DB update failure')
+        } else {
+          console.error('Failed to rollback new upload (delete API returned failure):', rollbackRes)
+        }
+      } catch (rollbackErr: any) {
+        console.error('Failed to rollback new upload (exception):', rollbackErr?.response?.data || rollbackErr?.message)
+      }
+      throw dbErr
+    }
   }
 
   /**
@@ -143,7 +165,7 @@ export class UploadHelpers {
   /**
    * Delete files by URLs - convenience method
    */
-  static async deleteFiles(urls: string[]): Promise<void> {
+  static async deleteFiles(urls: string[]): Promise<DeleteFilesResult> {
     return fileUploadService.deleteFilesByUrls(urls)
   }
 }

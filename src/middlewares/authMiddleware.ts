@@ -314,10 +314,20 @@ export class AuthMiddleware {
       // Update user metadata from Supabase if needed
       if (supabaseUser.user_metadata) {
         const updates: any = {}
-        if (supabaseUser.user_metadata.name && supabaseUser.user_metadata.name !== localUser.name) {
+        // Only update name from provider if local user doesn't already have a name
+        if (
+          (!localUser.name || localUser.name === null) &&
+          supabaseUser.user_metadata.name &&
+          supabaseUser.user_metadata.name !== localUser.name
+        ) {
           updates.name = supabaseUser.user_metadata.name
         }
-        if (supabaseUser.user_metadata.avatar_url && supabaseUser.user_metadata.avatar_url !== localUser.avatarUrl) {
+        // Only update avatarUrl from provider if local user doesn't already have one
+        if (
+          (!localUser.avatarUrl || localUser.avatarUrl === null) &&
+          supabaseUser.user_metadata.avatar_url &&
+          supabaseUser.user_metadata.avatar_url !== localUser.avatarUrl
+        ) {
           updates.avatarUrl = supabaseUser.user_metadata.avatar_url
         }
 
