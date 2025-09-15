@@ -211,6 +211,7 @@ router.post('/', authenticate, controller.create.bind(controller))
  *                 $ref: '#/components/schemas/SeoDto'
  *           example:
  *             name: "Chuyên mục cập nhật"
+ *             description: "Mô tả cập nhật"
  *             parentId: null
  *             active: true
  *             order: 0

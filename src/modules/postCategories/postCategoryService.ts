@@ -5,9 +5,8 @@ import { normalizeSlug } from '../../utils/urlHelper'
 import { SeoableType } from '../../../generated/prisma'
 import { withRollback } from '../../utils/rollbackHelper'
 
-interface CreateCategoryData {
+interface PostCategoryData {
   name: string
-  // slug is generated from name; frontend should not provide it
   slug?: string
   description?: string
   parentId?: number
@@ -16,15 +15,6 @@ interface CreateCategoryData {
   seoMeta?: SeoDto
 }
 
-interface UpdateCategoryData {
-  name?: string
-  slug?: string
-  description?: string
-  parentId?: number
-  active?: boolean
-  order?: number
-  seoMeta?: SeoDto
-}
 
 export class PostCategoryService extends BaseService {
   constructor(protected repo: PostCategoryRepository) {
@@ -64,7 +54,7 @@ export class PostCategoryService extends BaseService {
   }
 
   // Tạo category mới với validation và SEO - with audit transformation
-  async create(data: CreateCategoryData, ctx?: { actorId?: number }) {
+  async create(data: PostCategoryData, ctx?: { actorId?: number }) {
     return withRollback(async (rollbackManager) => {
       // Derive slug from name (frontend should not provide slug)
       const normalizedSlug = normalizeSlug(data.name)
@@ -127,7 +117,7 @@ export class PostCategoryService extends BaseService {
   }
 
   // Update category với validation và SEO - with audit transformation
-  async updateById(id: number, data: UpdateCategoryData, ctx?: { actorId?: number }) {
+  async updateById(id: number, data: PostCategoryData, ctx?: { actorId?: number }) {
     return withRollback(async (rollbackManager) => {
       const existing = await this.repo.findById(id)
       if (!existing) {
