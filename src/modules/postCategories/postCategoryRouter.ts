@@ -353,49 +353,4 @@ router.post(
   requirePermissions(['post_category.edit']),
   controller.batchActive.bind(controller)
 )
-
-/**
- * @openapi
- * /api/post-categories/{id}/with-seo:
- *   get:
- *     tags:
- *       - Post Categories
- *     summary: Lấy chuyên mục theo ID kèm thông tin SEO
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: integer
- *         description: ID chuyên mục
- *     responses:
- *       200:
- *         description: Lấy chuyên mục với thông tin SEO thành công
- *       404:
- *         description: Không tìm thấy chuyên mục
- */
-router.get('/:id/with-seo', optionalAuthenticate, controller.getByIdWithSeo.bind(controller))
-
-/**
- * @openapi
- * /api/post-categories/slug/{slug}/with-seo:
- *   get:
- *     tags:
- *       - Post Categories
- *     summary: Lấy chuyên mục theo slug kèm thông tin SEO
- *     parameters:
- *       - in: path
- *         name: slug
- *         required: true
- *         schema:
- *           type: string
- *         description: Slug chuyên mục
- *     responses:
- *       200:
- *         description: Lấy chuyên mục với thông tin SEO thành công
- *       404:
- *         description: Không tìm thấy chuyên mục
- */
-router.get('/slug/:slug/with-seo', optionalAuthenticate, controller.getBySlugWithSeo.bind(controller))
-
 export default router

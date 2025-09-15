@@ -120,11 +120,11 @@ export class PostCategoryController {
           .send(ApiResponse.error('Không tìm thấy chuyên mục', 'Không tìm thấy chuyên mục', StatusCodes.NOT_FOUND))
       }
 
-      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Lấy chuyên mục thành công'))
+      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Lấy chuyên mục với SEO thành công'))
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get category', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Failed to get category with SEO', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -357,46 +357,6 @@ export class PostCategoryController {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .send(ApiResponse.error(error.message, 'Cập nhật chuyên mục thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
-    }
-  }
-
-  // GET /api/post-categories/:id/with-seo - Lấy category theo ID kèm SEO
-  async getByIdWithSeo(req: Request, res: Response) {
-    try {
-      const { id } = req.params
-      const category = await this.service.findByIdWithSeo(parseInt(id))
-
-      if (!category) {
-        return res
-          .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error('Không tìm thấy chuyên mục', 'Không tìm thấy chuyên mục', StatusCodes.NOT_FOUND))
-      }
-
-      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Lấy chuyên mục với SEO thành công'))
-    } catch (error: any) {
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get category with SEO', StatusCodes.INTERNAL_SERVER_ERROR))
-    }
-  }
-
-  // GET /api/post-categories/slug/:slug/with-seo - Lấy category theo slug kèm SEO
-  async getBySlugWithSeo(req: Request, res: Response) {
-    try {
-      const { slug } = req.params
-      const category = await this.service.findBySlugWithSeo(slug)
-
-      if (!category) {
-        return res
-          .status(StatusCodes.NOT_FOUND)
-          .send(ApiResponse.error('Không tìm thấy chuyên mục', 'Không tìm thấy chuyên mục', StatusCodes.NOT_FOUND))
-      }
-
-      res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Lấy chuyên mục với SEO thành công'))
-    } catch (error: any) {
-      res
-        .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get category with SEO', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 }

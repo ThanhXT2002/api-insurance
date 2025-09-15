@@ -282,8 +282,17 @@ export class PostCategoryService extends BaseService {
 
   // Lấy theo slug - with audit transformation
   async findBySlug(slug: string) {
-    const result = await this.repo.findBySlug(slug, this.getAuditInclude())
-    return this.transformUserAuditFields(result)
+    const category = await this.repo.findBySlug(slug, this.getAuditInclude())
+    if (!category) {
+      return null
+    }
+
+    const seoMeta = await seoService.getSeoFor(SeoableType.POST_CATEGORY, category.id)
+
+    return {
+      ...this.transformUserAuditFields(category),
+      seoMeta
+    }
   }
 
   // Lấy category kèm SEO metadata
@@ -301,18 +310,5 @@ export class PostCategoryService extends BaseService {
     }
   }
 
-  // Lấy theo slug kèm SEO metadata
-  async findBySlugWithSeo(slug: string) {
-    const category = await this.repo.findBySlug(slug, this.getAuditInclude())
-    if (!category) {
-      return null
-    }
-
-    const seoMeta = await seoService.getSeoFor(SeoableType.POST_CATEGORY, category.id)
-
-    return {
-      ...this.transformUserAuditFields(category),
-      seoMeta
-    }
-  }
+  
 }
