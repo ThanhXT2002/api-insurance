@@ -160,6 +160,8 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *           example:
  *             name: "Chuyên mục mẫu"
  *             description: "Mô tả mẫu"
+ *             parentId: null
+ *             active: true
  *             order: 10
  *             seoMeta:
  *               seoTitle: "Tiêu đề SEO"
@@ -209,9 +211,17 @@ router.post('/', authenticate, controller.create.bind(controller))
  *                 $ref: '#/components/schemas/SeoDto'
  *           example:
  *             name: "Chuyên mục cập nhật"
- *             order: 5
+ *             parentId: null
+ *             active: true
+ *             order: 0
  *             seoMeta:
- *               seoTitle: "Tiêu đề đã sửa"
+ *               seoTitle: "Tiêu đề SEO"
+ *               metaDescription: "Mô tả SEO"
+ *               canonicalUrl: "/category/mau"
+ *               focusKeyword: "bảo hiểm"
+ *               ogType: "article"
+ *               noindex: false
+ *               nofollow: false
  *     responses:
  *       200: { description: 'Cập nhật chuyên mục thành công' }
  *       400: { description: 'Lỗi xác thực dữ liệu' }
