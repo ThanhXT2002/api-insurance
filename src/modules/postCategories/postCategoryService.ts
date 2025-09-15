@@ -12,6 +12,7 @@ interface CreateCategoryData {
   description?: string
   parentId?: number
   active?: boolean
+  order?: number
   seoMeta?: SeoDto
 }
 
@@ -21,6 +22,7 @@ interface UpdateCategoryData {
   description?: string
   parentId?: number
   active?: boolean
+  order?: number
   seoMeta?: SeoDto
 }
 
@@ -98,7 +100,8 @@ export class PostCategoryService extends BaseService {
         name: categoryData.name,
         slug: categoryData.slug,
         description: categoryData.description,
-        active: categoryData.active
+        active: categoryData.active,
+        order: (categoryData as any).order
       }
       if ((categoryData as any).parent) prismaPayload.parent = (categoryData as any).parent
 
@@ -182,6 +185,7 @@ export class PostCategoryService extends BaseService {
       if (categoryData.description !== undefined) updatePayload.description = categoryData.description
       if ((categoryData as any).active !== undefined) updatePayload.active = (categoryData as any).active
       if ((categoryData as any).parent !== undefined) updatePayload.parent = (categoryData as any).parent
+  if ((categoryData as any).order !== undefined) updatePayload.order = (categoryData as any).order
 
       const result = await super.update({ id }, updatePayload, ctx)
 

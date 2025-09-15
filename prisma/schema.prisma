@@ -134,6 +134,7 @@ model PostCategory {
   description String?
   parentId    Int? // Self-reference cho category con
   active      Boolean @default(true)
+  order       Int     @default(0) // Thứ tự hiển thị
 
   // Audit fields
   createdAt DateTime @default(now())
@@ -232,8 +233,6 @@ model SeoMeta {
   canonicalUrl    String? @unique
   focusKeyword    String? @db.VarChar(100)
 
-  seoImage String?
-  // Riêng MXH chỉ cần thêm loại nội dung Open Graph (cho Facebook, Instagram, Threads)
   ogType   String? @default("article") @db.VarChar(20)
 
   // Kỹ thuật SEO

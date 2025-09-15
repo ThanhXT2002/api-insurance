@@ -1,4 +1,3 @@
-import { fileUploadService } from './fileUploadService'
 import { buildCanonicalFor, normalizeCanonicalUrl, validateCanonicalUrl, ResourceType } from '../utils/urlHelper'
 import { withRollback, RollbackManager } from '../utils/rollbackHelper'
 import prisma from '../config/prismaClient'
@@ -10,7 +9,6 @@ export interface SeoDto {
   metaDescription?: string
   canonicalUrl?: string
   focusKeyword?: string
-  seoImage?: string | { buffer: Buffer; originalName: string } // URL string or file upload
   ogType?: string
   noindex?: boolean
   nofollow?: boolean
@@ -38,17 +36,6 @@ export class SeoService {
       // Use provided rollback manager or create new one
       const rm = rollback || rollbackManager
 
-      let seoImageUrl: string | null = null
-
-      // 1. Handle seoImage upload if file provided
-      if (seoDto.seoImage && typeof seoDto.seoImage === 'object' && seoDto.seoImage.buffer) {
-        const uploaded = await fileUploadService.uploadSeoImage(seoDto.seoImage.buffer, seoDto.seoImage.originalName)
-        seoImageUrl = uploaded.url
-        rm.addFileDeleteAction(uploaded.url)
-      } else if (seoDto.seoImage && typeof seoDto.seoImage === 'string') {
-        seoImageUrl = seoDto.seoImage
-      }
-
       // 2. Process canonical URL
       let canonicalUrl: string | null = null
       if (seoDto.canonicalUrl) {
@@ -68,13 +55,12 @@ export class SeoService {
         }
       }
 
-      // 3. Prepare SEO data
+  // 3. Prepare SEO data
       const createData: any = {
         seoTitle: seoDto.seoTitle || null,
         metaDescription: seoDto.metaDescription || null,
         canonicalUrl: canonicalUrl,
         focusKeyword: seoDto.focusKeyword || null,
-        seoImage: seoImageUrl,
         ogType: seoDto.ogType || 'article',
         noindex: seoDto.noindex || false,
         nofollow: seoDto.nofollow || false,
@@ -84,7 +70,6 @@ export class SeoService {
         })
       }
 
-      // For update, only include seoImage if the caller provided a value (either string or uploaded file)
       const updateData: any = {
         seoTitle: seoDto.seoTitle || null,
         metaDescription: seoDto.metaDescription || null,
@@ -96,10 +81,6 @@ export class SeoService {
         ...(actorId && { updatedBy: actorId })
       }
 
-      // If seoDto.seoImage was provided (either as file uploaded -> seoImageUrl set, or as string), then include it in update.
-      if (typeof (seoDto as any).seoImage !== 'undefined') {
-        updateData.seoImage = seoImageUrl
-      }
 
       // 4. Upsert SeoMeta
       if (useTransaction) {
@@ -160,7 +141,6 @@ export class SeoService {
       metaDescription: seoDto.metaDescription || null,
       canonicalUrl: canonicalUrl,
       focusKeyword: seoDto.focusKeyword || null,
-      seoImage: seoDto.seoImage && typeof seoDto.seoImage === 'string' ? seoDto.seoImage : null,
       ogType: seoDto.ogType || 'article',
       noindex: seoDto.noindex || false,
       nofollow: seoDto.nofollow || false,
@@ -181,10 +161,7 @@ export class SeoService {
       ...(actorId && { updatedBy: actorId })
     }
 
-    // Only set seoImage on update if caller provided seoImage (as string). Caller must handle uploading and pass URL.
-    if (typeof (seoDto as any).seoImage !== 'undefined') {
-      updateData.seoImage = seoDto.seoImage && typeof seoDto.seoImage === 'string' ? seoDto.seoImage : null
-    }
+    // No seoImage field in current SeoMeta model; callers should not pass image here.
 
     return tx.seoMeta.upsert({
       where: {

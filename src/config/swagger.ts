@@ -77,11 +77,6 @@ const options: swaggerJsdoc.Options = {
               description: 'Từ khóa SEO chính',
               example: 'bảo hiểm sức khỏe'
             },
-            seoImage: {
-              type: 'string',
-              description: 'URL ảnh SEO (khi cung cấp dưới dạng string)',
-              example: 'https://example.com/images/seo/category.jpg'
-            },
             ogType: {
               type: 'string',
               description: 'Loại Open Graph',

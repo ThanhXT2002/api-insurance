@@ -3,7 +3,6 @@ import { PostCategoryController } from './postCategoryController'
 import { PostCategoryService } from './postCategoryService'
 import { PostCategoryRepository } from './postCategoryRepository'
 import { authenticate, optionalAuthenticate, requirePermissions } from '../../middlewares/authMiddleware'
-import { upload } from '../../utils/upload'
 
 // Initialize dependencies
 const repository = new PostCategoryRepository()
@@ -17,6 +16,7 @@ const router = Router()
  * Per-file `components` blocks were removed to avoid duplicate top-level keys.
  */
 
+// Public endpoints (no auth required)
 /**
  * @openapi
  * /api/post-categories:
@@ -27,52 +27,39 @@ const router = Router()
  *     parameters:
  *       - in: query
  *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *         description: Số trang
+ *         schema: { type: integer }
+ *         description: Số trang (mặc định 1)
  *       - in: query
  *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *         description: Số lượng item trên mỗi trang
+ *         schema: { type: integer }
+ *         description: Số mục trên trang (mặc định 10)
  *       - in: query
  *         name: keyword
- *         schema:
- *           type: string
- *         description: Từ khóa tìm kiếm
+ *         schema: { type: string }
+ *         description: Từ khóa tìm kiếm theo tên hoặc mô tả
  *       - in: query
  *         name: active
- *         schema:
- *           type: boolean
- *         description: Lọc theo trạng thái hoạt động
+ *         schema: { type: boolean }
+ *         description: Lọc theo trạng thái active
  *       - in: query
  *         name: parentId
- *         schema:
- *           type: integer
+ *         schema: { type: integer }
  *         description: Lọc theo chuyên mục cha
  *     responses:
  *       200:
- *         description: Lấy danh sách chuyên mục thành công
+ *         description: Danh sách chuyên mục
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
- *                 status:
- *                   type: boolean
- *                 data:
- *                   type: object
- *                   properties:
- *                     rows:
- *                       type: array
- *                       items:
- *                         $ref: '#/components/schemas/PostCategory'
- *                     total:
- *                       type: integer
+ *                 rows:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/PostCategory'
+ *                 total:
+ *                   type: integer
  */
-// Public endpoints (no auth required)
 router.get('/', optionalAuthenticate, controller.getAll.bind(controller))
 
 /**
@@ -145,6 +132,7 @@ router.get('/slug/:slug', optionalAuthenticate, controller.getBySlug.bind(contro
  */
 router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
 
+
 /**
  * @openapi
  * /api/post-categories:
@@ -157,64 +145,38 @@ router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - name
+ *             required: [name]
  *             properties:
- *               name:
- *                 type: string
- *                 description: Tên chuyên mục
- *               description:
- *                 type: string
- *                 description: Mô tả chuyên mục
- *               parentId:
- *                 type: integer
- *                 description: ID chuyên mục cha
- *               active:
- *                 type: boolean
- *                 description: Trạng thái hoạt động
- *               seoTitle:
- *                 type: string
- *                 description: Tiêu đề SEO
- *               metaDescription:
- *                 type: string
- *                 description: Mô tả meta SEO
- *               canonicalUrl:
- *                 type: string
- *                 description: URL chính tắc
- *               focusKeyword:
- *                 type: string
- *                 description: Từ khóa chính
- *               ogType:
- *                 type: string
- *                 description: Open Graph type ví dụ article
- *               noindex:
- *                 type: boolean
- *                 description: Không index trang
- *               nofollow:
- *                 type: boolean
- *                 description: Không follow link
- *               seoImage:
- *                 type: string
- *                 format: binary
- *                 description: File ảnh SEO khuyến nghị 1200x630
+ *               name: { type: string }
+ *               description: { type: string }
+ *               parentId: { type: integer }
+ *               active: { type: boolean }
+ *               order: { type: integer }
+ *               seoMeta:
+ *                 $ref: '#/components/schemas/SeoDto'
+ *           example:
+ *             name: "Chuyên mục mẫu"
+ *             description: "Mô tả mẫu"
+ *             order: 10
+ *             seoMeta:
+ *               seoTitle: "Tiêu đề SEO"
+ *               metaDescription: "Mô tả SEO"
+ *               canonicalUrl: "/category/mau"
+ *               focusKeyword: "bảo hiểm"
+ *               ogType: "article"
+ *               noindex: false
+ *               nofollow: false
  *     responses:
- *       201:
- *         description: Tạo chuyên mục thành công
- *       400:
- *         description: Lỗi xác thực dữ liệu
- *       401:
- *         description: Chưa xác thực
- *       403:
- *         description: Không đủ quyền truy cập
- *       409:
- *         description: Slug đã tồn tại
+ *       201: { description: 'Tạo chuyên mục thành công' }
+ *       400: { description: 'Lỗi xác thực dữ liệu' }
+ *       401: { description: 'Chưa xác thực' }
+ *       403: { description: 'Không đủ quyền truy cập' }
+ *       409: { description: 'Slug đã tồn tại' }
  */
-// Protected endpoints (require authentication and permissions)
-// Expect multipart/form-data with discrete SEO fields (seoTitle, metaDescription, ...) and optional `seoImage` file
-router.post('/', authenticate, upload.single('seoImage'), controller.create.bind(controller))
+router.post('/', authenticate, controller.create.bind(controller))
 
 /**
  * @openapi
@@ -229,67 +191,35 @@ router.post('/', authenticate, upload.single('seoImage'), controller.create.bind
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: integer
- *         description: ID chuyên mục cần cập nhật
+ *         schema: { type: integer }
+ *         description: ID chuyên mục
  *     requestBody:
  *       required: true
  *       content:
- *         multipart/form-data:
+ *         application/json:
  *           schema:
  *             type: object
  *             properties:
- *               name:
- *                 type: string
- *                 description: Tên chuyên mục
- *               description:
- *                 type: string
- *                 description: Mô tả chuyên mục
- *               parentId:
- *                 type: integer
- *                 description: ID chuyên mục cha
- *               active:
- *                 type: boolean
- *                 description: Trạng thái hoạt động
- *               seoTitle:
- *                 type: string
- *                 description: Tiêu đề SEO
- *               metaDescription:
- *                 type: string
- *                 description: Mô tả meta SEO
- *               canonicalUrl:
- *                 type: string
- *                 description: URL chính tắc
- *               focusKeyword:
- *                 type: string
- *                 description: Từ khóa chính
- *               ogType:
- *                 type: string
- *                 description: Open Graph type ví dụ article
- *               noindex:
- *                 type: boolean
- *                 description: Không index trang
- *               nofollow:
- *                 type: boolean
- *                 description: Không follow link
- *               seoImageFile:
- *                 type: string
- *                 format: binary
- *                 description: File ảnh SEO khuyến nghị 1200x630
+ *               name: { type: string }
+ *               description: { type: string }
+ *               parentId: { type: integer }
+ *               active: { type: boolean }
+ *               order: { type: integer }
+ *               seoMeta:
+ *                 $ref: '#/components/schemas/SeoDto'
+ *           example:
+ *             name: "Chuyên mục cập nhật"
+ *             order: 5
+ *             seoMeta:
+ *               seoTitle: "Tiêu đề đã sửa"
  *     responses:
- *       200:
- *         description: Cập nhật chuyên mục thành công
- *       400:
- *         description: Lỗi xác thực dữ liệu
- *       401:
- *         description: Chưa xác thực
- *       403:
- *         description: Không đủ quyền truy cập
- *       404:
- *         description: Không tìm thấy chuyên mục
+ *       200: { description: 'Cập nhật chuyên mục thành công' }
+ *       400: { description: 'Lỗi xác thực dữ liệu' }
+ *       401: { description: 'Chưa xác thực' }
+ *       403: { description: 'Không đủ quyền truy cập' }
+ *       404: { description: 'Không tìm thấy chuyên mục' }
  */
-// Expect multipart/form-data with optional `seoImage` file and stringified `seoMeta`
-router.put('/:id', authenticate, upload.single('seoImage'), controller.update.bind(controller))
+router.put('/:id', authenticate, controller.update.bind(controller))
 
 /**
  * @openapi
