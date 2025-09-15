@@ -42,7 +42,7 @@ export class AuthService {
     } catch (err: any) {
       // Nếu tạo profile failed, có thể rollback Supabase user nếu cần
       if (err.code === 'P2002') {
-        return { error: { code: 'P2002', message: 'Tài khoản đã tồn tại', meta: err.meta } }
+        return { error: { code: 'P2002', message: 'Email đã tồn tại, vui lòng thử phương thức đăng ký khác!', meta: err.meta } }
       }
       throw err
     }
