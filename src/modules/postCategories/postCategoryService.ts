@@ -60,6 +60,106 @@ export class PostCategoryService extends BaseService {
     return this.transformUserAuditFields(children)
   }
 
+  /**
+   * Lấy một cây phân cấp bắt đầu từ `parentId` (nếu parentId === null trả về các root)
+   * Thuật toán:
+   *  - Thực hiện một lần truy vấn lấy tất cả các category (hoặc chỉ active nếu không yêu cầu inactive)
+   *  - Xây dựng map id -> node và nối children vào parent trong bộ nhớ (O(n))
+   *  - Trả về node tương ứng với parentId (kèm toàn bộ cây con). Nếu parentId là null trả về mảng root.
+   *
+   * Lý do: một truy vấn duy nhất và thao tác in-memory là nhanh nhất trong hầu hết các trường hợp so với nhiều lần truy vấn đệ quy.
+   */
+  // params may include: parentId, includeInactive, keyword
+  async getAllNestedByParentId(params: any = {}) {
+    // Parse params
+    const parentId =
+      typeof params.parentId === 'undefined' || params.parentId === null ? null : parseInt(params.parentId)
+    const includeInactive = params.includeInactive === true || params.includeInactive === 'true'
+    const keyword = params.keyword ? String(params.keyword).trim().toLowerCase() : null
+
+    // Build where clause
+    const where: any = {}
+    if (!includeInactive) where.active = true
+
+    // Fetch all candidate rows
+    const rows: any[] = await this.repo.findMany({
+      where,
+      select: { id: true, name: true, slug: true, description: true, parentId: true, order: true, active: true }
+    })
+
+    // Build map id -> node (with children array)
+    const map = new Map<number, any>()
+    for (const r of rows) {
+      map.set(r.id, { ...r, children: [] })
+    }
+
+    const roots: any[] = []
+
+    // If keyword provided, compute includedIds: matching nodes + their ancestors
+    let includedIds: Set<number> | null = null
+    if (keyword) {
+      includedIds = new Set<number>()
+      for (const [id, node] of map.entries()) {
+        const name = String(node.name || '').toLowerCase()
+        const desc = String(node.description || '').toLowerCase()
+        if (name.includes(keyword) || desc.includes(keyword)) {
+          // add this node and bubble up ancestors
+          let cur: any = node
+          while (cur) {
+            if (!includedIds.has(cur.id)) includedIds.add(cur.id)
+            if (!cur.parentId) break
+            cur = map.get(cur.parentId)
+          }
+        }
+      }
+    }
+
+    for (const node of map.values()) {
+      // Skip nodes that are not part of includedIds when keyword filtering
+      if (includedIds && !includedIds.has(node.id)) continue
+
+      if (node.parentId == null) {
+        roots.push(node)
+      } else {
+        const parent = map.get(node.parentId)
+        if (parent) {
+          // Only attach if parent is included (or no keyword filtering)
+          if (!includedIds || includedIds.has(parent.id)) parent.children.push(node)
+          else roots.push(node)
+        } else {
+          // Parent not in the fetched set (maybe inactive or missing) => treat as root
+          roots.push(node)
+        }
+      }
+    }
+
+    // Sorting function: by order asc (undefined -> 0) then name
+    const cmp = (a: any, b: any) => {
+      const oa = typeof a.order === 'number' ? a.order : 0
+      const ob = typeof b.order === 'number' ? b.order : 0
+      if (oa !== ob) return oa - ob
+      return String(a.name || '').localeCompare(String(b.name || ''))
+    }
+
+    // Recursively sort children arrays (DFS)
+    const sortRec = (nodes: any[]) => {
+      nodes.sort(cmp)
+      for (const n of nodes) {
+        if (n.children && n.children.length > 0) sortRec(n.children)
+      }
+    }
+
+    sortRec(roots)
+
+    if (parentId === null) {
+      return roots
+    }
+
+    const rootNode = map.get(parentId)
+    if (!rootNode) return null
+    return rootNode
+  }
+
   // Tạo category mới với validation và SEO - with audit transformation
   async create(data: PostCategoryData, ctx?: { actorId?: number }) {
     return withRollback(async (rollbackManager) => {

@@ -77,6 +77,89 @@ router.get('/tree', optionalAuthenticate, controller.getTree.bind(controller))
 
 /**
  * @openapi
+ * /api/post-categories/nested:
+ *   get:
+ *     tags:
+ *       - Post Categories
+ *     summary: Lấy cây phân cấp bắt đầu từ parentId (query) hoặc root nếu không truyền parentId
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *         description: Số trang (mặc định 1)
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *         description: Số mục trên trang (mặc định 10)
+ *       - in: query
+ *         name: keyword
+ *         schema: { type: string }
+ *         description: Từ khóa tìm kiếm theo tên hoặc mô tả
+ *       - in: query
+ *         name: active
+ *         schema: { type: boolean }
+ *         description: Lọc theo trạng thái active
+ *       - in: query
+ *         name: parentId
+ *         schema: { type: integer }
+ *         description: Lấy cây bắt đầu từ chuyên mục cha (nếu không truyền trả về root)
+ *       - in: query
+ *         name: includeInactive
+ *         schema: { type: boolean }
+ *         description: Bao gồm chuyên mục inactive
+ *     responses:
+ *       200:
+ *         description: Trả về cây phân cấp chuyên mục
+ */
+router.get('/nested', optionalAuthenticate, controller.getNested.bind(controller))
+
+/**
+ * @openapi
+ * /api/post-categories/nested/{id}:
+ *   get:
+ *     tags:
+ *       - Post Categories
+ *     summary: Lấy cây phân cấp bắt đầu từ chuyên mục có id
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: ID chuyên mục
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *         description: Số trang (mặc định 1)
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *         description: Số mục trên trang (mặc định 10)
+ *       - in: query
+ *         name: keyword
+ *         schema: { type: string }
+ *         description: Từ khóa tìm kiếm theo tên hoặc mô tả
+ *       - in: query
+ *         name: active
+ *         schema: { type: boolean }
+ *         description: Lọc theo trạng thái active
+ *       - in: query
+ *         name: parentId
+ *         schema: { type: integer }
+ *         description: Lấy cây bắt đầu từ chuyên mục cha (nếu truyền sẽ override path id)
+ *       - in: query
+ *         name: includeInactive
+ *         schema: { type: boolean }
+ *         description: Bao gồm chuyên mục inactive
+ *     responses:
+ *       200:
+ *         description: Trả về cây con của chuyên mục
+ *       404:
+ *         description: Không tìm thấy chuyên mục
+ */
+router.get('/nested/:id', optionalAuthenticate, controller.getNestedById.bind(controller))
+
+/**
+ * @openapi
  * /api/post-categories/roots:
  *   get:
  *     tags:
@@ -131,7 +214,6 @@ router.get('/slug/:slug', optionalAuthenticate, controller.getBySlug.bind(contro
  *         description: Không tìm thấy chuyên mục
  */
 router.get('/:id', optionalAuthenticate, controller.getById.bind(controller))
-
 
 /**
  * @openapi

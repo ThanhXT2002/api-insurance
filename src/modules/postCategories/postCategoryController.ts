@@ -78,6 +78,41 @@ export class PostCategoryController {
     }
   }
 
+  // GET /api/post-categories/nested - Lấy cây phân cấp bắt đầu từ parentId (query) hoặc root nếu không truyền parentId
+  async getNested(req: Request, res: Response) {
+    try {
+      const params = req.query || {}
+
+      const result = await this.service.getAllNestedByParentId(params)
+      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Lấy cây chuyên mục phân cấp thành công'))
+    } catch (error: any) {
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(error.message, 'Failed to get nested categories', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
+
+  // GET /api/post-categories/nested/:id - Lấy cây phân cấp bắt đầu từ path param id
+  async getNestedById(req: Request, res: Response) {
+    try {
+      const params: any = { ...(req.query || {}) }
+      params.parentId = req.params.id
+
+      const result = await this.service.getAllNestedByParentId(params)
+      if (!result) {
+        return res
+          .status(StatusCodes.NOT_FOUND)
+          .send(ApiResponse.error('Không tìm thấy chuyên mục', 'Không tìm thấy chuyên mục', StatusCodes.NOT_FOUND))
+      }
+
+      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Lấy cây con chuyên mục thành công'))
+    } catch (error: any) {
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(error.message, 'Failed to get nested category', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
+
   // GET /api/post-categories/roots - Lấy root categories
   async getRoots(req: Request, res: Response) {
     try {
