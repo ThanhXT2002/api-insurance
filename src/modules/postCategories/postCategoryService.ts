@@ -15,17 +15,21 @@ interface PostCategoryData {
   seoMeta?: SeoDto
 }
 
-
 export class PostCategoryService extends BaseService {
   constructor(protected repo: PostCategoryRepository) {
     super(repo)
   }
+
+  // Service xử lý nghiệp vụ liên quan tới PostCategory
+  // - Bao gồm các thao tác CRUD với validation bổ sung
+  // - Tương tác với repository và seoService
 
   // Override keyword search để search theo name/description - with audit transformation
   async getAll(params: any = {}) {
     const { keyword, ...otherParams } = params
 
     if (keyword) {
+      // Tìm kiếm theo keyword (name/description)
       const results = await this.repo.search(keyword, this.getAuditInclude())
       const transformedResults = this.transformUserAuditFields(results)
       const total = transformedResults.length
@@ -37,18 +41,21 @@ export class PostCategoryService extends BaseService {
 
   // Lấy tree hierarchy - with audit transformation
   async getTree() {
+    // Lấy cấu trúc cây phân cấp của danh mục
     const tree = await this.repo.findTree(this.getAuditInclude())
     return this.transformUserAuditFields(tree)
   }
 
   // Lấy root categories - with audit transformation
   async getRoots() {
+    // Lấy các danh mục gốc (không có parent)
     const roots = await this.repo.findRoots(this.getAuditInclude())
     return this.transformUserAuditFields(roots)
   }
 
   // Lấy children của category - with audit transformation
   async getChildren(parentId: number) {
+    // Lấy các con trực tiếp của parentId
     const children = await this.repo.findChildren(parentId, this.getAuditInclude())
     return this.transformUserAuditFields(children)
   }
@@ -58,17 +65,17 @@ export class PostCategoryService extends BaseService {
     return withRollback(async (rollbackManager) => {
       // Derive slug from name (frontend should not provide slug)
       const normalizedSlug = normalizeSlug(data.name)
-      // Validate slug unique
+      // Kiểm tra slug (được derive từ name) có bị trùng không
       const slugExists = await this.repo.slugExists(normalizedSlug)
       if (slugExists) {
-        throw new Error('Slug already exists')
+        throw new Error('Đường dẫn (slug) đã tồn tại')
       }
 
-      // Validate parentId nếu có
+      // Validate parentId nếu có: đảm bảo parent tồn tại
       if (data.parentId) {
         const parent = await this.repo.findById(data.parentId)
         if (!parent) {
-          throw new Error('Parent category not found')
+          throw new Error('Không tìm thấy danh mục cha')
         }
       }
 
@@ -121,32 +128,34 @@ export class PostCategoryService extends BaseService {
     return withRollback(async (rollbackManager) => {
       const existing = await this.repo.findById(id)
       if (!existing) {
-        throw new Error('Category not found')
+        throw new Error('Không tìm thấy danh mục')
       }
 
       // If name is being updated, derive slug from the new name and validate uniqueness
+      // Nếu cập nhật tên, derive slug mới và kiểm tra trùng
       if (data.name) {
         const normalizedSlug = normalizeSlug(data.name)
         if (normalizedSlug !== existing.slug) {
           const slugExists = await this.repo.slugExists(normalizedSlug, id)
           if (slugExists) {
-            throw new Error('Slug already exists')
+            throw new Error('Đường dẫn (slug) đã tồn tại')
           }
           // Use derived slug from name regardless of client-provided slug
           data.slug = normalizedSlug
         }
       }
 
-      // Validate parentId để tránh circular reference
+      // Validate parentId để tránh circular reference (không cho phép tạo vòng)
       if (data.parentId) {
         if (data.parentId === id) {
-          throw new Error('Category cannot be parent of itself')
+          throw new Error('Danh mục không thể là cha của chính nó')
         }
 
-        // Kiểm tra có phải descendant không
-        const isDescendant = await this.isDescendant(id, data.parentId)
+        // Kiểm tra xem parent mới có nằm trong cây con của bản ghi hiện tại
+        // hay không; nếu có thì sẽ tạo vòng lặp -> cấm
+        const isDescendant = await this.isDescendant(data.parentId as number, id)
         if (isDescendant) {
-          throw new Error('Cannot set parent to descendant category')
+          throw new Error('Không thể đặt cha là một danh mục con (tạo vòng lặp)')
         }
       }
 
@@ -175,7 +184,7 @@ export class PostCategoryService extends BaseService {
       if (categoryData.description !== undefined) updatePayload.description = categoryData.description
       if ((categoryData as any).active !== undefined) updatePayload.active = (categoryData as any).active
       if ((categoryData as any).parent !== undefined) updatePayload.parent = (categoryData as any).parent
-  if ((categoryData as any).order !== undefined) updatePayload.order = (categoryData as any).order
+      if ((categoryData as any).order !== undefined) updatePayload.order = (categoryData as any).order
 
       const result = await super.update({ id }, updatePayload, ctx)
 
@@ -205,7 +214,8 @@ export class PostCategoryService extends BaseService {
 
   // Soft delete với kiểm tra có posts/children không
   async deleteById(id: number, force = false, ctx?: { actorId?: number }) {
-    const category = await this.repo.findById(id, {
+    const category = await this.repo.findById({
+      where: { id },
       include: {
         posts: { select: { id: true } },
         children: { select: { id: true } }
@@ -213,15 +223,15 @@ export class PostCategoryService extends BaseService {
     })
 
     if (!category) {
-      throw new Error('Category not found')
+      throw new Error('Không tìm thấy danh mục')
     }
 
     if (!force) {
       if (category.posts?.length > 0) {
-        throw new Error('Cannot delete category with posts. Move posts first or use force=true')
+        throw new Error('Không thể xóa danh mục chứa bài viết. Vui lòng chuyển bài viết hoặc dùng force=true')
       }
       if (category.children?.length > 0) {
-        throw new Error('Cannot delete category with children. Delete children first or use force=true')
+        throw new Error('Không thể xóa danh mục có danh mục con. Xóa các danh mục con trước hoặc dùng force=true')
       }
     }
 
@@ -244,7 +254,7 @@ export class PostCategoryService extends BaseService {
       )
 
       if (categories.length !== ids.length) {
-        throw new Error('Some categories not found')
+        throw new Error('Một số danh mục không tồn tại')
       }
 
       if (!force) {
@@ -253,10 +263,10 @@ export class PostCategoryService extends BaseService {
         const withChildren = categories.filter((c: any) => c.children?.length > 0)
 
         if (withPosts.length > 0) {
-          throw new Error(`Categories with posts: ${withPosts.map((c: any) => c.name).join(', ')}`)
+          throw new Error(`Các danh mục có bài viết: ${withPosts.map((c: any) => c.name).join(', ')}`)
         }
         if (withChildren.length > 0) {
-          throw new Error(`Categories with children: ${withChildren.map((c: any) => c.name).join(', ')}`)
+          throw new Error(`Các danh mục có danh mục con: ${withChildren.map((c: any) => c.name).join(', ')}`)
         }
       }
 
@@ -278,6 +288,7 @@ export class PostCategoryService extends BaseService {
     }
 
     const seoMeta = await seoService.getSeoFor(SeoableType.POST_CATEGORY, category.id)
+    console.log('seoMeta', seoMeta)
 
     return {
       ...this.transformUserAuditFields(category),
@@ -287,18 +298,18 @@ export class PostCategoryService extends BaseService {
 
   // Lấy category kèm SEO metadata
   async findByIdWithSeo(id: number) {
-    const category = await this.repo.findById(id, this.getAuditInclude())
+    const category = await this.repo.findById({ where: { id }, include: this.getAuditInclude() })
     if (!category) {
       return null
     }
 
     const seoMeta = await seoService.getSeoFor(SeoableType.POST_CATEGORY, id)
 
+    console.log('seoMeta', seoMeta)
+
     return {
       ...this.transformUserAuditFields(category),
       seoMeta
     }
   }
-
-  
 }

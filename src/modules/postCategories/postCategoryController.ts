@@ -86,13 +86,7 @@ export class PostCategoryController {
   async getById(req: Request, res: Response) {
     try {
       const { id } = req.params
-      const category = await this.service.getById(parseInt(id), {
-        include: {
-          children: true,
-          parent: true,
-          posts: { select: { id: true, title: true, slug: true } }
-        }
-      })
+      const category = await this.service.findByIdWithSeo(parseInt(id))
 
       if (!category) {
         return res
@@ -102,6 +96,7 @@ export class PostCategoryController {
 
       res.status(StatusCodes.OK).send(ApiResponse.ok(category, 'Lấy chuyên mục thành công'))
     } catch (error: any) {
+       console.error(error)
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .send(ApiResponse.error(error.message, 'Failed to get category', StatusCodes.INTERNAL_SERVER_ERROR))
