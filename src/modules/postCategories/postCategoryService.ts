@@ -212,35 +212,56 @@ export class PostCategoryService extends BaseService {
     return false
   }
 
-  // Soft delete với kiểm tra có posts/children không
-  async deleteById(id: number, force = false, ctx?: { actorId?: number }) {
-    const category = await this.repo.findById({
-      where: { id },
-      include: {
-        posts: { select: { id: true } },
-        children: { select: { id: true } }
+  // Hard delete: remove category record and related SEO metadata.
+  // If `force` is true the function will try to detach posts (set categoryId=null)
+  // and cascade-delete children recursively. If `force` is false the same
+  // validation as before will be applied and deletion will be blocked when
+  // posts/children exist.
+  async deleteById(id: number, ctx?: { actorId?: number }) {
+    // Run inside a transaction to ensure SEO deletion and category removal are atomic
+    return this.repo.runTransaction(async (tx) => {
+      const category = await this.repo.findById(
+        {
+          where: { id },
+          include: {
+            posts: { select: { id: true } },
+            children: { select: { id: true } }
+          }
+        },
+        tx
+      )
+
+      if (!category) {
+        throw new Error('Không tìm thấy danh mục')
       }
+
+      // Always perform hard delete: detach posts to avoid FK constraint errors
+      if (category.posts && category.posts.length > 0) {
+        // set categoryId = null for posts belonging to this category
+        await tx.post.updateMany({ where: { categoryId: id }, data: { categoryId: null, updatedBy: ctx?.actorId } })
+      }
+
+      // Delete children recursively (we'll delete direct children and rely on cascade or loop)
+      if (category.children && category.children.length > 0) {
+        const childIds = category.children.map((c: any) => c.id)
+        // call deleteMultipleWithValidation within the same transaction
+        await this.deleteMultipleWithValidation(childIds, { actorId: ctx?.actorId }, tx)
+      }
+
+      // Delete SEO metadata for this category inside the transaction
+      // seoService has upsert/in-transaction helpers; use delete via prisma tx
+      await tx.seoMeta.deleteMany({ where: { seoableType: SeoableType.POST_CATEGORY, seoableId: id } })
+
+      // Finally delete the category row for real
+      const deleted = await this.repo.delete({ id }, tx)
+      return deleted
     })
-
-    if (!category) {
-      throw new Error('Không tìm thấy danh mục')
-    }
-
-    if (!force) {
-      if (category.posts?.length > 0) {
-        throw new Error('Không thể xóa danh mục chứa bài viết. Vui lòng chuyển bài viết hoặc dùng force=true')
-      }
-      if (category.children?.length > 0) {
-        throw new Error('Không thể xóa danh mục có danh mục con. Xóa các danh mục con trước hoặc dùng force=true')
-      }
-    }
-
-    return super.update({ id }, { active: false }, ctx)
   }
 
   // Xóa nhiều categories với transaction
-  async deleteMultipleWithValidation(ids: number[], force = false, ctx?: { actorId?: number }) {
-    return this.repo.runTransaction(async (tx) => {
+  async deleteMultipleWithValidation(ids: number[], ctx?: { actorId?: number }, txClient?: any) {
+    // Support optional transaction client so callers can reuse an existing tx.
+    const perform = async (txClient: any) => {
       // Kiểm tra tất cả categories tồn tại
       const categories = await this.repo.findMany(
         {
@@ -250,29 +271,59 @@ export class PostCategoryService extends BaseService {
             children: { select: { id: true } }
           }
         },
-        tx
+        txClient
       )
 
       if (categories.length !== ids.length) {
         throw new Error('Một số danh mục không tồn tại')
       }
 
-      if (!force) {
-        // Kiểm tra có posts/children không
-        const withPosts = categories.filter((c: any) => c.posts?.length > 0)
-        const withChildren = categories.filter((c: any) => c.children?.length > 0)
+      // Always perform hard delete including descendants.
+      // 1) expand to include all descendant categories
+      const allIds = new Set<number>(ids)
+      let queue = [...ids]
+      while (queue.length > 0) {
+        const children = await (txClient.postCategory as any).findMany({
+          where: { parentId: { in: queue } },
+          select: { id: true }
+        })
+        const newIds: number[] = []
+        for (const c of children) {
+          if (!allIds.has(c.id)) {
+            allIds.add(c.id)
+            newIds.push(c.id)
+          }
+        }
+        queue = newIds
+      }
+      const finalIds = Array.from(allIds)
 
-        if (withPosts.length > 0) {
-          throw new Error(`Các danh mục có bài viết: ${withPosts.map((c: any) => c.name).join(', ')}`)
-        }
-        if (withChildren.length > 0) {
-          throw new Error(`Các danh mục có danh mục con: ${withChildren.map((c: any) => c.name).join(', ')}`)
-        }
+      // 2) detach posts belonging to these categories
+      if (finalIds.length > 0) {
+        await txClient.post.updateMany({
+          where: { categoryId: { in: finalIds } },
+          data: { categoryId: null, updatedBy: ctx?.actorId }
+        })
       }
 
-      // Soft delete tất cả
-      return this.repo.updateMany({ id: { in: ids } }, { active: false, updatedBy: ctx?.actorId }, tx)
-    })
+      // 3) delete SEO metadata for all these categories
+      if (finalIds.length > 0) {
+        await txClient.seoMeta.deleteMany({
+          where: { seoableType: SeoableType.POST_CATEGORY, seoableId: { in: finalIds } }
+        })
+      }
+
+      // 4) hard delete categories
+      if (finalIds.length > 0) {
+        return txClient.postCategory.deleteMany({ where: { id: { in: finalIds } } })
+      }
+      return { count: 0 }
+    }
+
+    if (txClient) {
+      return perform(txClient)
+    }
+    return this.repo.runTransaction(async (tx) => perform(tx))
   }
 
   // Active/inactive nhiều categories

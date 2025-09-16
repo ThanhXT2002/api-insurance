@@ -238,7 +238,7 @@ router.put('/:id', authenticate, controller.update.bind(controller))
  *   delete:
  *     tags:
  *       - Post Categories
- *     summary: Xóa chuyên mục xóa mềm
+ *     summary: Xóa chuyên mục
  *     security:
  *       - bearerAuth: []
  *     parameters:
