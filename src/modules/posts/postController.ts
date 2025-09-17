@@ -86,7 +86,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get posts', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi lấy bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -109,7 +109,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get published posts', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi lấy bài viết đã xuất bản', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -128,7 +128,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get featured posts', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi lấy bài viết nổi bật', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -148,7 +148,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get post statistics', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi lấy thống kê bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -168,7 +168,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get post', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi lấy bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -188,7 +188,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get post with SEO', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi lấy bài viết với SEO', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -208,7 +208,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to get related posts', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi lấy bài viết liên quan', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -328,7 +328,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to create post', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi tạo bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -446,7 +446,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to update post', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi cập nhật bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -469,7 +469,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to publish post', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi xuất bản bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -492,7 +492,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to unpublish post', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi gỡ xuất bản bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -515,7 +515,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to archive post', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi lưu trữ bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -544,7 +544,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to batch publish posts', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi xuất bản nhiều bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -573,7 +573,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to batch unpublish posts', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi gỡ xuất bản nhiều bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -602,7 +602,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to batch archive posts', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi lưu trữ nhiều bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -623,7 +623,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to delete post', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi xóa bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 
@@ -651,7 +651,7 @@ export class PostController {
     } catch (error: any) {
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
-        .send(ApiResponse.error(error.message, 'Failed to batch delete posts', StatusCodes.INTERNAL_SERVER_ERROR))
+        .send(ApiResponse.error(error.message, 'Lỗi xóa nhiều bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
 }

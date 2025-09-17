@@ -189,6 +189,86 @@ const options: swaggerJsdoc.Options = {
               description: 'Thông tin SEO'
             }
           }
+        },
+        // Post-related schemas
+        PostItem: {
+          type: 'object',
+          description: 'Thông tin ngắn gọn của bài viết',
+          properties: {
+            id: { type: 'integer', example: 1 },
+            title: { type: 'string', example: 'Tiêu đề bài viết' },
+            slug: { type: 'string', example: 'tieu-de-bai-viet' },
+            excerpt: { type: 'string', example: 'Tóm tắt ngắn của bài viết' },
+            featuredImage: { type: 'string', example: '/uploads/featured.jpg' },
+            publishedAt: { type: 'string', format: 'date-time' },
+            status: { type: 'string', example: 'PUBLISHED' },
+            category: { $ref: '#/components/schemas/PostCategory' }
+          }
+        },
+        PostListResponse: {
+          type: 'object',
+          properties: {
+            status: { type: 'boolean', example: true },
+            code: { type: 'integer', example: 200 },
+            data: {
+              type: 'array',
+              items: { $ref: '#/components/schemas/PostItem' }
+            },
+            message: { type: 'string', example: 'Thành công' }
+          }
+        },
+        PaginatedPostsResponse: {
+          type: 'object',
+          properties: {
+            status: { type: 'boolean', example: true },
+            code: { type: 'integer', example: 200 },
+            data: {
+              type: 'object',
+              properties: {
+                rows: {
+                  type: 'array',
+                  items: { $ref: '#/components/schemas/PostItem' }
+                },
+                total: { type: 'integer' },
+                page: { type: 'integer' },
+                limit: { type: 'integer' },
+                totalPages: { type: 'integer' }
+              }
+            },
+            message: { type: 'string', example: 'Thành công' }
+          }
+        },
+        PostDetailResponse: {
+          type: 'object',
+          properties: {
+            status: { type: 'boolean', example: true },
+            code: { type: 'integer', example: 200 },
+            data: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                title: { type: 'string' },
+                slug: { type: 'string' },
+                excerpt: { type: 'string' },
+                content: { type: 'string' },
+                featuredImage: { type: 'string' },
+                albumImages: { type: 'array', items: { type: 'string' } },
+                status: { type: 'string' },
+                publishedAt: { type: 'string', format: 'date-time' },
+                scheduledAt: { type: 'string', format: 'date-time', nullable: true },
+                expiredAt: { type: 'string', format: 'date-time', nullable: true },
+                priority: { type: 'integer' },
+                isHighlighted: { type: 'boolean' },
+                isFeatured: { type: 'boolean' },
+                creator: { type: 'object', properties: { id: { type: 'integer' }, name: { type: 'string' } } },
+                updater: { type: 'object', properties: { id: { type: 'integer' }, name: { type: 'string' } } },
+                category: { $ref: '#/components/schemas/PostCategory' },
+                taggedCategories: { type: 'array', items: { $ref: '#/components/schemas/PostCategory' } },
+                seoMeta: { $ref: '#/components/schemas/SeoDto' }
+              }
+            },
+            message: { type: 'string', example: 'Thành công' }
+          }
         }
       }
     }
