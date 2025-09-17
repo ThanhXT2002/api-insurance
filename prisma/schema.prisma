@@ -201,7 +201,7 @@ model Post {
   updater  User          @relation("PostUpdatedBy", fields: [updatedBy], references: [id])
   category PostCategory? @relation("PostPrimaryCategory", fields: [categoryId], references: [id])
 
-  taggedCategories PostCategory[] @relation("PostTaggedCategories") // Mối quan hệ với thẻ bài viết
+  taggedCategories PostCategory[] @relation("PostTaggedCategories") // Mối quan hệ với thẻ bài viết chọn nhiều post categories
   comments         PostComment[]  @relation("PostComments") // Comments của post
   postType         PostType       @default(ARTICLE) // ARTICLE, GUIDE, NEWS, PRODUCT
 
