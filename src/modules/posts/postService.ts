@@ -481,6 +481,38 @@ export class PostService extends BaseService {
 
       // Get updated post with relations
       const finalPost = await this.repo.findById({ where: { id }, include: this.getPostInclude() }, prisma)
+
+      // CLEANUP: delete replaced/removed images from storage asynchronously.
+      // Determine images that were removed by comparing existingPost and finalPost.
+      try {
+        const urlsToDelete: string[] = []
+
+        // If featured image changed, delete the old one
+        if (existingPost.featuredImage && finalPost && finalPost.featuredImage !== existingPost.featuredImage) {
+          urlsToDelete.push(existingPost.featuredImage)
+        }
+
+        // For album images: find items that existed before but are no longer present
+        const prevAlbum: string[] = Array.isArray(existingPost.albumImages) ? existingPost.albumImages : []
+        const newAlbum: string[] = finalPost && Array.isArray(finalPost.albumImages) ? finalPost.albumImages : []
+        for (const u of prevAlbum) {
+          if (!newAlbum.includes(u)) urlsToDelete.push(u)
+        }
+
+        if (urlsToDelete.length > 0) {
+          // fire-and-forget but still attempt and ignore errors
+          try {
+            await fileUploadService.deleteFilesByUrls(urlsToDelete)
+          } catch (err: any) {
+            // Ignore deletion errors - DB update already succeeded
+            console.error('Failed to delete old post images after update:', err?.message || err)
+          }
+        }
+      } catch (err: any) {
+        // Defensive: do not block success if cleanup logic fails
+        console.error('Unexpected error during post image cleanup:', err?.message || err)
+      }
+
       return this.transformUserAuditFields([finalPost])[0]
     })
   }
@@ -504,7 +536,77 @@ export class PostService extends BaseService {
 
       // Finally delete the post row
       const deleted = await this.repo.delete({ id }, tx)
+
+      // After successful DB deletion, attempt to delete files from storage but don't fail the operation if deletion fails
+      ;(async () => {
+        try {
+          const urls: string[] = []
+          if (existing.featuredImage) urls.push(existing.featuredImage)
+          if (existing.albumImages && Array.isArray(existing.albumImages)) urls.push(...existing.albumImages)
+          if (urls.length > 0) {
+            await fileUploadService.deleteFilesByUrls(urls)
+          }
+        } catch (err: any) {
+          console.error('Failed to delete post images after deleteById:', err?.message || err)
+        }
+      })()
       return deleted
+    })
+  }
+
+  // Override BaseService.delete to ensure storage cleanup is performed
+  // `where` may be an id number or an object; support both for controller convenience
+  async delete(where: any) {
+    // If caller passed an id number, delegate to deleteById
+    if (typeof where === 'number') {
+      return this.deleteById(where)
+    }
+
+    // If where is an object with id, extract it
+    if (where && typeof where === 'object' && where.id) {
+      return this.deleteById(where.id)
+    }
+
+    // Fallback to BaseService behavior for other shapes
+    return super.delete(where)
+  }
+
+  // Delete multiple posts (override BaseService.deleteMultiple behavior) and cleanup images after DB operation
+  async deleteMultiple(where: any) {
+    // We'll run inside a transaction to remove SEO metadata and posts atomically,
+    // but file deletions will be attempted after DB success and won't block the operation.
+    return this.repo.runTransaction(async (tx) => {
+      // Find posts to delete (include image fields)
+      const candidates = await this.repo.findMany(
+        { where, select: { id: true, featuredImage: true, albumImages: true } },
+        tx
+      )
+
+      if (!candidates || candidates.length === 0) return { count: 0 }
+
+      const ids = candidates.map((c: any) => c.id)
+
+      // Delete SEO metadata for these posts
+      await tx.seoMeta.deleteMany({ where: { seoableType: SeoableType.POST, seoableId: { in: ids } } })
+
+      // Delete posts (hard delete)
+      const res = await tx.post.deleteMany({ where: { id: { in: ids } } })
+
+      // After successful DB deletion, attempt to delete files for all posts - ignore errors
+      ;(async () => {
+        try {
+          const urls: string[] = []
+          for (const c of candidates) {
+            if (c.featuredImage) urls.push(c.featuredImage)
+            if (c.albumImages && Array.isArray(c.albumImages)) urls.push(...c.albumImages)
+          }
+          if (urls.length > 0) await fileUploadService.deleteFilesByUrls(urls)
+        } catch (err: any) {
+          console.error('Failed to delete post images after deleteMultiple:', err?.message || err)
+        }
+      })()
+
+      return res
     })
   }
 
