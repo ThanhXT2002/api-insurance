@@ -299,6 +299,9 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *               excerpt:
  *                 type: string
  *                 description: Tóm tắt bài viết
+ *               shortContent:
+ *                 type: string
+ *                 description: Nội dung ngắn bài viết
  *               content:
  *                 type: string
  *                 description: Nội dung bài viết
@@ -426,6 +429,9 @@ router.post(
  *               excerpt:
  *                 type: string
  *                 description: Tóm tắt bài viết
+ *               shortContent:
+ *                 type: string
+ *                 description: Nội dung ngắn bài viết
  *               content:
  *                 type: string
  *                 description: Nội dung bài viết

@@ -11,6 +11,7 @@ interface PostData {
   title: string
   slug?: string
   excerpt?: string
+  shortContent?: string
   content: string
   featuredImage?: string
   status?: PostStatus

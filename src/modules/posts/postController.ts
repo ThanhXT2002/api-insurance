@@ -236,6 +236,7 @@ export class PostController {
       const {
         title,
         excerpt,
+        shortContent,
         content,
         status,
         videoUrl,
@@ -304,6 +305,7 @@ export class PostController {
       const postData: any = {
         title,
         excerpt,
+        shortContent,
         content,
         // featuredImage and albumImages will be created by service after uploading files
         status: status || PostStatus.DRAFT,
@@ -354,6 +356,7 @@ export class PostController {
       const {
         title,
         excerpt,
+        shortContent,
         content,
         status,
         videoUrl,
@@ -399,6 +402,7 @@ export class PostController {
 
       if (title !== undefined) updateData.title = title
       if (excerpt !== undefined) updateData.excerpt = excerpt
+      if (shortContent !== undefined) updateData.shortContent = shortContent
       if (content !== undefined) updateData.content = content
       if (featuredFileInput !== undefined) updateData.featuredFile = featuredFileInput
       if (status !== undefined) updateData.status = status

@@ -161,6 +161,7 @@ model Post {
   title         String
   slug          String     @unique
   excerpt       String?
+  shortContent  String?
   content       String
   featuredImage String?
   status        PostStatus @default(DRAFT)
