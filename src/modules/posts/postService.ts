@@ -518,12 +518,20 @@ export class PostService extends BaseService {
 
   // Delete multiple posts (override BaseService.deleteMultiple behavior) and cleanup images after DB operation
   async deleteMultiple(where: any) {
+    // Accept either:
+    // - an array of ids (common from controller calls)
+    // - a where filter object
+    let whereFilter: any = where
+    if (Array.isArray(where)) {
+      whereFilter = { id: { in: where } }
+    }
+
     // We'll run inside a transaction to remove SEO metadata and posts atomically,
     // but file deletions will be attempted after DB success and won't block the operation.
     return this.repo.runTransaction(async (tx) => {
       // Find posts to delete (include image fields)
       const candidates = await this.repo.findMany(
-        { where, select: { id: true, featuredImage: true, albumImages: true } },
+        { where: whereFilter, select: { id: true, featuredImage: true, albumImages: true } },
         tx
       )
 

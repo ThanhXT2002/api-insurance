@@ -536,6 +536,7 @@ export class PostController {
 
       res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Xuất bản nhiều bài viết thành công'))
     } catch (error: any) {
+      console.error('Error batch publishing posts:', error)
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .send(ApiResponse.error(error.message, 'Lỗi xuất bản nhiều bài viết', StatusCodes.INTERNAL_SERVER_ERROR))

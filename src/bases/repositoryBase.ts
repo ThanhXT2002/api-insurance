@@ -117,10 +117,15 @@ export class BaseRepository<TModel extends PrismaModelKeys> {
   }
 
   async updateMany(where: object, data: object, client?: any) {
-    const res = await this.delegate(client).updateMany({ where, data })
+    // Support callers that pass either:
+    // - updateMany(whereFilter, data)
+    // - updateMany({ where: whereFilter }, data)  <-- older callers in BaseService
+    const actualWhere = where && typeof where === 'object' && 'where' in where ? (where as any).where : where
+
+    const res = await this.delegate(client).updateMany({ where: actualWhere, data })
     this.logger?.info?.('[BaseRepository] updateMany', {
       model: this.modelName,
-      where,
+      where: actualWhere,
       data,
       count: (res && (res as any).count) || undefined
     })

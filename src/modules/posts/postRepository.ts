@@ -261,6 +261,7 @@ export class PostRepository extends BaseRepository<'post'> {
       updateData.publishedAt = new Date()
     }
 
-    return this.updateMany({ where: { id: { in: ids } } }, updateData, client)
+    // Pass the where filter directly to BaseRepository.updateMany (BaseRepository will wrap it)
+    return this.updateMany({ id: { in: ids } }, updateData, client)
   }
 }
