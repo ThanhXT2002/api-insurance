@@ -115,9 +115,10 @@ export class PostService extends BaseService {
 
       if (mergeWithExistingForId) {
         // load existing album images and merge
-        const existing = await this.repo.findById(mergeWithExistingForId, prisma)
-        const existingAlbum = existing?.albumImages || []
-        prismaObj.albumImages = Array.isArray(existingAlbum) ? [...existingAlbum, ...urls] : urls
+        // Thay đổi: khi cập nhật, ta KHÔNG merge để tránh tăng dần albumImages.
+        // Thay vào đó ghi đè albumImages bằng danh sách mới (urls).
+        // Nếu muốn giữ hành vi merge (thêm ảnh mới), có thể thêm tuỳ chọn sau.
+        prismaObj.albumImages = urls
       } else {
         prismaObj.albumImages = urls
       }
