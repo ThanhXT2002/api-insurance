@@ -2,6 +2,7 @@ import { Express, Request, Response } from 'express'
 import { StatusCodes } from 'http-status-codes'
 import authRouter from '../modules/auth/authRouter'
 import postCategoryRouter from '../modules/postCategories/postCategoryRouter'
+import postRouter from '../modules/posts/postRouter'
 import permissionRouter from '../modules/permissions/permissionRouter'
 import userRoleRouter from '../modules/userRoles/userRoleRouter'
 import userAssignmentRouter from '../modules/userAssignments/userAssignmentRouter'
@@ -40,6 +41,7 @@ export function registerRoutes(app: Express) {
 
   app.use('/api/auth', authRouter)
   app.use('/api/post-categories', postCategoryRouter)
+  app.use('/api/posts', postRouter)
 
   // Permission management routes
   app.use('/api/permissions', permissionRouter)

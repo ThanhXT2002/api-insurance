@@ -19,6 +19,16 @@ export class PostController {
       return body.seoMeta as SeoDto
     }
 
+    // If client sent seoMeta as a JSON string (common with multipart/form-data), try to parse it
+    if (body.seoMeta && typeof body.seoMeta === 'string') {
+      try {
+        const parsed = JSON.parse(body.seoMeta)
+        if (parsed && typeof parsed === 'object') return parsed as SeoDto
+      } catch (e) {
+        // If parse fails, ignore and fallback to flat fields
+      }
+    }
+
     // Fallback to legacy flat fields for backward compatibility
     const { seoTitle, metaDescription, canonicalUrl, focusKeyword, ogType, noindex, nofollow } = body as any
     const hasSeoFields =
@@ -259,51 +269,43 @@ export class PostController {
           .send(ApiResponse.error('Người dùng chưa xác thực', 'Cần đăng nhập', StatusCodes.UNAUTHORIZED))
       }
 
-      // Handle file upload for featuredImage
-      let featuredImageUrl: string | undefined
+      // Collect uploaded file buffers (do NOT perform uploads here) - service will handle uploading and rollback
+      let featuredFileInput: { buffer: Buffer; originalName: string } | undefined
       if (req.files && (req.files as any).featuredImage) {
-        try {
-          const file = (req.files as any).featuredImage[0]
-          const uploadedFile = await fileUploadService.uploadSingleFile(file.buffer, file.originalname, {
-            folderName: 'project-insurance/posts'
-          })
-          featuredImageUrl = uploadedFile.url
-        } catch (uploadError: any) {
-          return res
-            .status(StatusCodes.BAD_REQUEST)
-            .send(ApiResponse.error('Lỗi upload ảnh', uploadError.message, StatusCodes.BAD_REQUEST))
-        }
+        const file = (req.files as any).featuredImage[0]
+        featuredFileInput = { buffer: file.buffer, originalName: file.originalname }
       }
 
-      // Handle album images upload
-      let albumImagesUrls: string[] = []
+      // Collect album files to pass to service (service will call uploadMultipleFiles)
+      let albumFilesInput: Array<{ buffer: Buffer; originalName: string }> | undefined
       if (req.files && (req.files as any).albumImages) {
-        try {
-          const albumFiles = (req.files as any).albumImages
-          const filesArray = Array.isArray(albumFiles) ? albumFiles : [albumFiles]
-
-          for (const file of filesArray) {
-            const uploadedFile = await fileUploadService.uploadSingleFile(file.buffer, file.originalname, {
-              folderName: 'project-insurance/posts/albums'
-            })
-            albumImagesUrls.push(uploadedFile.url)
-          }
-        } catch (uploadError: any) {
-          return res
-            .status(StatusCodes.BAD_REQUEST)
-            .send(ApiResponse.error('Lỗi upload ảnh album', uploadError.message, StatusCodes.BAD_REQUEST))
-        }
+        const albumFiles = (req.files as any).albumImages
+        const filesArray = Array.isArray(albumFiles) ? albumFiles : [albumFiles]
+        albumFilesInput = filesArray.map((f: any) => ({ buffer: f.buffer, originalName: f.originalname }))
       }
 
       // Parse SEO metadata
       const processedSeoMeta = this.parseSeoMetaFromRequest(req)
 
       // Prepare post data
+      // Validate and normalize postType to match Prisma enum values
+      let parsedPostType: PostType = PostType.ARTICLE
+      if (postType !== undefined && postType !== null) {
+        const candidate = String(postType).toUpperCase()
+        if ((Object.values(PostType) as string[]).includes(candidate)) {
+          parsedPostType = candidate as PostType
+        } else {
+          return res
+            .status(StatusCodes.BAD_REQUEST)
+            .send(ApiResponse.error('postType không hợp lệ', 'Giá trị postType không hợp lệ', StatusCodes.BAD_REQUEST))
+        }
+      }
+
       const postData: any = {
         title,
         excerpt,
         content,
-        featuredImage: featuredImageUrl,
+        // featuredImage and albumImages will be created by service after uploading files
         status: status || PostStatus.DRAFT,
         videoUrl,
         note,
@@ -313,8 +315,8 @@ export class PostController {
         scheduledAt,
         expiredAt,
         categoryId: categoryId ? parseInt(categoryId) : undefined,
-        postType: postType || PostType.ARTICLE,
-        albumImages: albumImagesUrls.length > 0 ? albumImagesUrls : this.parseArrayField(albumImages),
+        postType: parsedPostType,
+        albumImages: this.parseArrayField(albumImages),
         targetAudience: this.parseArrayField(targetAudience),
         relatedProducts: this.parseArrayField(relatedProducts)?.map((id: any) => parseInt(id)),
         metaKeywords: this.parseArrayField(metaKeywords),
@@ -322,10 +324,15 @@ export class PostController {
         seoMeta: processedSeoMeta
       }
 
+      // Attach raw file inputs so service can upload and register rollback
+      if (featuredFileInput) postData.featuredFile = featuredFileInput
+      if (albumFilesInput) postData.albumFiles = albumFilesInput
+
       const post = await this.service.create(postData, { actorId: auditContext.createdBy })
 
       res.status(StatusCodes.CREATED).send(ApiResponse.ok(post, 'Tạo bài viết thành công'))
     } catch (error: any) {
+      console.error('Error creating post:', error)
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .send(ApiResponse.error(error.message, 'Lỗi tạo bài viết', StatusCodes.INTERNAL_SERVER_ERROR))
@@ -369,39 +376,19 @@ export class PostController {
       const auditContext = AuthUtils.getAuditContext(req)
 
       // Handle file upload for featuredImage
-      let featuredImageUrl: string | undefined
+      // Collect featured file input for service to upload
+      let featuredFileInput: { buffer: Buffer; originalName: string } | undefined
       if (req.files && (req.files as any).featuredImage) {
-        try {
-          const file = (req.files as any).featuredImage[0]
-          const uploadedFile = await fileUploadService.uploadSingleFile(file.buffer, file.originalname, {
-            folderName: 'project-insurance/posts'
-          })
-          featuredImageUrl = uploadedFile.url
-        } catch (uploadError: any) {
-          return res
-            .status(StatusCodes.BAD_REQUEST)
-            .send(ApiResponse.error('Lỗi upload ảnh', uploadError.message, StatusCodes.BAD_REQUEST))
-        }
+        const file = (req.files as any).featuredImage[0]
+        featuredFileInput = { buffer: file.buffer, originalName: file.originalname }
       }
 
-      // Handle album images upload
-      let albumImagesUrls: string[] = []
+      // Collect album files for service to upload
+      let albumFilesInput: Array<{ buffer: Buffer; originalName: string }> | undefined
       if (req.files && (req.files as any).albumImages) {
-        try {
-          const albumFiles = (req.files as any).albumImages
-          const filesArray = Array.isArray(albumFiles) ? albumFiles : [albumFiles]
-
-          for (const file of filesArray) {
-            const uploadedFile = await fileUploadService.uploadSingleFile(file.buffer, file.originalname, {
-              folderName: 'project-insurance/posts/albums'
-            })
-            albumImagesUrls.push(uploadedFile.url)
-          }
-        } catch (uploadError: any) {
-          return res
-            .status(StatusCodes.BAD_REQUEST)
-            .send(ApiResponse.error('Lỗi upload ảnh album', uploadError.message, StatusCodes.BAD_REQUEST))
-        }
+        const albumFiles = (req.files as any).albumImages
+        const filesArray = Array.isArray(albumFiles) ? albumFiles : [albumFiles]
+        albumFilesInput = filesArray.map((f: any) => ({ buffer: f.buffer, originalName: f.originalname }))
       }
 
       // Parse SEO metadata
@@ -413,7 +400,7 @@ export class PostController {
       if (title !== undefined) updateData.title = title
       if (excerpt !== undefined) updateData.excerpt = excerpt
       if (content !== undefined) updateData.content = content
-      if (featuredImageUrl !== undefined) updateData.featuredImage = featuredImageUrl
+      if (featuredFileInput !== undefined) updateData.featuredFile = featuredFileInput
       if (status !== undefined) updateData.status = status
       if (videoUrl !== undefined) updateData.videoUrl = videoUrl
       if (note !== undefined) updateData.note = note
@@ -423,14 +410,20 @@ export class PostController {
       if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt
       if (expiredAt !== undefined) updateData.expiredAt = expiredAt
       if (categoryId !== undefined) updateData.categoryId = categoryId ? parseInt(categoryId) : null
-      if (postType !== undefined) updateData.postType = postType
+      if (postType !== undefined) {
+        const candidate = String(postType).toUpperCase()
+        if ((Object.values(PostType) as string[]).includes(candidate)) {
+          updateData.postType = candidate as PostType
+        } else {
+          return res
+            .status(StatusCodes.BAD_REQUEST)
+            .send(ApiResponse.error('postType không hợp lệ', 'Giá trị postType không hợp lệ', StatusCodes.BAD_REQUEST))
+        }
+      }
 
       // Handle array fields
-      if (albumImagesUrls.length > 0) {
-        updateData.albumImages = albumImagesUrls
-      } else if (albumImages !== undefined) {
-        updateData.albumImages = this.parseArrayField(albumImages)
-      }
+      if (albumFilesInput !== undefined) updateData.albumFiles = albumFilesInput
+      else if (albumImages !== undefined) updateData.albumImages = this.parseArrayField(albumImages)
 
       if (targetAudience !== undefined) updateData.targetAudience = this.parseArrayField(targetAudience)
       if (relatedProducts !== undefined)
@@ -444,6 +437,7 @@ export class PostController {
 
       res.status(StatusCodes.OK).send(ApiResponse.ok(post, 'Cập nhật bài viết thành công'))
     } catch (error: any) {
+      console.error('Error updating post:', error)
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .send(ApiResponse.error(error.message, 'Lỗi cập nhật bài viết', StatusCodes.INTERNAL_SERVER_ERROR))

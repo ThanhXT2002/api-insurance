@@ -5,6 +5,7 @@ import { fileUploadService } from '../../services/fileUploadService'
 import { normalizeSlug } from '../../utils/urlHelper'
 import { PostStatus, PostType, SeoableType } from '../../../generated/prisma'
 import { withRollback } from '../../utils/rollbackHelper'
+import prisma from '../../config/prismaClient'
 
 interface PostData {
   title: string
@@ -153,34 +154,57 @@ export class PostService extends BaseService {
         throw new Error('Đường dẫn (slug) đã tồn tại')
       }
 
-      // Validate categoryId nếu có
-      if (data.categoryId) {
-        // Sử dụng prisma client directly để check category exists
-        const categoryExists = await this.repo.count({ where: { id: data.categoryId } })
+      // Validate categoryId nếu có (use postCategory model)
+      if (data.categoryId !== undefined && data.categoryId !== null) {
+        const categoryIdNum = Number(data.categoryId)
+        if (Number.isNaN(categoryIdNum)) {
+          throw new Error('categoryId không hợp lệ')
+        }
+        // Use prisma.postCategory.count to check existence
+        const categoryExists = await prisma.postCategory.count({ where: { id: categoryIdNum } })
         if (categoryExists === 0) {
           throw new Error('Không tìm thấy danh mục')
         }
+        // normalize to number for downstream
+        data.categoryId = categoryIdNum
       }
 
       // Prepare post data
       const { seoMeta, taggedCategoryIds = [], ...postData } = data
       postData.slug = normalizedSlug
 
-      // Create a copy for Prisma with JSON string conversion
+      // Create a copy for Prisma and normalize JSON fields to proper JS objects/arrays
       const prismaData: any = { ...postData }
 
-      // Handle JSON fields - convert arrays to JSON strings for database
+      // Normalize JSON fields: accept stringified JSON or arrays/objects and convert to native JS types
+      const tryParseJson = (val: any) => {
+        if (val === undefined || val === null) return undefined
+        if (Array.isArray(val) || typeof val === 'object') return val
+        if (typeof val === 'string') {
+          try {
+            return JSON.parse(val)
+          } catch {
+            // If it's a plain string (not JSON), return as single-element array for albumImages/targetAudience/metaKeywords
+            return val
+          }
+        }
+        return val
+      }
+
       if (prismaData.albumImages) {
-        prismaData.albumImages = JSON.stringify(prismaData.albumImages)
+        prismaData.albumImages = tryParseJson(prismaData.albumImages)
       }
       if (prismaData.targetAudience) {
-        prismaData.targetAudience = JSON.stringify(prismaData.targetAudience)
+        prismaData.targetAudience = tryParseJson(prismaData.targetAudience)
       }
       if (prismaData.relatedProducts) {
-        prismaData.relatedProducts = JSON.stringify(prismaData.relatedProducts)
+        const parsed = tryParseJson(prismaData.relatedProducts)
+        // Ensure relatedProducts is array of numbers
+        if (Array.isArray(parsed)) prismaData.relatedProducts = parsed.map((p: any) => Number(p))
+        else prismaData.relatedProducts = parsed
       }
       if (prismaData.metaKeywords) {
-        prismaData.metaKeywords = JSON.stringify(prismaData.metaKeywords)
+        prismaData.metaKeywords = tryParseJson(prismaData.metaKeywords)
       }
 
       // Handle dates
@@ -199,7 +223,7 @@ export class PostService extends BaseService {
         prismaData.publishedAt = new Date()
       }
 
-      // Build Prisma payload
+      // Build Prisma payload (will fill featuredImage/albumImages after uploads)
       const prismaPayload: any = {
         ...prismaData,
         ...(ctx?.actorId && {
@@ -208,10 +232,9 @@ export class PostService extends BaseService {
         })
       }
 
-      // Connect to category if specified
-      if (prismaData.categoryId) {
-        prismaPayload.category = { connect: { id: prismaData.categoryId } }
-        delete prismaPayload.categoryId
+      // Ensure categoryId is provided as scalar (Prisma client expects categoryId for this schema)
+      if (prismaData.categoryId !== undefined && prismaData.categoryId !== null) {
+        prismaPayload.categoryId = Number(prismaData.categoryId)
       }
 
       // Connect to tagged categories if specified
@@ -221,22 +244,53 @@ export class PostService extends BaseService {
         }
       }
 
-      // Create post trong transaction
+      // Perform file uploads before starting DB transaction to avoid long-running work inside transaction
+      // Keep uploads inside withRollback so rollbackManager can delete uploaded files if DB ops fail
+      if (prismaData.featuredFile) {
+        try {
+          const f = prismaData.featuredFile as { buffer: Buffer; originalName: string }
+          const uploaded = await fileUploadService.uploadSingleFile(f.buffer, f.originalName, {
+            folderName: 'project-insurance/posts'
+          })
+          // register rollback
+          rollbackManager.addFileDeleteAction(uploaded.url)
+          prismaPayload.featuredImage = uploaded.url
+        } catch (err: any) {
+          throw new Error(`Lỗi upload featured image: ${err.message}`)
+        }
+      }
+
+      if (prismaData.albumFiles && Array.isArray(prismaData.albumFiles)) {
+        try {
+          const inputs = prismaData.albumFiles as Array<{ buffer: Buffer; originalName: string }>
+          const uploaded = await fileUploadService.uploadMultipleFiles(inputs, {
+            folderName: 'project-insurance/posts/albums'
+          })
+          const urls = uploaded.map((u) => u.url)
+          rollbackManager.addFileDeleteAction(urls)
+          prismaPayload.albumImages = urls
+        } catch (err: any) {
+          throw new Error(`Lỗi upload album images: ${err.message}`)
+        }
+      }
+
+      // Create post trong transaction and upsert SEO inside same transaction for atomicity
       const post = await this.repo.runTransaction(async (tx) => {
+        // Remove transient file buffer fields so Prisma won't receive unknown args
+        if ('featuredFile' in prismaPayload) delete prismaPayload.featuredFile
+        if ('albumFiles' in prismaPayload) delete prismaPayload.albumFiles
+
         const createdPost = await tx.post.create({
           data: prismaPayload,
           include: this.getPostInclude()
         })
 
-        // Note: Transaction will auto-rollback on error
-
-        // Tạo SEO metadata nếu có
+        // Upsert SEO metadata inside the same transaction to ensure atomicity (Option B)
         if (seoMeta && Object.keys(seoMeta).length > 0) {
           try {
             await seoService.upsertSeoInTransaction(tx, SeoableType.POST, createdPost.id, seoMeta, ctx?.actorId)
-
-            // Note: Transaction will auto-rollback on error
           } catch (seoError: any) {
+            // Throwing here will cause the transaction to rollback, and withRollback will run rollback actions (e.g., delete uploaded files)
             throw new Error(`Lỗi tạo SEO: ${seoError.message}`)
           }
         }
@@ -267,32 +321,52 @@ export class PostService extends BaseService {
         }
       }
 
-      // Validate categoryId nếu có
-      if (data.categoryId) {
-        const categoryExists = await this.repo.count({ where: { id: data.categoryId } })
+      // Validate categoryId nếu có (normalize and check)
+      if (data.categoryId !== undefined && data.categoryId !== null) {
+        const categoryIdNum = Number(data.categoryId)
+        if (Number.isNaN(categoryIdNum)) {
+          throw new Error('categoryId không hợp lệ')
+        }
+        const categoryExists = await prisma.postCategory.count({ where: { id: categoryIdNum } })
         if (categoryExists === 0) {
           throw new Error('Không tìm thấy danh mục')
         }
+        // ensure normalized for update flow
+        data.categoryId = categoryIdNum
       }
 
       const { seoMeta, taggedCategoryIds, ...postData } = data
       if (data.title) postData.slug = normalizedSlug
 
-      // Create a copy for Prisma with JSON string conversion
+      // Create a copy for Prisma and normalize JSON fields to proper JS objects/arrays
       const prismaData: any = { ...postData }
 
-      // Handle JSON fields - convert arrays to JSON strings for database
+      const tryParseJson = (val: any) => {
+        if (val === undefined || val === null) return undefined
+        if (Array.isArray(val) || typeof val === 'object') return val
+        if (typeof val === 'string') {
+          try {
+            return JSON.parse(val)
+          } catch {
+            return val
+          }
+        }
+        return val
+      }
+
       if (prismaData.albumImages) {
-        prismaData.albumImages = JSON.stringify(prismaData.albumImages)
+        prismaData.albumImages = tryParseJson(prismaData.albumImages)
       }
       if (prismaData.targetAudience) {
-        prismaData.targetAudience = JSON.stringify(prismaData.targetAudience)
+        prismaData.targetAudience = tryParseJson(prismaData.targetAudience)
       }
       if (prismaData.relatedProducts) {
-        prismaData.relatedProducts = JSON.stringify(prismaData.relatedProducts)
+        const parsed = tryParseJson(prismaData.relatedProducts)
+        if (Array.isArray(parsed)) prismaData.relatedProducts = parsed.map((p: any) => Number(p))
+        else prismaData.relatedProducts = parsed
       }
       if (prismaData.metaKeywords) {
-        prismaData.metaKeywords = JSON.stringify(prismaData.metaKeywords)
+        prismaData.metaKeywords = tryParseJson(prismaData.metaKeywords)
       }
 
       // Handle dates
@@ -319,7 +393,49 @@ export class PostService extends BaseService {
         }
       }
 
-      // Update post trong transaction
+      // Perform uploads before starting DB transaction to avoid holding transaction open
+      if (prismaData.featuredFile) {
+        try {
+          const f = prismaData.featuredFile as { buffer: Buffer; originalName: string }
+          const uploaded = await fileUploadService.uploadSingleFile(f.buffer, f.originalName, {
+            folderName: 'project-insurance/posts'
+          })
+          rollbackManager.addFileDeleteAction(uploaded.url)
+          prismaData.featuredImage = uploaded.url
+        } catch (err: any) {
+          throw new Error(`Lỗi upload featured image: ${err.message}`)
+        }
+      }
+
+      if (prismaData.albumFiles && Array.isArray(prismaData.albumFiles)) {
+        try {
+          const inputs = prismaData.albumFiles as Array<{ buffer: Buffer; originalName: string }>
+          const uploaded = await fileUploadService.uploadMultipleFiles(inputs, {
+            folderName: 'project-insurance/posts/albums'
+          })
+          const urls = uploaded.map((u) => u.url)
+          rollbackManager.addFileDeleteAction(urls)
+
+          // Merge with existing albumImages if any
+          const existing = await this.repo.findById(id, prisma)
+          const existingAlbum = existing?.albumImages || []
+          prismaData.albumImages = Array.isArray(existingAlbum) ? [...existingAlbum, ...urls] : urls
+        } catch (err: any) {
+          throw new Error(`Lỗi upload album images: ${err.message}`)
+        }
+      }
+
+      // Ensure transient file buffer fields are removed before entering transaction
+      if ('featuredFile' in prismaData) delete prismaData.featuredFile
+      if ('albumFiles' in prismaData) delete prismaData.albumFiles
+
+      // Make a cleaned copy for Prisma update operations to be absolutely sure no transient
+      // buffer fields are passed into Prisma (defensive copy)
+      const prismaUpdateData: any = { ...prismaData }
+      if ('featuredFile' in prismaUpdateData) delete prismaUpdateData.featuredFile
+      if ('albumFiles' in prismaUpdateData) delete prismaUpdateData.albumFiles
+
+      // Update post trong transaction and upsert SEO inside it for atomicity (Option B)
       const post = await this.repo.runTransaction(async (tx) => {
         let updatedPost
 
@@ -328,7 +444,7 @@ export class PostService extends BaseService {
           updatedPost = await this.repo.updateWithCategories(
             id,
             {
-              ...prismaData,
+              ...prismaUpdateData,
               ...(ctx?.actorId && { updatedBy: ctx.actorId })
             },
             taggedCategoryIds,
@@ -336,21 +452,26 @@ export class PostService extends BaseService {
           )
         } else {
           // Regular update
+          // Ensure transient file fields are not passed to Prisma
+          if ('featuredFile' in prismaUpdateData) delete prismaUpdateData.featuredFile
+          if ('albumFiles' in prismaUpdateData) delete prismaUpdateData.albumFiles
+
           updatedPost = await this.repo.update(
-            { where: { id } },
+            { id },
             {
-              ...prismaData,
+              ...prismaUpdateData,
               ...(ctx?.actorId && { updatedBy: ctx.actorId })
             },
             tx
           )
         }
 
-        // Update SEO metadata nếu có
-        if (seoMeta) {
+        // Upsert SEO metadata inside the same transaction to ensure atomicity
+        if (seoMeta && Object.keys(seoMeta).length > 0) {
           try {
             await seoService.upsertSeoInTransaction(tx, SeoableType.POST, id, seoMeta, ctx?.actorId)
           } catch (seoError: any) {
+            // Throw to rollback transaction and trigger withRollback cleanup
             throw new Error(`Lỗi cập nhật SEO: ${seoError.message}`)
           }
         }
@@ -359,8 +480,31 @@ export class PostService extends BaseService {
       })
 
       // Get updated post with relations
-      const finalPost = await this.repo.findById(id, this.getPostInclude())
+      const finalPost = await this.repo.findById({ where: { id }, include: this.getPostInclude() }, prisma)
       return this.transformUserAuditFields([finalPost])[0]
+    })
+  }
+
+  // Hard delete post and its SEO metadata inside a transaction
+  async deleteById(id: number, ctx?: { actorId?: number }) {
+    return this.repo.runTransaction(async (tx) => {
+      const existing = await this.repo.findById(
+        {
+          where: { id },
+          include: {
+            /* keep minimal */
+          }
+        },
+        tx
+      )
+      if (!existing) throw new Error('Không tìm thấy bài viết')
+
+      // Delete SEO metadata for this post inside the transaction
+      await tx.seoMeta.deleteMany({ where: { seoableType: SeoableType.POST, seoableId: id } })
+
+      // Finally delete the post row
+      const deleted = await this.repo.delete({ id }, tx)
+      return deleted
     })
   }
 

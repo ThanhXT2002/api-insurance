@@ -182,8 +182,9 @@ export class PostRepository extends BaseRepository<'post'> {
     const where: any = { slug }
     if (excludeId) where.id = { not: excludeId }
 
-    const existing = await this.findUnique({ where }, client)
-    return !!existing
+    // Use count which accepts complex filters (excludeId via not) and is efficient
+    const existingCount = await this.count({ where }, client)
+    return existingCount > 0
   }
 
   // Đếm posts theo status
@@ -245,7 +246,7 @@ export class PostRepository extends BaseRepository<'post'> {
       }
     }
 
-    return this.update({ where: { id } }, updateData, client)
+    return this.update({ id }, updateData, client)
   }
 
   // Batch update posts status
