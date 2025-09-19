@@ -166,7 +166,8 @@ export class PostController {
   async getById(req: Request, res: Response) {
     try {
       const { id } = req.params
-      const post = await this.service.getById(parseInt(id))
+      // Use service.getByIdWithRelations to return the same transformed shape as getBySlug
+      const post = await this.service.getByIdWithRelations(parseInt(id))
 
       if (!post) {
         return res
@@ -196,6 +197,7 @@ export class PostController {
 
       res.status(StatusCodes.OK).send(ApiResponse.ok(post, 'Lấy bài viết với SEO thành công'))
     } catch (error: any) {
+      console.error('Error fetching post by slug:', error)
       res
         .status(StatusCodes.INTERNAL_SERVER_ERROR)
         .send(ApiResponse.error(error.message, 'Lỗi lấy bài viết với SEO', StatusCodes.INTERNAL_SERVER_ERROR))
@@ -250,7 +252,7 @@ export class PostController {
         postType,
         albumImages,
         targetAudience,
-        relatedProducts,
+        relatedProductIds,
         metaKeywords,
         taggedCategoryIds
       } = body
@@ -320,7 +322,7 @@ export class PostController {
         postType: parsedPostType,
         albumImages: this.parseArrayField(albumImages),
         targetAudience: this.parseArrayField(targetAudience),
-        relatedProducts: this.parseArrayField(relatedProducts)?.map((id: any) => parseInt(id)),
+        relatedProductIds: this.parseArrayField(relatedProductIds)?.map((id: any) => parseInt(id)),
         metaKeywords: this.parseArrayField(metaKeywords),
         taggedCategoryIds: this.parseArrayField(taggedCategoryIds)?.map((id: any) => parseInt(id)),
         seoMeta: processedSeoMeta
@@ -370,7 +372,7 @@ export class PostController {
         postType,
         albumImages,
         targetAudience,
-        relatedProducts,
+        relatedProductIds,
         metaKeywords,
         taggedCategoryIds
       } = body
@@ -430,8 +432,9 @@ export class PostController {
       else if (albumImages !== undefined) updateData.albumImages = this.parseArrayField(albumImages)
 
       if (targetAudience !== undefined) updateData.targetAudience = this.parseArrayField(targetAudience)
-      if (relatedProducts !== undefined)
-        updateData.relatedProducts = this.parseArrayField(relatedProducts)?.map((id: any) => parseInt(id))
+      if (relatedProductIds !== undefined)
+        // normalize legacy input to `relatedProductIds` for the service
+        updateData.relatedProductIds = this.parseArrayField(relatedProductIds)?.map((id: any) => parseInt(id))
       if (metaKeywords !== undefined) updateData.metaKeywords = this.parseArrayField(metaKeywords)
       if (taggedCategoryIds !== undefined)
         updateData.taggedCategoryIds = this.parseArrayField(taggedCategoryIds)?.map((id: any) => parseInt(id))

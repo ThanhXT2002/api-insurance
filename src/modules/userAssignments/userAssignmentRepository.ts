@@ -1,4 +1,4 @@
-import { User, UserRole, Permission, UserRoleAssignment, UserPermission } from '@prisma/client'
+import { User, UserRole, Permission, UserRoleAssignment, UserPermission } from '../../../generated/prisma'
 import prisma from '../../config/prismaClient'
 import { BaseRepository } from '../../bases/repositoryBase'
 

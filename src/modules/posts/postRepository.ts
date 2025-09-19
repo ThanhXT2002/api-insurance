@@ -1,5 +1,6 @@
 import { BaseRepository } from '../../bases/repositoryBase'
 import { PostStatus, PostType } from '../../../generated/prisma'
+import prisma from '../../config/prismaClient'
 
 export class PostRepository extends BaseRepository<'post'> {
   constructor(logger?: { info?: (...args: any[]) => void; error?: (...args: any[]) => void }) {
@@ -237,16 +238,75 @@ export class PostRepository extends BaseRepository<'post'> {
 
   // Update post với tagged categories (many-to-many)
   async updateWithCategories(id: number, data: any, categoryIds: number[] = [], client?: any) {
-    const updateData = { ...data }
+    // We'll perform two steps:
+    // 1) update the post row with `data`
+    // 2) replace the join rows in `post_category_tags` for the given post
+    // If a transaction client is provided, use it for both steps so it's atomic.
 
-    // Handle tagged categories relationship
-    if (categoryIds.length > 0) {
-      updateData.taggedCategories = {
-        set: categoryIds.map((catId) => ({ id: catId }))
+    // Step 1: update post
+    if (client) {
+      // Use the provided transaction client to update the post
+      await client.post.update({ where: { id }, data })
+
+      // Step 2: replace join rows inside the same transaction
+      await client.postCategoryTag.deleteMany({ where: { postId: id } })
+      if (categoryIds.length === 0) return await client.post.findUnique({ where: { id } })
+
+      const createData = categoryIds.map((catId) => ({ postId: id, categoryId: catId }))
+      try {
+        await client.postCategoryTag.createMany({ data: createData, skipDuplicates: true })
+      } catch (e) {
+        for (const d of createData) await client.postCategoryTag.create({ data: d })
       }
+
+      return await client.post.findUnique({ where: { id } })
     }
 
-    return this.update({ id }, updateData, client)
+    // Non-transactional fallback: update post, then replace tags using global prisma
+    const updated = await this.update({ id }, data)
+    // Delete existing tags
+    await prisma.postCategoryTag.deleteMany({ where: { postId: id } })
+    if (categoryIds.length === 0) return updated
+    const createData = categoryIds.map((catId) => ({ postId: id, categoryId: catId }))
+    try {
+      await prisma.postCategoryTag.createMany({ data: createData, skipDuplicates: true })
+    } catch (e) {
+      for (const d of createData) await prisma.postCategoryTag.create({ data: d })
+    }
+
+    return updated
+  }
+
+  // Update post -> products links by replacing existing join rows
+  async updateWithProducts(id: number, productIds: number[] = [], client?: any) {
+    // In transaction: delete existing post_products for this post and recreate
+    const tx = client ?? (await (async () => null)())
+    // We expect caller to pass a transaction client when using this inside a transaction.
+    // If no client provided, perform deleteMany/createMany using global client.
+    if (!client) {
+      // Non-transactional fallback
+      await (this as any).model.deleteMany({ where: { postId: id } })
+      if (productIds.length === 0) return
+      const createData = productIds.map((pid) => ({ postId: id, productId: pid }))
+      // Use createMany with skipDuplicates if available
+      try {
+        await (this as any).model.createMany({ data: createData, skipDuplicates: true })
+      } catch (e) {
+        // fallback to individual creates
+        for (const d of createData) await (this as any).model.create({ data: d })
+      }
+      return
+    }
+
+    // When running inside a Prisma transaction, client is the full prisma client
+    await client.postProduct.deleteMany({ where: { postId: id } })
+    if (productIds.length === 0) return
+    const createData = productIds.map((pid) => ({ postId: id, productId: pid }))
+    try {
+      await client.postProduct.createMany({ data: createData, skipDuplicates: true })
+    } catch (e) {
+      for (const d of createData) await client.postProduct.create({ data: d })
+    }
   }
 
   // Batch update posts status

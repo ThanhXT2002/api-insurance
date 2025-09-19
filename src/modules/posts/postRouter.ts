@@ -355,9 +355,9 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *               targetAudience:
  *                 type: string
  *                 description: JSON array đối tượng mục tiêu
- *               relatedProducts:
+ *               relatedProductIds:
  *                 type: string
- *                 description: JSON array ID sản phẩm liên quan
+ *                 description: JSON array ID sản phẩm liên quan (dùng để kết nối với bảng post_products)
  *               metaKeywords:
  *                 type: string
  *                 description: JSON array từ khóa meta
@@ -485,9 +485,9 @@ router.post(
  *               targetAudience:
  *                 type: string
  *                 description: JSON array đối tượng mục tiêu
- *               relatedProducts:
+ *               relatedProductIds:
  *                 type: string
- *                 description: JSON array ID sản phẩm liên quan
+ *                 description: JSON array ID sản phẩm liên quan (dùng để kết nối với bảng post_products)
  *               metaKeywords:
  *                 type: string
  *                 description: JSON array từ khóa meta

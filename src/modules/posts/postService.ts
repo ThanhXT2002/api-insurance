@@ -25,7 +25,8 @@ interface PostData {
   expiredAt?: Date | string
   publishedAt?: Date | string
   targetAudience?: string[]
-  relatedProducts?: number[]
+  // Use relatedProductIds to reference products (explicit join model `PostProduct`)
+  relatedProductIds?: number[]
   metaKeywords?: string[]
   categoryId?: number
   postType?: PostType
@@ -56,9 +57,9 @@ export class PostService extends BaseService {
     if (!target || typeof target !== 'object') return
     if (target.albumImages) target.albumImages = this.tryParseJson(target.albumImages)
     if (target.targetAudience) target.targetAudience = this.tryParseJson(target.targetAudience)
-    if (target.relatedProducts) {
-      const parsed = this.tryParseJson(target.relatedProducts)
-      target.relatedProducts = Array.isArray(parsed) ? parsed.map((p: any) => Number(p)) : parsed
+    if (target.relatedProductIds) {
+      const parsed = this.tryParseJson(target.relatedProductIds)
+      target.relatedProductIds = Array.isArray(parsed) ? parsed.map((p: any) => Number(p)) : parsed
     }
     if (target.metaKeywords) target.metaKeywords = this.tryParseJson(target.metaKeywords)
   }
@@ -167,7 +168,9 @@ export class PostService extends BaseService {
     if (categoryId) filters.categoryId = parseInt(categoryId)
     if (postType) filters.postType = postType
 
-    return super.getAll({ ...otherParams, ...filters })
+    // Ensure we include join relations so responses can expose taggedCategoryIds and relatedProductIds
+    const include = this.getPostInclude()
+    return super.getAll({ ...otherParams, ...filters, include })
   }
 
   // Lấy posts đã publish với pagination - with audit transformation
@@ -246,7 +249,33 @@ export class PostService extends BaseService {
   // Tìm post theo slug với SEO - with audit transformation
   async findBySlug(slug: string) {
     const post = await this.repo.findBySlug(slug, this.getPostIncludeWithSeo())
-    return post ? this.transformUserAuditFields([post])[0] : null
+    if (!post) return null
+
+    // seo metadata stored in polymorphic seoMeta table; fetch separately
+    try {
+      const seo = await seoService.getSeoFor(SeoableType.POST, post.id)
+      if (seo) (post as any).seoMeta = seo
+    } catch (err: any) {
+      console.error('Failed to load seo for post', post.id, err?.message || err)
+    }
+
+    return this.transformUserAuditFields([post])[0]
+  }
+
+  // Get post by id with full relations and SEO (returns same shape as findBySlug)
+  async getByIdWithRelations(id: number) {
+    const post = await this.repo.findById({ where: { id }, include: this.getPostIncludeWithSeo() })
+    if (!post) return null
+
+    // seo metadata stored in polymorphic seoMeta table; fetch separately
+    try {
+      const seo = await seoService.getSeoFor(SeoableType.POST, post.id)
+      if (seo) (post as any).seoMeta = seo
+    } catch (err: any) {
+      console.error('Failed to load seo for post', post.id, err?.message || err)
+    }
+
+    return this.transformUserAuditFields([post])[0]
   }
 
   // Tạo post mới với validation và SEO - with audit transformation
@@ -294,8 +323,20 @@ export class PostService extends BaseService {
 
       // Connect to tagged categories if specified
       if (taggedCategoryIds.length > 0) {
-        prismaPayload.taggedCategories = {
-          connect: taggedCategoryIds.map((id) => ({ id }))
+        // Use the explicit join model PostCategoryTag to create links
+        prismaPayload.taggedCategoryTags = {
+          create: taggedCategoryIds.map((id) => ({ category: { connect: { id } } }))
+        }
+      }
+
+      // Connect related products via explicit PostProduct join model
+      if (
+        prismaData.relatedProductIds &&
+        Array.isArray(prismaData.relatedProductIds) &&
+        prismaData.relatedProductIds.length > 0
+      ) {
+        prismaPayload.postProductLinks = {
+          create: prismaData.relatedProductIds.map((id: number) => ({ product: { connect: { id } } }))
         }
       }
 
@@ -305,10 +346,17 @@ export class PostService extends BaseService {
       await this.uploadFeaturedIfPresent(prismaData, rollbackManager)
       await this.uploadAlbumsIfPresent(prismaData, rollbackManager)
 
+      // Ensure uploaded image URLs are copied into the Prisma payload so they get persisted.
+      // (prismaPayload was created before uploads above; update it with results from prismaData)
+      if (prismaData.featuredImage) prismaPayload.featuredImage = prismaData.featuredImage
+      if (prismaData.albumImages) prismaPayload.albumImages = prismaData.albumImages
+
       // Create post trong transaction and upsert SEO inside same transaction for atomicity
       const post = await this.repo.runTransaction(async (tx) => {
         // Remove transient file buffer fields so Prisma won't receive unknown args
         this.stripTransientFields(prismaPayload)
+        // Remove transient helper field relatedProductIds which is not a Post model field
+        if ('relatedProductIds' in prismaPayload) delete prismaPayload.relatedProductIds
 
         const createdPost = await tx.post.create({
           data: prismaPayload,
@@ -385,31 +433,55 @@ export class PostService extends BaseService {
       const post = await this.repo.runTransaction(async (tx) => {
         let updatedPost
 
+        // Normalize categoryId into nested relation for Prisma update
+        if ('categoryId' in prismaUpdateData) {
+          const catVal = prismaUpdateData.categoryId
+          if (catVal === null) {
+            // clear relation
+            prismaUpdateData.category = { disconnect: true }
+          } else {
+            prismaUpdateData.category = { connect: { id: Number(catVal) } }
+          }
+          delete prismaUpdateData.categoryId
+        }
+
+        // Build sanitized data object to ensure Prisma receives only valid fields
+        const sanitizedData: any = { ...prismaUpdateData }
+        // Remove transient file buffer fields
+        if ('featuredFile' in sanitizedData) delete sanitizedData.featuredFile
+        if ('albumFiles' in sanitizedData) delete sanitizedData.albumFiles
+        // Remove helper/transient fields that are not part of Post model
+        if ('relatedProductIds' in sanitizedData) delete sanitizedData.relatedProductIds
+        if ('taggedCategories' in sanitizedData) delete sanitizedData.taggedCategories
+        if ('taggedCategoryIds' in sanitizedData) delete sanitizedData.taggedCategoryIds
+
         if (taggedCategoryIds !== undefined) {
           // Use updateWithCategories if tagged categories are being updated
           updatedPost = await this.repo.updateWithCategories(
             id,
             {
-              ...prismaUpdateData,
-              ...(ctx?.actorId && { updatedBy: ctx.actorId })
+              ...sanitizedData,
+              ...(ctx?.actorId && { updater: { connect: { id: ctx.actorId } } })
             },
             taggedCategoryIds,
             tx
           )
         } else {
-          // Regular update
-          // Ensure transient file fields are not passed to Prisma
-          if ('featuredFile' in prismaUpdateData) delete prismaUpdateData.featuredFile
-          if ('albumFiles' in prismaUpdateData) delete prismaUpdateData.albumFiles
-
+          // Regular update using sanitized payload
           updatedPost = await this.repo.update(
             { id },
             {
-              ...prismaUpdateData,
-              ...(ctx?.actorId && { updatedBy: ctx.actorId })
+              ...sanitizedData,
+              ...(ctx?.actorId && { updater: { connect: { id: ctx.actorId } } })
             },
             tx
           )
+        }
+
+        // If relatedProductIds provided, replace product links inside the same transaction
+        if ((prismaData.relatedProductIds as any) !== undefined) {
+          // Replace post-product links
+          await this.repo.updateWithProducts(id, prismaData.relatedProductIds || [], tx)
         }
 
         // Upsert SEO metadata inside the same transaction to ensure atomicity
@@ -683,8 +755,12 @@ export class PostService extends BaseService {
       category: {
         select: { id: true, name: true, slug: true }
       },
-      taggedCategories: {
-        select: { id: true, name: true, slug: true }
+      // Include join entities and their related target objects so we can transform them for the API
+      taggedCategoryTags: {
+        select: { category: { select: { id: true, name: true, slug: true } } }
+      },
+      postProductLinks: {
+        select: { product: { select: { id: true, name: true, slug: true, price: true } } }
       },
       creator: {
         select: { id: true, name: true, email: true }
@@ -700,9 +776,9 @@ export class PostService extends BaseService {
 
   // Helper: Get include object for posts with SEO
   private getPostIncludeWithSeo() {
+    // Seo metadata is not a direct Prisma relation on Post; include only the standard relations
     return {
-      ...this.getPostInclude(),
-      seoMeta: true // This will be handled by polymorphic relation in application layer
+      ...this.getPostInclude()
     }
   }
 
@@ -728,11 +804,25 @@ export class PostService extends BaseService {
       if (typeof post.targetAudience === 'string') {
         post.targetAudience = JSON.parse(post.targetAudience)
       }
-      if (typeof post.relatedProducts === 'string') {
-        post.relatedProducts = JSON.parse(post.relatedProducts)
+      // For the new explicit relations, flatten join rows into helpful arrays
+      if (Array.isArray(post.taggedCategoryTags)) {
+        // Expose category objects only; do not expose id arrays
+        post.taggedCategories = post.taggedCategoryTags.map((t: any) => t.category)
+        delete post.taggedCategoryTags
+      }
+
+      if (Array.isArray(post.postProductLinks)) {
+        // Expose product objects only; do not expose id arrays
+        post.relatedProducts = post.postProductLinks.map((l: any) => l.product)
+        delete post.postProductLinks
       }
       if (typeof post.metaKeywords === 'string') {
         post.metaKeywords = JSON.parse(post.metaKeywords)
+      }
+
+      // If we already included the category object, remove the scalar categoryId
+      if (post && post.category) {
+        if ('categoryId' in post) delete post.categoryId
       }
     } catch (e) {
       // Keep as string if JSON parsing fails

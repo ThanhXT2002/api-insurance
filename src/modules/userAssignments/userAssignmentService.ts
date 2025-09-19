@@ -1,4 +1,4 @@
-import { User, UserRole, Permission } from '@prisma/client'
+import { User, UserRole, Permission } from '../../../generated/prisma'
 import { BaseService } from '../../bases/baseService'
 import { UserAssignmentRepository } from './userAssignmentRepository'
 
@@ -27,6 +27,7 @@ export class UserAssignmentService extends BaseService<any> {
         supabaseId: user.supabaseId,
         email: user.email,
         name: user.name,
+        phoneNumber: user.phoneNumber,
         avatarUrl: user.avatarUrl,
         active: user.active,
         createdAt: user.createdAt,
