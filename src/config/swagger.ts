@@ -269,6 +269,85 @@ const options: swaggerJsdoc.Options = {
             },
             message: { type: 'string', example: 'Thành công' }
           }
+        },
+        // Product-related schemas
+        ProductItem: {
+          type: 'object',
+          description: 'Thông tin ngắn gọn của sản phẩm',
+          properties: {
+            id: { type: 'integer', example: 1 },
+            sku: { type: 'string', example: 'PROD-001' },
+            name: { type: 'string', example: 'Bảo hiểm sức khỏe cơ bản' },
+            slug: { type: 'string', example: 'bao-hiem-suc-khoe-co-ban' },
+            shortContent: { type: 'string', example: 'Gói bảo hiểm cơ bản cho cá nhân' },
+            price: { type: 'integer', example: 1000000 },
+            isFeatured: { type: 'boolean', example: false },
+            isHighlighted: { type: 'boolean', example: false },
+            active: { type: 'boolean', example: true },
+            imgs: { type: 'array', items: { type: 'string' } },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' },
+            creator: { type: 'object', properties: { id: { type: 'integer' }, name: { type: 'string' } } },
+            updater: { type: 'object', properties: { id: { type: 'integer' }, name: { type: 'string' } } },
+            seoMeta: { $ref: '#/components/schemas/SeoDto' }
+          }
+        },
+        ProductListResponse: {
+          type: 'object',
+          properties: {
+            status: { type: 'boolean', example: true },
+            code: { type: 'integer', example: 200 },
+            data: { type: 'array', items: { $ref: '#/components/schemas/ProductItem' } },
+            message: { type: 'string', example: 'Thành công' }
+          }
+        },
+        PaginatedProductsResponse: {
+          type: 'object',
+          properties: {
+            status: { type: 'boolean', example: true },
+            code: { type: 'integer', example: 200 },
+            data: {
+              type: 'object',
+              properties: {
+                rows: { type: 'array', items: { $ref: '#/components/schemas/ProductItem' } },
+                total: { type: 'integer' },
+                page: { type: 'integer' },
+                limit: { type: 'integer' },
+                totalPages: { type: 'integer' }
+              }
+            },
+            message: { type: 'string', example: 'Thành công' }
+          }
+        },
+        ProductDetailResponse: {
+          type: 'object',
+          properties: {
+            status: { type: 'boolean', example: true },
+            code: { type: 'integer', example: 200 },
+            data: {
+              type: 'object',
+              properties: {
+                id: { type: 'integer' },
+                sku: { type: 'string' },
+                name: { type: 'string' },
+                slug: { type: 'string' },
+                description: { type: 'string' },
+                shortContent: { type: 'string' },
+                content: { type: 'string' },
+                price: { type: 'integer' },
+                imgs: { type: 'array', items: { type: 'string' } },
+                active: { type: 'boolean' },
+                isFeatured: { type: 'boolean' },
+                isHighlighted: { type: 'boolean' },
+                createdAt: { type: 'string', format: 'date-time' },
+                updatedAt: { type: 'string', format: 'date-time' },
+                creator: { type: 'object', properties: { id: { type: 'integer' }, name: { type: 'string' } } },
+                updater: { type: 'object', properties: { id: { type: 'integer' }, name: { type: 'string' } } },
+                seoMeta: { $ref: '#/components/schemas/SeoDto' }
+              }
+            },
+            message: { type: 'string', example: 'Thành công' }
+          }
         }
       }
     }
