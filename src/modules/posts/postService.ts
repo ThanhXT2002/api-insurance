@@ -342,9 +342,11 @@ export class PostService extends BaseService {
 
       // Perform file uploads before starting DB transaction to avoid long-running work inside transaction
       // Keep uploads inside withRollback so rollbackManager can delete uploaded files if DB ops fail
-      // Upload files (if any) before transaction
-      await this.uploadFeaturedIfPresent(prismaData, rollbackManager)
-      await this.uploadAlbumsIfPresent(prismaData, rollbackManager)
+      // Upload files (if any) before transaction. Parallelize uploads to reduce latency when both featured and album files exist.
+      await Promise.all([
+        this.uploadFeaturedIfPresent(prismaData, rollbackManager),
+        this.uploadAlbumsIfPresent(prismaData, rollbackManager)
+      ])
 
       // Ensure uploaded image URLs are copied into the Prisma payload so they get persisted.
       // (prismaPayload was created before uploads above; update it with results from prismaData)
@@ -418,9 +420,11 @@ export class PostService extends BaseService {
         }
       }
 
-      // Perform uploads before starting DB transaction
-      await this.uploadFeaturedIfPresent(prismaData, rollbackManager)
-      await this.uploadAlbumsIfPresent(prismaData, rollbackManager, id)
+      // Perform uploads before starting DB transaction. Parallelize to reduce total upload time.
+      await Promise.all([
+        this.uploadFeaturedIfPresent(prismaData, rollbackManager),
+        this.uploadAlbumsIfPresent(prismaData, rollbackManager, id)
+      ])
 
       // Ensure transient file buffer fields are removed before entering transaction
       this.stripTransientFields(prismaData)
