@@ -12,6 +12,21 @@ export class PostRepository extends BaseRepository<'post'> {
     return this.findUnique({ where: { slug }, include }, client)
   }
 
+  // Tìm post đã publish theo slug (áp dụng rule publishedAt <= now và chưa expired)
+  async findPublishedBySlug(slug: string, include?: any, client?: any) {
+    const now = new Date()
+    const where: any = {
+      slug,
+      status: PostStatus.PUBLISHED,
+      publishedAt: { lte: now },
+      OR: [{ expiredAt: null }, { expiredAt: { gt: now } }]
+    }
+
+    // Use findMany with take:1 since BaseRepository doesn't expose findFirst
+    const results = await this.findMany({ where, include, take: 1 }, client)
+    return Array.isArray(results) && results.length > 0 ? results[0] : null
+  }
+
   // Tìm posts đã publish và không hết hạn
   async findPublished(
     options: {
@@ -148,11 +163,13 @@ export class PostRepository extends BaseRepository<'post'> {
       status?: PostStatus
       categoryId?: number
       postType?: PostType
+      isFeatured?: boolean
+      isHighlighted?: boolean
       include?: any
     } = {},
     client?: any
   ) {
-    const { limit, skip, status, categoryId, postType, include } = options
+    const { limit, skip, status, categoryId, postType, isFeatured, isHighlighted, include } = options
 
     const where: any = {
       OR: [
@@ -161,21 +178,31 @@ export class PostRepository extends BaseRepository<'post'> {
         { content: { contains: keyword, mode: 'insensitive' } }
       ]
     }
-
     if (status) where.status = status
     if (categoryId) where.categoryId = categoryId
     if (postType) where.postType = postType
+    if (isFeatured !== undefined) where.isFeatured = isFeatured
+    if (isHighlighted !== undefined) where.isHighlighted = isHighlighted
 
-    return this.findMany(
-      {
-        where,
-        include,
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip
-      },
-      client
-    )
+    const findQuery: any = {
+      where,
+      orderBy: { publishedAt: 'desc' }
+    }
+
+    if (skip) findQuery.skip = skip
+    if (limit) findQuery.take = limit
+    if (include) findQuery.include = include
+
+    // Use provided transaction client when available, otherwise fall back to global prisma
+    const db = client ?? prisma
+
+    // Run count and findMany in parallel for accurate pagination
+    const countPromise = db.post.count({ where })
+    const rowsPromise = db.post.findMany(findQuery)
+
+    const [total, rows] = await Promise.all([countPromise, rowsPromise])
+
+    return { rows, total }
   }
 
   // Kiểm tra slug có tồn tại không

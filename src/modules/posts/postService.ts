@@ -147,30 +147,61 @@ export class PostService extends BaseService {
 
   // Override keyword search để search theo title/excerpt/content - with audit transformation
   async getAll(params: any = {}) {
-    const { keyword, status, categoryId, postType, ...otherParams } = params
+    // Accept common pagination and filter params here; coerce simple types defensively
+    const {
+      keyword,
+      status,
+      categoryId,
+      postType,
+      isFeatured,
+      isHighlighted,
+      page = 1,
+      limit = 10,
+      ...otherParams
+    } = params
+
+    const safePage = Math.max(1, Number(page) || 1)
+    const safeLimit = Math.max(1, Number(limit) || 10)
+
+    // Normalize flags
+    const featuredFlag = typeof isFeatured === 'string' ? isFeatured === 'true' : !!isFeatured
+    const highlightedFlag = typeof isHighlighted === 'string' ? isHighlighted === 'true' : !!isHighlighted
 
     if (keyword) {
-      // Tìm kiếm theo keyword (title/excerpt/content)
+      // Tìm kiếm theo keyword (title/excerpt/content) - support pagination and other filters
       const results = await this.repo.search(keyword, {
         status,
-        categoryId: categoryId ? parseInt(categoryId) : undefined,
+        categoryId: categoryId ? Number(categoryId) : undefined,
         postType,
-        include: this.getAuditInclude()
+        isFeatured: typeof isFeatured !== 'undefined' ? featuredFlag : undefined,
+        isHighlighted: typeof isHighlighted !== 'undefined' ? highlightedFlag : undefined,
+        skip: (safePage - 1) * safeLimit,
+        limit: safeLimit,
+        include: this.getPostInclude()
       })
+
+      // repo.search returns { rows, total } or array depending on implementation; normalize
+      if (results && typeof results === 'object' && 'rows' in results && 'total' in results) {
+        const transformed = this.transformUserAuditFields(results.rows)
+        return { rows: transformed, total: results.total }
+      }
+
       const transformedResults = this.transformUserAuditFields(results)
-      const total = transformedResults.length
+      const total = Array.isArray(transformedResults) ? transformedResults.length : 0
       return { rows: transformedResults, total }
     }
 
-    // Apply filters if provided
+    // Apply filters if provided (non-keyword path uses BaseService paging)
     const filters: any = {}
     if (status) filters.status = status
-    if (categoryId) filters.categoryId = parseInt(categoryId)
+    if (categoryId) filters.categoryId = Number(categoryId)
     if (postType) filters.postType = postType
+    if (typeof isFeatured !== 'undefined') filters.isFeatured = featuredFlag
+    if (typeof isHighlighted !== 'undefined') filters.isHighlighted = highlightedFlag
 
     // Ensure we include join relations so responses can expose taggedCategoryIds and relatedProductIds
     const include = this.getPostInclude()
-    return super.getAll({ ...otherParams, ...filters, include })
+    return super.getAll({ ...otherParams, page: safePage, limit: safeLimit, filters, include })
   }
 
   // Lấy posts đã publish với pagination - with audit transformation
@@ -248,7 +279,8 @@ export class PostService extends BaseService {
 
   // Tìm post theo slug với SEO - with audit transformation
   async findBySlug(slug: string) {
-    const post = await this.repo.findBySlug(slug, this.getPostIncludeWithSeo())
+    // For public slug endpoint, only return posts that are actually published
+    const post = await (this.repo as any).findPublishedBySlug(slug, this.getPostIncludeWithSeo())
     if (!post) return null
 
     // seo metadata stored in polymorphic seoMeta table; fetch separately
