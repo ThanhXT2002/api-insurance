@@ -41,15 +41,19 @@ model User {
   userPermissions UserPermission[]
 
   // Relations với Post và Category
-  createdPosts        Post[]         @relation("PostCreatedBy")
-  updatedPosts        Post[]         @relation("PostUpdatedBy")
-  createdCategories   PostCategory[] @relation("CategoryCreatedBy")
-  updatedCategories   PostCategory[] @relation("CategoryUpdatedBy")
-  createdSeoMeta      SeoMeta[]      @relation("SeoCreatedBy")
-  updatedSeoMeta      SeoMeta[]      @relation("SeoUpdatedBy")
-  createdPostComments PostComment[]  @relation("PostCommentCreatedBy")
-  updatedPostComments PostComment[]  @relation("PostCommentUpdatedBy")
-  userComments        PostComment[]  @relation("UserComments")
+  createdPosts        Post[]          @relation("PostCreatedBy")
+  updatedPosts        Post[]          @relation("PostUpdatedBy")
+  createdCategories   PostCategory[]  @relation("CategoryCreatedBy")
+  updatedCategories   PostCategory[]  @relation("CategoryUpdatedBy")
+  createdSeoMeta      SeoMeta[]       @relation("SeoCreatedBy")
+  updatedSeoMeta      SeoMeta[]       @relation("SeoUpdatedBy")
+  createdPostComments PostComment[]   @relation("PostCommentCreatedBy")
+  updatedPostComments PostComment[]   @relation("PostCommentUpdatedBy")
+  userComments        PostComment[]   @relation("UserComments")
+  createdProducts     Product[]       @relation("ProductCreatedBy")
+  updatedProducts     Product[]       @relation("ProductUpdatedBy")
+  createdReviews      ProductReview[] @relation("ProductReviewCreatedBy")
+  updatedReviews      ProductReview[] @relation("ProductReviewUpdatedBy")
 
   @@map("users")
 }
@@ -143,12 +147,12 @@ model PostCategory {
   updatedBy Int
 
   // Relations
-  taggedPosts Post[]         @relation("PostTaggedCategories")
-  creator     User           @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
-  updater     User           @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
-  parent      PostCategory?  @relation("CategoryParent", fields: [parentId], references: [id])
-  children    PostCategory[] @relation("CategoryParent")
-  posts       Post[]         @relation("PostPrimaryCategory")
+  postTags PostCategoryTag[]
+  creator  User              @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
+  updater  User              @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
+  parent   PostCategory?     @relation("CategoryParent", fields: [parentId], references: [id])
+  children PostCategory[]    @relation("CategoryParent")
+  posts    Post[]            @relation("PostPrimaryCategory")
 
   // Note: SEO metadata handled via polymorphic SeoMeta table with seoableType='POST_CATEGORY'
 
@@ -182,8 +186,8 @@ model Post {
   expiredAt   DateTime? // Ngày hết hạn (cho tin khuyến mãi)
 
   // Insurance Specific
-  targetAudience  Json? // ["individual", "business", "family"] - đối tượng mục tiêu
-  relatedProducts Json? // [1, 2, 3] - IDs của sản phẩm bảo hiểm liên quan
+  targetAudience   Json? // ["individual", "business", "family"] - đối tượng mục tiêu
+  postProductLinks PostProduct[] // explicit join to Product
 
   // Content Metadata
   metaKeywords Json? // Keywords for internal search
@@ -202,24 +206,42 @@ model Post {
   updater  User          @relation("PostUpdatedBy", fields: [updatedBy], references: [id])
   category PostCategory? @relation("PostPrimaryCategory", fields: [categoryId], references: [id])
 
-  taggedCategories PostCategory[] @relation("PostTaggedCategories") // Mối quan hệ với thẻ bài viết chọn nhiều post categories
-  comments         PostComment[]  @relation("PostComments") // Comments của post
-  postType         PostType       @default(ARTICLE) // ARTICLE, GUIDE, NEWS, PRODUCT
+  taggedCategoryTags PostCategoryTag[] // explicit join: mỗi item là 1 liên kết post<->category
+  comments           PostComment[]     @relation("PostComments") // Comments của post
+  postType           PostType          @default(ARTICLE) // ARTICLE, GUIDE, NEWS, PRODUCT
 
   // Note: SEO metadata handled via polymorphic SeoMeta table with seoableType='POST'
 
   @@map("posts")
 }
 
-// model PostTag {
-//   id    Int    @id @default(autoincrement()) // ID thẻ
-//   name  String // Tên thẻ
-//   slug  String @unique // URL thân thiện của thẻ
+// Join table để lưu tag (explicit many-to-many) giữa Post và PostCategory
+model PostCategoryTag {
+  id         Int          @id @default(autoincrement())
+  post       Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId     Int
+  category   PostCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  categoryId Int
+  createdAt  DateTime     @default(now())
+  createdBy  Int?
 
-//   posts Post[] @relation("PostTags") // Liên kết với bài viết
+  @@unique([postId, categoryId])
+  @@map("post_category_tags")
+}
 
-//   @@index([slug])
-// }
+// Join table giữa Post và Product (explicit many-to-many)
+model PostProduct {
+  id        Int      @id @default(autoincrement())
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  postId    Int
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  productId Int
+  createdAt DateTime @default(now())
+  createdBy Int?
+
+  @@unique([postId, productId])
+  @@map("post_products")
+}
 
 // Model SEO chung cho tất cả
 model SeoMeta {
@@ -234,7 +256,7 @@ model SeoMeta {
   canonicalUrl    String? @unique
   focusKeyword    String? @db.VarChar(100)
 
-  ogType   String? @default("article") @db.VarChar(20)
+  ogType String? @default("article") @db.VarChar(20)
 
   // Kỹ thuật SEO
   noindex  Boolean @default(false)
@@ -315,6 +337,73 @@ model PostComment {
   updater User  @relation("PostCommentUpdatedBy", fields: [updatedBy], references: [id])
 
   @@map("post_comments")
+}
+
+model Product {
+  id               Int      @id @default(autoincrement())
+  sku              String   @unique // Mã sản phẩm duy nhất
+  name             String
+  description      String?
+  slug             String   @unique
+  price            Int
+  coverage         String? // Mức độ bảo hiểm, ví dụ: "100,000 USD"
+  term             String? // Thời hạn bảo hiểm, ví dụ: "1 year"
+  targetLink       String? // Link mua hàng hoặc trang chi tiết
+  targetFile       String? // Link file PDF tài liệu
+  shortContent     String?
+  content          String
+  details          String?
+  icon             String?
+  imgs             Json? // Array URLs: ["img1.jpg", "img2.jpg"]
+  active           Boolean  @default(true)
+  tags             Json? // Array of tags/keywords
+  isPromotion      Boolean  @default(false) // Có khuyến mãi
+  promotionDetails String? // Chi tiết khuyến mãi
+  features         Json? // Array of key features
+  metaKeywords     Json? // Keywords for internal search
+  note             String? // Ghi chú nội bộ cho editor/admin
+  // Content Organization
+  priority         Int      @default(0) // Độ ưu tiên hiển thị (0=normal, 1=high, 2=urgent)
+  isHighlighted    Boolean  @default(false) // Bài viết nổi bật
+  isFeatured       Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+  createdBy        Int?
+  updatedBy        Int?
+
+  // Relations
+  creator User? @relation("ProductCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updater User? @relation("ProductUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  reviews          ProductReview[]
+  postProductLinks PostProduct[]
+
+  @@index([active])
+  @@index([isFeatured])
+  @@map("products")
+}
+
+model ProductReview {
+  id          Int      @id @default(autoincrement())
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId   Int
+  userId      Int?
+  userName    String?
+  userAvatar  String?
+  rating      Int // 1..5
+  content     String?
+  description String?
+  note        String? // Ghi chú nội bộ cho editor/admin
+  approved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   Int?
+  updatedBy   Int?
+  // Relations
+  creator     User?    @relation("ProductReviewCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+  updater     User?    @relation("ProductReviewUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
+
+  @@map("product_reviews")
 }
 
 // npx prisma migrate dev --name add_seo_meta_model
