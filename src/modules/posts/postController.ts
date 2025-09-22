@@ -304,6 +304,54 @@ export class PostController {
         }
       }
 
+      // Helper to parse ISO date strings (or timestamps) sent from client.
+      // Returns a Date when valid, undefined when empty/null, or throws when invalid.
+      const parseDateField = (v: any): Date | undefined => {
+        if (v === null || typeof v === 'undefined' || v === '') return undefined
+        // If already a Date, check validity
+        if (v instanceof Date) {
+          if (isNaN(v.getTime())) throw new Error('invalid_date')
+          return v
+        }
+        // If number-like, try timestamp
+        if (typeof v === 'number' && !isNaN(v)) {
+          const d = new Date(v)
+          if (isNaN(d.getTime())) throw new Error('invalid_date')
+          return d
+        }
+        // If string, attempt to parse ISO or numeric
+        if (typeof v === 'string') {
+          // allow empty trimmed string
+          const s = v.trim()
+          if (s === '') return undefined
+          const n = Number(s)
+          if (!isNaN(n)) {
+            const d = new Date(n)
+            if (isNaN(d.getTime())) throw new Error('invalid_date')
+            return d
+          }
+          const d = new Date(s)
+          if (isNaN(d.getTime())) throw new Error('invalid_date')
+          return d
+        }
+        // Unknown type
+        throw new Error('invalid_date')
+      }
+
+      // Normalize and validate date inputs. If invalid -> 400
+      let scheduledAtDate: Date | undefined
+      let expiredAtDate: Date | undefined
+      try {
+        scheduledAtDate = parseDateField(scheduledAt)
+        expiredAtDate = parseDateField(expiredAt)
+      } catch (err) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .send(
+            ApiResponse.error('scheduledAt/expiredAt không hợp lệ', 'Ngày/giờ không hợp lệ', StatusCodes.BAD_REQUEST)
+          )
+      }
+
       const postData: any = {
         title,
         excerpt,
@@ -316,8 +364,9 @@ export class PostController {
         priority: priority ? parseInt(priority) : 0,
         isHighlighted: isHighlighted === 'true',
         isFeatured: isFeatured === 'true',
-        scheduledAt,
-        expiredAt,
+        // Only pass Dates when valid; otherwise undefined so Prisma doesn't receive an invalid Date
+        scheduledAt: scheduledAtDate,
+        expiredAt: expiredAtDate,
         categoryId: categoryId ? parseInt(categoryId) : undefined,
         postType: parsedPostType,
         albumImages: this.parseArrayField(albumImages),
@@ -399,6 +448,34 @@ export class PostController {
       // Parse SEO metadata
       const processedSeoMeta = this.parseSeoMetaFromRequest(req)
 
+      // Helper to parse ISO date strings (or timestamps) sent from client.
+      const parseDateField = (v: any): Date | undefined => {
+        if (v === null || typeof v === 'undefined' || v === '') return undefined
+        if (v instanceof Date) {
+          if (isNaN(v.getTime())) throw new Error('invalid_date')
+          return v
+        }
+        if (typeof v === 'number' && !isNaN(v)) {
+          const d = new Date(v)
+          if (isNaN(d.getTime())) throw new Error('invalid_date')
+          return d
+        }
+        if (typeof v === 'string') {
+          const s = v.trim()
+          if (s === '') return undefined
+          const n = Number(s)
+          if (!isNaN(n)) {
+            const d = new Date(n)
+            if (isNaN(d.getTime())) throw new Error('invalid_date')
+            return d
+          }
+          const d = new Date(s)
+          if (isNaN(d.getTime())) throw new Error('invalid_date')
+          return d
+        }
+        throw new Error('invalid_date')
+      }
+
       // Prepare update data (only include provided fields)
       const updateData: any = {}
 
@@ -413,8 +490,32 @@ export class PostController {
       if (priority !== undefined) updateData.priority = parseInt(priority)
       if (isHighlighted !== undefined) updateData.isHighlighted = isHighlighted === 'true'
       if (isFeatured !== undefined) updateData.isFeatured = isFeatured === 'true'
-      if (scheduledAt !== undefined) updateData.scheduledAt = scheduledAt
-      if (expiredAt !== undefined) updateData.expiredAt = expiredAt
+      if (scheduledAt !== undefined) {
+        try {
+          updateData.scheduledAt = parseDateField(scheduledAt)
+        } catch (err) {
+          return res
+            .status(StatusCodes.BAD_REQUEST)
+            .send(
+              ApiResponse.error(
+                'scheduledAt không hợp lệ',
+                'Ngày/giờ scheduledAt không hợp lệ',
+                StatusCodes.BAD_REQUEST
+              )
+            )
+        }
+      }
+      if (expiredAt !== undefined) {
+        try {
+          updateData.expiredAt = parseDateField(expiredAt)
+        } catch (err) {
+          return res
+            .status(StatusCodes.BAD_REQUEST)
+            .send(
+              ApiResponse.error('expiredAt không hợp lệ', 'Ngày/giờ expiredAt không hợp lệ', StatusCodes.BAD_REQUEST)
+            )
+        }
+      }
       if (categoryId !== undefined) updateData.categoryId = categoryId ? parseInt(categoryId) : null
       if (postType !== undefined) {
         const candidate = String(postType).toUpperCase()

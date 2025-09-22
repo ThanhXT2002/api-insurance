@@ -319,7 +319,7 @@ export class PostService extends BaseService {
       // Kiểm tra slug có bị trùng không
       const slugExists = await this.repo.slugExists(normalizedSlug)
       if (slugExists) {
-        throw new Error('Đường dẫn (slug) đã tồn tại')
+        throw new Error('Đường dẫn (slug) đã tồn tại - Vui lòng chọn tiêu đề khác')
       }
 
       // Validate categoryId nếu có
@@ -424,7 +424,7 @@ export class PostService extends BaseService {
         normalizedSlug = normalizeSlug(data.title)
         const slugExists = await this.repo.slugExists(normalizedSlug, id)
         if (slugExists) {
-          throw new Error('Đường dẫn (slug) đã tồn tại')
+          throw new Error('Đường dẫn (slug) đã tồn tại - Vui lòng chọn tiêu đề khác')
         }
       }
 

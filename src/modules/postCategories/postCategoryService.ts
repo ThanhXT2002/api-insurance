@@ -168,7 +168,7 @@ export class PostCategoryService extends BaseService {
       // Kiểm tra slug (được derive từ name) có bị trùng không
       const slugExists = await this.repo.slugExists(normalizedSlug)
       if (slugExists) {
-        throw new Error('Đường dẫn (slug) đã tồn tại')
+        throw new Error('Đường dẫn (slug) đã tồn tại - Vui lòng chọn tên khác')
       }
 
       // Validate parentId nếu có: đảm bảo parent tồn tại
@@ -238,7 +238,7 @@ export class PostCategoryService extends BaseService {
         if (normalizedSlug !== existing.slug) {
           const slugExists = await this.repo.slugExists(normalizedSlug, id)
           if (slugExists) {
-            throw new Error('Đường dẫn (slug) đã tồn tại')
+            throw new Error('Đường dẫn (slug) đã tồn tại - Vui lòng chọn tên khác')
           }
           // Use derived slug from name regardless of client-provided slug
           data.slug = normalizedSlug
