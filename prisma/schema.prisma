@@ -355,6 +355,7 @@ model Product {
   details          String?
   icon             String?
   imgs             Json? // Array URLs: ["img1.jpg", "img2.jpg"]
+  isSaleOnline     Boolean  @default(false) // Có bán online không
   active           Boolean  @default(true)
   tags             Json? // Array of tags/keywords
   isPromotion      Boolean  @default(false) // Có khuyến mãi

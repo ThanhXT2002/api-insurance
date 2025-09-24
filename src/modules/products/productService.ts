@@ -8,6 +8,7 @@ import { withRollback } from '../../utils/rollbackHelper'
 import prisma from '../../config/prismaClient'
 
 interface ProductData {
+  sku?: string
   name: string
   slug?: string
   description?: string
@@ -18,9 +19,15 @@ interface ProductData {
   term?: string
   targetLink?: string
   targetFile?: string
+  details?: string
+  icon?: string
   imgs?: string[]
   imgsFiles?: Array<{ buffer: Buffer; originalName: string }>
+  isSaleOnline?: boolean
   active?: boolean
+  priority?: number
+  isHighlighted?: boolean
+  isFeatured?: boolean
   tags?: string[]
   isPromotion?: boolean
   promotionDetails?: string

@@ -105,6 +105,19 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *             properties:
  *               name:
  *                 type: string
+ *               sku:
+ *                 type: string
+ *                 description: Unique product SKU
+ *               details:
+ *                 type: string
+ *               icon:
+ *                 type: string
+ *               priority:
+ *                 type: integer
+ *               isHighlighted:
+ *                 type: boolean
+ *               isFeatured:
+ *                 type: boolean
  *               description:
  *                 type: string
  *               shortContent:
@@ -173,6 +186,19 @@ router.post('/', authenticate, upload.fields([{ name: 'imgs', maxCount: 10 }]), 
  *             properties:
  *               name:
  *                 type: string
+ *               sku:
+ *                 type: string
+ *                 description: Unique product SKU
+ *               details:
+ *                 type: string
+ *               icon:
+ *                 type: string
+ *               priority:
+ *                 type: integer
+ *               isHighlighted:
+ *                 type: boolean
+ *               isFeatured:
+ *                 type: boolean
  *               description:
  *                 type: string
  *               content:
@@ -265,7 +291,5 @@ router.post('/batch/delete', authenticate, controller.batchDelete.bind(controlle
  *         description: Cập nhật trạng thái nhiều sản phẩm thành công
  */
 router.post('/batch/active', authenticate, controller.batchActive.bind(controller))
-
-
 
 export default router

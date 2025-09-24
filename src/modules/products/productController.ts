@@ -112,6 +112,7 @@ export class ProductController {
 
       const body: any = req.body || {}
       const {
+        sku,
         name,
         description,
         shortContent,
@@ -121,6 +122,12 @@ export class ProductController {
         term,
         targetLink,
         targetFile,
+        details,
+        icon,
+        priority,
+        isHighlighted,
+        isFeatured,
+        isSaleOnline,
         active,
         tags,
         isPromotion,
@@ -146,6 +153,7 @@ export class ProductController {
       const processedSeo = this.parseSeoMetaFromRequest(req)
 
       const productData: any = {
+        sku,
         name,
         description,
         shortContent,
@@ -155,9 +163,15 @@ export class ProductController {
         term,
         targetLink,
         targetFile,
+        details,
+        icon,
+        priority: typeof priority !== 'undefined' ? parseInt(priority) : undefined,
+        isHighlighted: typeof isHighlighted !== 'undefined' ? isHighlighted === 'true' : undefined,
+        isFeatured: typeof isFeatured !== 'undefined' ? isFeatured === 'true' : undefined,
+        isSaleOnline: typeof isSaleOnline !== 'undefined' ? isSaleOnline === 'true' : undefined,
         active: typeof active !== 'undefined' ? active === 'true' : undefined,
         tags: this.parseArrayField(tags),
-        isPromotion: isPromotion === 'true',
+        isPromotion: typeof isPromotion !== 'undefined' ? isPromotion === 'true' : undefined,
         promotionDetails,
         features: this.parseArrayField(features),
         metaKeywords: this.parseArrayField(metaKeywords),
@@ -205,15 +219,22 @@ export class ProductController {
       }
 
       const updateData: any = {}
+      if (body.sku !== undefined) updateData.sku = body.sku
       if (body.name !== undefined) updateData.name = body.name
       if (body.description !== undefined) updateData.description = body.description
       if (body.shortContent !== undefined) updateData.shortContent = body.shortContent
       if (body.content !== undefined) updateData.content = body.content
       if (body.price !== undefined) updateData.price = parseInt(body.price)
       if (body.coverage !== undefined) updateData.coverage = body.coverage
+      if (body.details !== undefined) updateData.details = body.details
+      if (body.icon !== undefined) updateData.icon = body.icon
+      if (body.priority !== undefined) updateData.priority = parseInt(body.priority)
+      if (body.isHighlighted !== undefined) updateData.isHighlighted = body.isHighlighted === 'true'
+      if (body.isFeatured !== undefined) updateData.isFeatured = body.isFeatured === 'true'
       if (body.term !== undefined) updateData.term = body.term
       if (body.targetLink !== undefined) updateData.targetLink = body.targetLink
       if (body.targetFile !== undefined) updateData.targetFile = body.targetFile
+      if (body.isSaleOnline !== undefined) updateData.isSaleOnline = body.isSaleOnline === 'true'
       if (body.active !== undefined) updateData.active = body.active === 'true'
       if (body.tags !== undefined) updateData.tags = this.parseArrayField(body.tags)
       if (body.isPromotion !== undefined) updateData.isPromotion = body.isPromotion === 'true'
