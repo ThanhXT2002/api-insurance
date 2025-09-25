@@ -131,7 +131,6 @@ export class ProductController {
         tags,
         isPromotion,
         promotionDetails,
-        features,
         metaKeywords,
         note
       } = body
@@ -180,7 +179,6 @@ export class ProductController {
         tags: this.parseArrayField(tags),
         isPromotion: typeof isPromotion !== 'undefined' ? isPromotion === 'true' : undefined,
         promotionDetails,
-        features: this.parseArrayField(features),
         metaKeywords: this.parseArrayField(metaKeywords),
         note,
         seoMeta: processedSeo
@@ -279,7 +277,6 @@ export class ProductController {
       if (body.tags !== undefined) updateData.tags = this.parseArrayField(body.tags)
       if (body.isPromotion !== undefined) updateData.isPromotion = body.isPromotion === 'true'
       if (body.promotionDetails !== undefined) updateData.promotionDetails = body.promotionDetails
-      if (body.features !== undefined) updateData.features = this.parseArrayField(body.features)
       if (body.metaKeywords !== undefined) updateData.metaKeywords = this.parseArrayField(body.metaKeywords)
       if (body.note !== undefined) updateData.note = body.note
       if (imgsFilesInput) updateData.imgsFiles = imgsFilesInput

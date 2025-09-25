@@ -360,7 +360,6 @@ model Product {
   tags             Json? // Array of tags/keywords
   isPromotion      Boolean  @default(false) // Có khuyến mãi
   promotionDetails String? // Chi tiết khuyến mãi
-  features         Json? // Array of key features
   metaKeywords     Json? // Keywords for internal search
   note             String? // Ghi chú nội bộ cho editor/admin
   // Content Organization

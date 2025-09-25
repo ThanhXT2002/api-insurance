@@ -31,7 +31,6 @@ interface ProductData {
   tags?: string[]
   isPromotion?: boolean
   promotionDetails?: string
-  features?: any[]
   metaKeywords?: any[]
   note?: string
   seoMeta?: SeoDto
@@ -59,7 +58,6 @@ export class ProductService extends BaseService {
     if (!target || typeof target !== 'object') return
     if (target.imgs) target.imgs = this.tryParseJson(target.imgs)
     if (target.tags) target.tags = this.tryParseJson(target.tags)
-    if (target.features) target.features = this.tryParseJson(target.features)
     if (target.metaKeywords) target.metaKeywords = this.tryParseJson(target.metaKeywords)
   }
 
@@ -373,7 +371,6 @@ export class ProductService extends BaseService {
         return transformed.map((p: any) => {
           if (typeof p.imgs === 'string') p.imgs = JSON.parse(p.imgs)
           if (typeof p.tags === 'string') p.tags = JSON.parse(p.tags)
-          if (typeof p.features === 'string') p.features = JSON.parse(p.features)
           if (typeof p.metaKeywords === 'string') p.metaKeywords = JSON.parse(p.metaKeywords)
           return p
         })
@@ -382,7 +379,6 @@ export class ProductService extends BaseService {
         const p: any = transformed
         if (typeof p.imgs === 'string') p.imgs = JSON.parse(p.imgs)
         if (typeof p.tags === 'string') p.tags = JSON.parse(p.tags)
-        if (typeof p.features === 'string') p.features = JSON.parse(p.features)
         if (typeof p.metaKeywords === 'string') p.metaKeywords = JSON.parse(p.metaKeywords)
       }
     } catch (e) {}

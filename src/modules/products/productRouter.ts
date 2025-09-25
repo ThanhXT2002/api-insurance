@@ -132,9 +132,6 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *               tags:
  *                 type: string
  *                 description: JSON array
- *               features:
- *                 type: string
- *                 description: JSON array
  *               metaKeywords:
  *                 type: string
  *                 description: JSON array
