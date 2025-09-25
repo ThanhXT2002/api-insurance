@@ -63,6 +63,41 @@ export class ProductService extends BaseService {
     if (target.metaKeywords) target.metaKeywords = this.tryParseJson(target.metaKeywords)
   }
 
+  /**
+   * Build a readable SKU from product name by taking the first character of each word
+   * and uppercasing them. Non-alphanumeric characters are removed. If result is empty,
+   * returns 'P'. Limit length to 8 characters for readability.
+   */
+  private makeSkuFromName(name?: string) {
+    if (!name) return 'P'
+    const parts = name
+      .trim()
+      .split(/[^\p{L}\p{N}]+/u)
+      .filter(Boolean)
+    const initials = parts.map((s) => s[0]).join('')
+    let cleaned = (initials || parts.join('')).replace(/[^A-Za-z0-9]/g, '')
+    if (!cleaned) cleaned = 'P'
+    cleaned = cleaned.toUpperCase()
+    if (cleaned.length > 8) cleaned = cleaned.slice(0, 8)
+    return cleaned
+  }
+
+  /**
+   * Generate a unique SKU by checking repository for existence. If the base SKU
+   * already exists, appends a numeric suffix like `BASE-1`, `BASE-2`, ...
+   */
+  async generateUniqueSku(name?: string, excludeId?: number) {
+    const base = this.makeSkuFromName(name)
+    let candidate = base
+    let suffix = 1
+    // Loop until unique or until a reasonable limit
+    while (await this.repo.skuExists(candidate, excludeId)) {
+      candidate = `${base}-${suffix++}`
+      if (suffix > 100) throw new Error('Không thể sinh SKU duy nhất')
+    }
+    return candidate
+  }
+
   private stripTransientFields(target: any) {
     if (!target || typeof target !== 'object') return
     if ('imgsFiles' in target) delete target.imgsFiles
@@ -163,6 +198,16 @@ export class ProductService extends BaseService {
         ...(ctx?.actorId && { createdBy: ctx.actorId, updatedBy: ctx.actorId })
       }
 
+      // Ensure SKU: if not provided, generate one; if provided keep but validate uniqueness
+      // Do this before any file uploads to fail fast on SKU conflicts and avoid unnecessary IO.
+      if (!prismaPayload.sku) {
+        prismaPayload.sku = await this.generateUniqueSku(prismaPayload.name || prismaData.name)
+      } else {
+        // if supplied, ensure it doesn't already exist
+        const exists = await this.repo.skuExists(String(prismaPayload.sku).trim())
+        if (exists) throw new Error('SKU đã tồn tại')
+      }
+
       // Upload images if present
       await this.uploadImagesIfPresent(prismaData, rollbackManager)
       // Upload icon if present (preserve original format)
@@ -201,6 +246,12 @@ export class ProductService extends BaseService {
 
       const prismaData: any = { ...productData }
       this.normalizeJsonFields(prismaData)
+
+      // If SKU provided and changed, ensure uniqueness (exclude current record)
+      if (prismaData.sku !== undefined && prismaData.sku !== existing.sku) {
+        const exists = await this.repo.skuExists(String(prismaData.sku).trim(), existing.id)
+        if (exists) throw new Error('SKU đã tồn tại')
+      }
 
       await this.uploadImagesIfPresent(prismaData, rollbackManager)
       // If iconFile provided, upload it (no processing) and set prismaData.icon

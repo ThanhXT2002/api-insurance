@@ -105,9 +105,6 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *             properties:
  *               name:
  *                 type: string
- *               sku:
- *                 type: string
- *                 description: Unique product SKU
  *               details:
  *                 type: string
  *               icon:
@@ -195,9 +192,6 @@ router.post(
  *             properties:
  *               name:
  *                 type: string
- *               sku:
- *                 type: string
- *                 description: Unique product SKU
  *               details:
  *                 type: string
  *               icon:

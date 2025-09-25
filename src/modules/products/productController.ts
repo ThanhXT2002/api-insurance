@@ -112,7 +112,6 @@ export class ProductController {
 
       const body: any = req.body || {}
       const {
-        sku,
         name,
         description,
         shortContent,
@@ -161,7 +160,6 @@ export class ProductController {
       const processedSeo = this.parseSeoMetaFromRequest(req)
 
       const productData: any = {
-        sku,
         name,
         description,
         shortContent,
@@ -196,7 +194,11 @@ export class ProductController {
         return res
           .status(StatusCodes.BAD_REQUEST)
           .send(
-            ApiResponse.error('Icon là bắt buộc và phải là file ảnh', 'Icon không được để trống', StatusCodes.BAD_REQUEST)
+            ApiResponse.error(
+              'Icon là bắt buộc và phải là file ảnh',
+              'Icon không được để trống',
+              StatusCodes.BAD_REQUEST
+            )
           )
       }
 
@@ -246,7 +248,7 @@ export class ProductController {
       }
 
       const updateData: any = {}
-      if (body.sku !== undefined) updateData.sku = body.sku
+      // SKU is generated server-side; clients should not send or update SKU
       if (body.name !== undefined) updateData.name = body.name
       if (body.description !== undefined) updateData.description = body.description
       if (body.shortContent !== undefined) updateData.shortContent = body.shortContent

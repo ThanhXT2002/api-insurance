@@ -50,6 +50,13 @@ export class ProductRepository extends BaseRepository<'product'> {
     return existingCount > 0
   }
 
+  async skuExists(sku: string, excludeId?: number, client?: any) {
+    const where: any = { sku }
+    if (excludeId) where.id = { not: excludeId }
+    const existingCount = await this.count({ where }, client)
+    return existingCount > 0
+  }
+
   // Update product images (simple helper: replace imgs array)
   async updateImages(id: number, imgs: string[] = [], client?: any) {
     if (client) {
