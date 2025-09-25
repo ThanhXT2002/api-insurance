@@ -21,6 +21,7 @@ export class ProductRepository extends BaseRepository<'product'> {
     const where: any = {
       OR: [
         { name: { contains: keyword, mode: 'insensitive' } },
+        { sku: { contains: keyword, mode: 'insensitive' } },
         { shortContent: { contains: keyword, mode: 'insensitive' } },
         { content: { contains: keyword, mode: 'insensitive' } }
       ]
