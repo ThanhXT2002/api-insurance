@@ -164,7 +164,7 @@ export class ProductController {
         shortContent,
         content,
         price: price ? parseInt(price) : undefined,
-        coverage,
+        coverage: coverage ? parseInt(coverage) : undefined,
         term,
         targetLink,
         targetFile,
@@ -252,7 +252,7 @@ export class ProductController {
       if (body.shortContent !== undefined) updateData.shortContent = body.shortContent
       if (body.content !== undefined) updateData.content = body.content
       if (body.price !== undefined) updateData.price = parseInt(body.price)
-      if (body.coverage !== undefined) updateData.coverage = body.coverage
+      if (body.coverage !== undefined) updateData.coverage = parseInt(body.coverage)
       if (body.details !== undefined) updateData.details = body.details
       // icon must be updated via uploaded file only. If client provided icon in body without file, reject.
       if (body.icon !== undefined && !iconFileInput) {

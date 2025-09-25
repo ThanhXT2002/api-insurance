@@ -346,7 +346,7 @@ model Product {
   description      String?
   slug             String   @unique
   price            Int
-  coverage         String? // Mức độ bảo hiểm, ví dụ: "100,000 USD"
+  coverage         Int? // Mức độ bảo hiểm, ví dụ: "100,000 USD"
   term             String? // Thời hạn bảo hiểm, ví dụ: "1 year"
   targetLink       String? // Link mua hàng hoặc trang chi tiết
   targetFile       String? // Link file PDF tài liệu

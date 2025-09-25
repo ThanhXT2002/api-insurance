@@ -15,7 +15,7 @@ interface ProductData {
   shortContent?: string
   content?: string
   price?: number
-  coverage?: string
+  coverage?: number
   term?: string
   targetLink?: string
   targetFile?: string
