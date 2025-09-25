@@ -112,6 +112,7 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *                 type: string
  *               icon:
  *                 type: string
+ *                 format: binary
  *               priority:
  *                 type: integer
  *               isHighlighted:
@@ -161,7 +162,15 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *       201:
  *         description: Sản phẩm được tạo thành công
  */
-router.post('/', authenticate, upload.fields([{ name: 'imgs', maxCount: 10 }]), controller.create.bind(controller))
+router.post(
+  '/',
+  authenticate,
+  upload.fields([
+    { name: 'imgs', maxCount: 10 },
+    { name: 'icon', maxCount: 1 }
+  ]),
+  controller.create.bind(controller)
+)
 
 /**
  * @openapi
@@ -193,6 +202,7 @@ router.post('/', authenticate, upload.fields([{ name: 'imgs', maxCount: 10 }]), 
  *                 type: string
  *               icon:
  *                 type: string
+ *                 format: binary
  *               priority:
  *                 type: integer
  *               isHighlighted:
@@ -216,7 +226,15 @@ router.post('/', authenticate, upload.fields([{ name: 'imgs', maxCount: 10 }]), 
  *       200:
  *         description: Sản phẩm được cập nhật thành công
  */
-router.put('/:id', authenticate, upload.fields([{ name: 'imgs', maxCount: 10 }]), controller.update.bind(controller))
+router.put(
+  '/:id',
+  authenticate,
+  upload.fields([
+    { name: 'imgs', maxCount: 10 },
+    { name: 'icon', maxCount: 1 }
+  ]),
+  controller.update.bind(controller)
+)
 
 /**
  * @openapi

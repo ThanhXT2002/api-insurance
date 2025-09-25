@@ -66,6 +66,7 @@ export class ProductService extends BaseService {
   private stripTransientFields(target: any) {
     if (!target || typeof target !== 'object') return
     if ('imgsFiles' in target) delete target.imgsFiles
+    if ('iconFile' in target) delete target.iconFile
   }
 
   private async uploadImagesIfPresent(prismaObj: any, rollbackManager: any) {
@@ -78,6 +79,27 @@ export class ProductService extends BaseService {
       prismaObj.imgs = urls
     } catch (err: any) {
       throw new Error(`Lỗi tải ảnh sản phẩm: ${err?.message || err}`)
+    }
+  }
+
+  /**
+   * Upload single icon file if provided. Keep original format and do not run image processing.
+   */
+  private async uploadIconIfPresent(prismaObj: any, rollbackManager: any) {
+    if (!prismaObj.iconFile) return
+    try {
+      const input = prismaObj.iconFile as { buffer: Buffer; originalName: string }
+      // Upload without processing, preserve original format and filename
+      const uploaded = await fileUploadService.uploadSingleFile(input.buffer, input.originalName, {
+        folderName: 'project-insurance/product-icons',
+        maxFileSize: 5 * 1024 * 1024,
+        allowedTypes: ['image/'],
+        processImages: false
+      })
+      rollbackManager.addFileDeleteAction(uploaded.url)
+      prismaObj.icon = uploaded.url
+    } catch (err: any) {
+      throw new Error(`Lỗi tải icon sản phẩm: ${err?.message || err}`)
     }
   }
 
@@ -143,6 +165,8 @@ export class ProductService extends BaseService {
 
       // Upload images if present
       await this.uploadImagesIfPresent(prismaData, rollbackManager)
+      // Upload icon if present (preserve original format)
+      await this.uploadIconIfPresent(prismaData, rollbackManager)
 
       if (prismaData.imgs) prismaPayload.imgs = prismaData.imgs
 
@@ -179,6 +203,8 @@ export class ProductService extends BaseService {
       this.normalizeJsonFields(prismaData)
 
       await this.uploadImagesIfPresent(prismaData, rollbackManager)
+      // If iconFile provided, upload it (no processing) and set prismaData.icon
+      await this.uploadIconIfPresent(prismaData, rollbackManager)
       this.stripTransientFields(prismaData)
 
       const updated = await this.repo.runTransaction(async (tx) => {
@@ -199,6 +225,12 @@ export class ProductService extends BaseService {
           const newImgs: string[] = Array.isArray(updated.imgs) ? updated.imgs : []
           for (const u of existing.imgs) if (!newImgs.includes(u)) urlsToDelete.push(u)
         }
+        // handle icon deletion when replaced
+        try {
+          const oldIcon = (existing as any).icon
+          const newIcon = (updated as any).icon
+          if (oldIcon && oldIcon !== newIcon) urlsToDelete.push(oldIcon)
+        } catch {}
         if (urlsToDelete.length > 0) await fileUploadService.deleteFilesByUrls(urlsToDelete)
       } catch (err: any) {
         console.error('Failed to delete old product images:', err?.message || err)
@@ -210,7 +242,7 @@ export class ProductService extends BaseService {
 
   async deleteById(id: number) {
     return this.repo.runTransaction(async (tx) => {
-      const existing = await this.repo.findById({ where: { id }, select: { id: true, imgs: true } }, tx)
+      const existing = await this.repo.findById({ where: { id }, select: { id: true, imgs: true, icon: true } }, tx)
       if (!existing) throw new Error('Không tìm thấy sản phẩm')
       await tx.seoMeta.deleteMany({ where: { seoableType: SeoableType.PRODUCT, seoableId: id } })
       const deleted = await tx.product.delete({ where: { id } })
@@ -219,6 +251,8 @@ export class ProductService extends BaseService {
         try {
           const urls: string[] = []
           if (existing.imgs && Array.isArray(existing.imgs)) urls.push(...existing.imgs)
+          // include icon if present
+          if ((existing as any).icon) urls.push((existing as any).icon)
           if (urls.length > 0) await fileUploadService.deleteFilesByUrls(urls)
         } catch (err: any) {
           console.error('Failed to delete product images after delete:', err?.message || err)
@@ -237,7 +271,10 @@ export class ProductService extends BaseService {
     }
 
     return this.repo.runTransaction(async (tx) => {
-      const candidates = await this.repo.findMany({ where: whereFilter, select: { id: true, imgs: true } }, tx)
+      const candidates = await this.repo.findMany(
+        { where: whereFilter, select: { id: true, imgs: true, icon: true } },
+        tx
+      )
       if (!candidates || candidates.length === 0) return { count: 0 }
 
       const ids = candidates.map((c: any) => c.id)
@@ -254,6 +291,7 @@ export class ProductService extends BaseService {
           const urls: string[] = []
           for (const c of candidates) {
             if (c.imgs && Array.isArray(c.imgs)) urls.push(...c.imgs)
+            if ((c as any).icon) urls.push((c as any).icon)
           }
           if (urls.length > 0) await fileUploadService.deleteFilesByUrls(urls)
         } catch (err: any) {

@@ -150,6 +150,14 @@ export class ProductController {
         imgsFilesInput = arr.map((f: any) => ({ buffer: f.buffer, originalName: f.originalname }))
       }
 
+      // collect uploaded icon file (single)
+      let iconFileInput: { buffer: Buffer; originalName: string } | undefined
+      if (req.files && (req.files as any).icon) {
+        const iconArr = Array.isArray((req.files as any).icon) ? (req.files as any).icon : [(req.files as any).icon]
+        const f = iconArr[0]
+        if (f) iconFileInput = { buffer: f.buffer, originalName: f.originalname }
+      }
+
       const processedSeo = this.parseSeoMetaFromRequest(req)
 
       const productData: any = {
@@ -164,6 +172,7 @@ export class ProductController {
         targetLink,
         targetFile,
         details,
+        // icon will be handled as uploaded file when provided; keep original icon string when not uploading
         icon,
         priority: typeof priority !== 'undefined' ? parseInt(priority) : undefined,
         isHighlighted: typeof isHighlighted !== 'undefined' ? isHighlighted === 'true' : undefined,
@@ -180,6 +189,16 @@ export class ProductController {
       }
 
       if (imgsFilesInput) productData.imgsFiles = imgsFilesInput
+      if (iconFileInput) productData.iconFile = iconFileInput
+
+      // icon is required for create - enforce uploaded file present
+      if (!iconFileInput) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .send(
+            ApiResponse.error('Icon là bắt buộc và phải là file ảnh', 'Icon không được để trống', StatusCodes.BAD_REQUEST)
+          )
+      }
 
       const audit = AuthUtils.getAuditContext(req)
       if (!audit.createdBy)
@@ -218,6 +237,14 @@ export class ProductController {
         imgsFilesInput = arr.map((f: any) => ({ buffer: f.buffer, originalName: f.originalname }))
       }
 
+      // collect uploaded icon file (single)
+      let iconFileInput: { buffer: Buffer; originalName: string } | undefined
+      if (req.files && (req.files as any).icon) {
+        const iconArr = Array.isArray((req.files as any).icon) ? (req.files as any).icon : [(req.files as any).icon]
+        const f = iconArr[0]
+        if (f) iconFileInput = { buffer: f.buffer, originalName: f.originalname }
+      }
+
       const updateData: any = {}
       if (body.sku !== undefined) updateData.sku = body.sku
       if (body.name !== undefined) updateData.name = body.name
@@ -227,7 +254,18 @@ export class ProductController {
       if (body.price !== undefined) updateData.price = parseInt(body.price)
       if (body.coverage !== undefined) updateData.coverage = body.coverage
       if (body.details !== undefined) updateData.details = body.details
-      if (body.icon !== undefined) updateData.icon = body.icon
+      // icon must be updated via uploaded file only. If client provided icon in body without file, reject.
+      if (body.icon !== undefined && !iconFileInput) {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .send(
+            ApiResponse.error(
+              'Cập nhật icon phải gửi kèm file ảnh',
+              'Icon phải được cập nhật thông qua file upload',
+              StatusCodes.BAD_REQUEST
+            )
+          )
+      }
       if (body.priority !== undefined) updateData.priority = parseInt(body.priority)
       if (body.isHighlighted !== undefined) updateData.isHighlighted = body.isHighlighted === 'true'
       if (body.isFeatured !== undefined) updateData.isFeatured = body.isFeatured === 'true'
@@ -243,6 +281,7 @@ export class ProductController {
       if (body.metaKeywords !== undefined) updateData.metaKeywords = this.parseArrayField(body.metaKeywords)
       if (body.note !== undefined) updateData.note = body.note
       if (imgsFilesInput) updateData.imgsFiles = imgsFilesInput
+      if (iconFileInput) updateData.iconFile = iconFileInput
       if (processedSeo !== undefined) updateData.seoMeta = processedSeo
 
       const audit = AuthUtils.getAuditContext(req)
