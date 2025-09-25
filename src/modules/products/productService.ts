@@ -212,6 +212,8 @@ export class ProductService extends BaseService {
       await this.uploadIconIfPresent(prismaData, rollbackManager)
 
       if (prismaData.imgs) prismaPayload.imgs = prismaData.imgs
+      // Ensure uploaded icon URL is persisted to payload so DB saves the URL
+      if (prismaData.icon) prismaPayload.icon = prismaData.icon
 
       const product = await this.repo.runTransaction(async (tx) => {
         this.stripTransientFields(prismaPayload)
