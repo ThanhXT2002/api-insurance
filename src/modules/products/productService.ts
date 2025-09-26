@@ -107,8 +107,34 @@ export class ProductService extends BaseService {
     try {
       const inputs = prismaObj.imgsFiles as Array<{ buffer: Buffer; originalName: string }>
       const uploaded = await fileUploadService.uploadMultipleFiles(inputs, { folderName: 'project-insurance/products' })
-      const urls = uploaded.map((u) => u.url)
-      rollbackManager.addFileDeleteAction(urls)
+      // Debug: log full uploaded objects
+      // Small log to indicate upload succeeded; avoid dumping full objects
+      console.log(`Uploaded ${uploaded.length} images`)
+      // Build URLs array, with fallback to data URL for SVGs when upstream URL lacks extension
+      const urls: string[] = uploaded.map((u, idx) => {
+        const url = u.url
+        const fileType: string = u.fileType || ''
+        const isSvg = fileType.toLowerCase().startsWith('image/svg')
+        const urlHasSvgExt = typeof url === 'string' && url.toLowerCase().endsWith('.svg')
+
+        if (isSvg && !urlHasSvgExt) {
+          try {
+            const buf = inputs[idx].buffer
+            const dataUrl = `data:image/svg+xml;base64,${buf.toString('base64')}`
+            console.warn(`Using data URL fallback for SVG image at index ${idx}`)
+            return dataUrl
+          } catch (err) {
+            console.warn('Failed to build data URL fallback for SVG image:', err)
+            return url
+          }
+        }
+
+        return url
+      })
+
+      // Register rollback for the original uploaded URLs (only strings that look like remote URLs)
+      const remoteUrls = uploaded.map((u) => u.url).filter((u) => typeof u === 'string') as string[]
+      if (remoteUrls.length) rollbackManager.addFileDeleteAction(remoteUrls)
       prismaObj.imgs = urls
     } catch (err: any) {
       throw new Error(`Lỗi tải ảnh sản phẩm: ${err?.message || err}`)
@@ -123,14 +149,39 @@ export class ProductService extends BaseService {
     try {
       const input = prismaObj.iconFile as { buffer: Buffer; originalName: string }
       // Upload without processing, preserve original format and filename
+      // Allow common image formats including SVG for icons
       const uploaded = await fileUploadService.uploadSingleFile(input.buffer, input.originalName, {
         folderName: 'project-insurance/product-icons',
         maxFileSize: 5 * 1024 * 1024,
-        allowedTypes: ['image/'],
+        allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
         processImages: false
       })
-      rollbackManager.addFileDeleteAction(uploaded.url)
-      prismaObj.icon = uploaded.url
+      console.log('Uploaded icon; fileType:', uploaded.fileType)
+
+      // If upstream returned an SVG but the URL lacks an explicit .svg extension,
+      // browsers sometimes have trouble loading it as an <img>. As a safe fallback,
+      // use a data URL created from the original buffer so frontend can render immediately.
+      const uploadedUrl: string = uploaded.url
+      const fileType: string = uploaded.fileType || ''
+      const isSvg = fileType.toLowerCase().startsWith('image/svg')
+      const urlHasSvgExt = typeof uploadedUrl === 'string' && uploadedUrl.toLowerCase().endsWith('.svg')
+
+      if (isSvg && !urlHasSvgExt) {
+        try {
+          const dataUrl = `data:image/svg+xml;base64,${input.buffer.toString('base64')}`
+          console.warn('Using data URL fallback for uploaded SVG icon')
+          // Still register remote URL for rollback cleanup
+          rollbackManager.addFileDeleteAction(uploadedUrl)
+          prismaObj.icon = dataUrl
+        } catch (err) {
+          console.warn('Failed to build data URL fallback for SVG icon, falling back to remote URL:', err)
+          rollbackManager.addFileDeleteAction(uploadedUrl)
+          prismaObj.icon = uploadedUrl
+        }
+      } else {
+        rollbackManager.addFileDeleteAction(uploadedUrl)
+        prismaObj.icon = uploadedUrl
+      }
     } catch (err: any) {
       throw new Error(`Lỗi tải icon sản phẩm: ${err?.message || err}`)
     }

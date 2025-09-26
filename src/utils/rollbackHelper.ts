@@ -16,10 +16,28 @@ export class RollbackManager {
    */
   addFileDeleteAction(urls: string | string[]): void {
     const urlArray = Array.isArray(urls) ? urls : [urls]
-    this.actions.push({
-      type: 'delete_files',
-      urls: urlArray
+
+    // Validate URLs before adding
+    const validUrls = urlArray.filter((url) => {
+      if (!url || typeof url !== 'string') {
+        console.warn(`Invalid URL in rollback: ${url}`)
+        return false
+      }
+      try {
+        new URL(url)
+        return true
+      } catch {
+        console.warn(`Invalid URL format in rollback: ${url}`)
+        return false
+      }
     })
+
+    if (validUrls.length > 0) {
+      this.actions.push({
+        type: 'delete_files',
+        urls: validUrls
+      })
+    }
   }
 
   /**

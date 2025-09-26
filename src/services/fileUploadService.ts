@@ -107,6 +107,8 @@ export class FileUploadService {
         }
       })
 
+      // Keep minimal logging: status already logged by interceptor; avoid large payload dumps
+
       // Validate response
       if (!response.data?.status || !response.data?.data?.success?.length) {
         throw new Error('File upload failed: No successful uploads')
@@ -258,6 +260,7 @@ export class FileUploadService {
       png: 'image/png',
       gif: 'image/gif',
       webp: 'image/webp',
+      svg: 'image/svg+xml',
       pdf: 'application/pdf',
       doc: 'application/msword',
       docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -285,6 +288,41 @@ export class FileUploadService {
 
     try {
       console.log(`Attempting to delete ${urls.length} files for rollback`)
+      console.log('URLs to delete:', JSON.stringify(urls, null, 2))
+
+      // Validate URLs format
+      const invalidUrls = urls.filter((url) => {
+        try {
+          new URL(url)
+          return false // Valid URL
+        } catch {
+          return true // Invalid URL
+        }
+      })
+
+      // Validate and clean URLs format
+      const validUrls = urls.filter((url) => {
+        if (!url || typeof url !== 'string') {
+          console.error('Non-string URL found:', url, typeof url)
+          return false
+        }
+        try {
+          const urlObj = new URL(url)
+          return true // Valid URL
+        } catch {
+          console.error('Invalid URL format:', url)
+          return false // Invalid URL
+        }
+      })
+
+      if (validUrls.length === 0) {
+        console.warn('No valid URLs to delete')
+        return { success: true }
+      }
+
+      if (validUrls.length !== urls.length) {
+        console.warn(`Only ${validUrls.length}/${urls.length} URLs are valid for deletion`)
+      }
 
       const response = await fileUploadClient.request({
         method: 'DELETE',
@@ -292,7 +330,7 @@ export class FileUploadService {
         headers: {
           'Content-Type': 'application/json'
         },
-        data: { urls }
+        data: { urls: validUrls }
       })
 
       // If upstream returns a body indicating failure, surface it instead of hiding
@@ -310,7 +348,7 @@ export class FileUploadService {
       if (error.response?.data) {
         const errData: any = error.response.data
         // Return body for caller; avoid duplicating full body in logs here
-        console.warn('Delete request returned error response (see caller for details)')
+        console.error('Response error:', errData)
         return {
           success: false,
           code: error.response.status || errData?.code,

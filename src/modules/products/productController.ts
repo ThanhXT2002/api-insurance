@@ -254,17 +254,37 @@ export class ProductController {
       if (body.price !== undefined) updateData.price = parseInt(body.price)
       if (body.coverage !== undefined) updateData.coverage = parseInt(body.coverage)
       if (body.details !== undefined) updateData.details = body.details
-      // icon must be updated via uploaded file only. If client provided icon in body without file, reject.
-      if (body.icon !== undefined && !iconFileInput) {
-        return res
-          .status(StatusCodes.BAD_REQUEST)
-          .send(
-            ApiResponse.error(
-              'Cập nhật icon phải gửi kèm file ảnh',
-              'Icon phải được cập nhật thông qua file upload',
-              StatusCodes.BAD_REQUEST
-            )
-          )
+      // Handle icon update cases:
+      // - If client doesn't send body.icon at all => do nothing (keep existing)
+      // - If client sends null or empty string => clear icon (set to null)
+      // - If client sends a URL (startsWith http or data:) => accept it without file
+      // - If client sends another marker (e.g. a filename or intends upload) and no file provided => reject
+      if (typeof body.icon !== 'undefined') {
+        if (body.icon === null || body.icon === '') {
+          // Client wants to clear icon
+          updateData.icon = null
+        } else if (typeof body.icon === 'string') {
+          const v = body.icon as string
+          const isUrlLike = v.startsWith('http') || v.startsWith('data:')
+          if (isUrlLike) {
+            // Accept URL/data URL directly
+            updateData.icon = v
+          } else {
+            // Client provided some value that's not a URL -> assume they intend to upload a new file
+            if (!iconFileInput) {
+              return res
+                .status(StatusCodes.BAD_REQUEST)
+                .send(
+                  ApiResponse.error(
+                    'Cập nhật icon phải gửi kèm file ảnh',
+                    'Icon phải được cập nhật thông qua file upload',
+                    StatusCodes.BAD_REQUEST
+                  )
+                )
+            }
+            // If file exists we'll handle it below by adding iconFileInput to updateData
+          }
+        }
       }
       if (body.priority !== undefined) updateData.priority = parseInt(body.priority)
       if (body.isHighlighted !== undefined) updateData.isHighlighted = body.isHighlighted === 'true'
