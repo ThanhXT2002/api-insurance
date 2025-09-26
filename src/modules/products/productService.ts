@@ -100,16 +100,75 @@ export class ProductService extends BaseService {
     if (!target || typeof target !== 'object') return
     if ('imgsFiles' in target) delete target.imgsFiles
     if ('iconFile' in target) delete target.iconFile
+    if ('imgsKeep' in target) delete target.imgsKeep
   }
 
-  private async uploadImagesIfPresent(prismaObj: any, rollbackManager: any) {
-    if (!prismaObj.imgsFiles || !Array.isArray(prismaObj.imgsFiles)) return
+  /**
+   * Merge imgsKeep (ordered list of existing items and placeholders) with uploaded images.
+   * imgsKeepItem can be:
+   * - string (existing url)
+   * - object with url/id (existing) -> we accept as-is
+   * - placeholder object { __newIndex: n } to indicate insertion point for uploadedImgs[n]
+   * Returns final array of strings (urls) where placeholders are replaced by uploaded images.
+   */
+  private mergeImgsKeepWithUploads(imgsKeepInput: any, uploadedImgs?: string[]): string[] {
+    const uploaded = Array.isArray(uploadedImgs) ? [...uploadedImgs] : []
+    const consumed = new Set<number>()
+    const result: string[] = []
+
+    console.log('mergeImgsKeepWithUploads called with:')
+    console.log('- imgsKeepInput:', imgsKeepInput)
+    console.log('- uploadedImgs:', uploadedImgs)
+
+    if (!Array.isArray(imgsKeepInput)) {
+      // No keep list provided: return uploaded (or empty)
+      console.log('No imgsKeep provided, returning uploaded:', uploaded.slice())
+      return uploaded.slice()
+    }
+
+    for (const item of imgsKeepInput) {
+      if (item && typeof item === 'object' && Object.prototype.hasOwnProperty.call(item, '__newIndex')) {
+        const idx = Number(item.__newIndex)
+        if (!Number.isNaN(idx) && idx >= 0 && idx < uploaded.length) {
+          result.push(uploaded[idx])
+          consumed.add(idx)
+        } else {
+          // placeholder refers to missing upload -> skip it
+        }
+      } else if (typeof item === 'string') {
+        result.push(item)
+      } else if (item && typeof item === 'object' && item.url) {
+        result.push(item.url)
+      } else if (item && typeof item === 'object') {
+        // unknown object shape, stringify or ignore; prefer url if present
+        try {
+          result.push(JSON.stringify(item))
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    // Append any uploaded images that were not consumed by placeholders
+    for (let i = 0; i < uploaded.length; i++) {
+      if (!consumed.has(i)) result.push(uploaded[i])
+    }
+
+    console.log('mergeImgsKeepWithUploads result:', result)
+    return result
+  }
+
+  /**
+   * Upload imgsFiles (if any) and return an array of URLs/strings to be used in imgs.
+   * Does not mutate prismaObj.imgs; caller should compose final imgs list using imgsKeep and returned uploads.
+   */
+  private async uploadImagesIfPresent(prismaObj: any, rollbackManager: any): Promise<string[] | undefined> {
+    if (!prismaObj.imgsFiles || !Array.isArray(prismaObj.imgsFiles)) return undefined
     try {
       const inputs = prismaObj.imgsFiles as Array<{ buffer: Buffer; originalName: string }>
       const uploaded = await fileUploadService.uploadMultipleFiles(inputs, { folderName: 'project-insurance/products' })
-      // Debug: log full uploaded objects
-      // Small log to indicate upload succeeded; avoid dumping full objects
       console.log(`Uploaded ${uploaded.length} images`)
+
       // Build URLs array, with fallback to data URL for SVGs when upstream URL lacks extension
       const urls: string[] = uploaded.map((u, idx) => {
         const url = u.url
@@ -135,7 +194,8 @@ export class ProductService extends BaseService {
       // Register rollback for the original uploaded URLs (only strings that look like remote URLs)
       const remoteUrls = uploaded.map((u) => u.url).filter((u) => typeof u === 'string') as string[]
       if (remoteUrls.length) rollbackManager.addFileDeleteAction(remoteUrls)
-      prismaObj.imgs = urls
+
+      return urls
     } catch (err: any) {
       throw new Error(`Lỗi tải ảnh sản phẩm: ${err?.message || err}`)
     }
@@ -143,17 +203,30 @@ export class ProductService extends BaseService {
 
   /**
    * Upload single icon file if provided. Keep original format and do not run image processing.
+   * Processed first to catch icon validation errors early before uploading imgs.
    */
   private async uploadIconIfPresent(prismaObj: any, rollbackManager: any) {
     if (!prismaObj.iconFile) return
     try {
       const input = prismaObj.iconFile as { buffer: Buffer; originalName: string }
+      console.log('Uploading icon with originalName:', input.originalName)
+
       // Upload without processing, preserve original format and filename
-      // Allow common image formats including SVG for icons
+      // Allow common image formats including SVG, ICO, AVIF, BMP, TIFF for icons
       const uploaded = await fileUploadService.uploadSingleFile(input.buffer, input.originalName, {
         folderName: 'project-insurance/product-icons',
         maxFileSize: 5 * 1024 * 1024,
-        allowedTypes: ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'],
+        allowedTypes: [
+          'image/jpeg',
+          'image/png',
+          'image/gif',
+          'image/webp',
+          'image/svg+xml',
+          'image/avif',
+          'image/bmp',
+          'image/tiff',
+          'image/x-icon'
+        ],
         processImages: false
       })
       console.log('Uploaded icon; fileType:', uploaded.fileType)
@@ -257,12 +330,15 @@ export class ProductService extends BaseService {
         if (exists) throw new Error('SKU đã tồn tại')
       }
 
-      // Upload images if present
-      await this.uploadImagesIfPresent(prismaData, rollbackManager)
-      // Upload icon if present (preserve original format)
+      // Upload icon first to catch icon errors early before processing imgs
       await this.uploadIconIfPresent(prismaData, rollbackManager)
+      // Upload images if present (returns uploaded urls which should be combined with imgsKeep)
+      const uploadedImgs = await this.uploadImagesIfPresent(prismaData, rollbackManager)
 
-      if (prismaData.imgs) prismaPayload.imgs = prismaData.imgs
+      // Compose final imgs list using imgsKeep (which may include placeholders) and uploaded images
+      const imgsKeepInput = prismaData.imgsKeep ?? prismaData.imgs
+      const finalImgs = this.mergeImgsKeepWithUploads(imgsKeepInput, uploadedImgs)
+      if (finalImgs && finalImgs.length > 0) prismaPayload.imgs = finalImgs
       // Ensure uploaded icon URL is persisted to payload so DB saves the URL
       if (prismaData.icon) prismaPayload.icon = prismaData.icon
 
@@ -304,14 +380,22 @@ export class ProductService extends BaseService {
         if (exists) throw new Error('SKU đã tồn tại')
       }
 
-      await this.uploadImagesIfPresent(prismaData, rollbackManager)
-      // If iconFile provided, upload it (no processing) and set prismaData.icon
+      // Upload icon first to catch icon errors early before processing imgs
       await this.uploadIconIfPresent(prismaData, rollbackManager)
-      this.stripTransientFields(prismaData)
+      // Upload images if present (returns uploaded urls which should be combined with imgsKeep)
+      const uploadedImgs = await this.uploadImagesIfPresent(prismaData, rollbackManager)
 
       const updated = await this.repo.runTransaction(async (tx) => {
         const sanitized: any = { ...prismaData }
         if (ctx?.actorId) sanitized.updatedBy = ctx.actorId
+
+        // If client provided imgsKeep (or imgs) and/or there are uploaded images, compose new imgs array
+        const imgsKeepInput = sanitized.imgsKeep ?? sanitized.imgs
+        const finalImgs = this.mergeImgsKeepWithUploads(imgsKeepInput, uploadedImgs)
+        if (finalImgs && finalImgs.length > 0) sanitized.imgs = finalImgs
+
+        // remove temporary fields before DB write (AFTER merging)
+        this.stripTransientFields(sanitized)
 
         const res = await tx.product.update({ where: { id }, data: sanitized })
         if (seoMeta && Object.keys(seoMeta).length > 0) {
@@ -319,14 +403,12 @@ export class ProductService extends BaseService {
         }
         return res
       })
-
-      // cleanup old images if replaced
+      // After successful update, delete remote files that are no longer referenced
       try {
         const urlsToDelete: string[] = []
-        if (existing.imgs && Array.isArray(existing.imgs)) {
-          const newImgs: string[] = Array.isArray(updated.imgs) ? updated.imgs : []
-          for (const u of existing.imgs) if (!newImgs.includes(u)) urlsToDelete.push(u)
-        }
+        const oldImgs: string[] = existing.imgs && Array.isArray(existing.imgs) ? existing.imgs : []
+        const newImgs: string[] = Array.isArray(updated.imgs) ? updated.imgs : []
+        for (const u of oldImgs) if (!newImgs.includes(u)) urlsToDelete.push(u)
         // handle icon deletion when replaced
         try {
           const oldIcon = (existing as any).icon

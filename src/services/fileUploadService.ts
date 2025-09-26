@@ -253,14 +253,21 @@ export class FileUploadService {
    */
   private getContentType(filename: string, allowedTypes: string[]): string {
     const extension = filename.split('.').pop()?.toLowerCase()
+    console.log(`Detecting content type for file: "${filename}", extension: "${extension || 'none'}"`)
 
     const mimeMap: Record<string, string> = {
       jpg: 'image/jpeg',
       jpeg: 'image/jpeg',
+      jfif: 'image/jpeg',
       png: 'image/png',
       gif: 'image/gif',
       webp: 'image/webp',
+      avif: 'image/avif',
       svg: 'image/svg+xml',
+      bmp: 'image/bmp',
+      tiff: 'image/tiff',
+      tif: 'image/tiff',
+      ico: 'image/x-icon',
       pdf: 'application/pdf',
       doc: 'application/msword',
       docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -268,11 +275,14 @@ export class FileUploadService {
     }
 
     const mimeType = mimeMap[extension || ''] || 'application/octet-stream'
+    console.log(`Detected MIME type: ${mimeType}, allowed types: [${allowedTypes.join(', ')}]`)
 
     // Check if mime type is allowed
     const isAllowed = allowedTypes.some((type) => mimeType.startsWith(type))
     if (!isAllowed) {
-      throw new Error(`File type ${mimeType} is not allowed`)
+      throw new Error(
+        `File type ${mimeType} is not allowed. File: "${filename}", extension: "${extension || 'none'}", allowed: [${allowedTypes.join(', ')}]`
+      )
     }
 
     return mimeType

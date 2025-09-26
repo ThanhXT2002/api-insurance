@@ -183,8 +183,15 @@ export class ProductController {
         note,
         seoMeta: processedSeo
       }
-
       if (imgsFilesInput) productData.imgsFiles = imgsFilesInput
+      // parse imgsKeep from body (optional) - existing images client wants to keep and their order
+      if (body.imgsKeep) {
+        try {
+          productData.imgsKeep = typeof body.imgsKeep === 'string' ? JSON.parse(body.imgsKeep) : body.imgsKeep
+        } catch {
+          productData.imgsKeep = Array.isArray(body.imgsKeep) ? body.imgsKeep : [body.imgsKeep]
+        }
+      }
       if (iconFileInput) productData.iconFile = iconFileInput
 
       // icon is required for create - enforce uploaded file present
@@ -235,6 +242,56 @@ export class ProductController {
         const files = (req.files as any).imgs
         const arr = Array.isArray(files) ? files : [files]
         imgsFilesInput = arr.map((f: any) => ({ buffer: f.buffer, originalName: f.originalname }))
+      }
+
+      // parse imgsKeep (JSON string expected) - danh sách ảnh hiện có mà FE muốn giữ theo thứ tự
+      let imgsKeep: any[] | undefined = undefined
+      if (body.imgsKeep) {
+        console.log(
+          'Raw body.imgsKeep:',
+          body.imgsKeep,
+          'Type:',
+          typeof body.imgsKeep,
+          'IsArray:',
+          Array.isArray(body.imgsKeep)
+        )
+
+        if (typeof body.imgsKeep === 'string') {
+          try {
+            const parsed = JSON.parse(body.imgsKeep)
+            imgsKeep = Array.isArray(parsed) ? parsed : [parsed]
+            console.log('Parsed imgsKeep from string:', imgsKeep)
+          } catch (err) {
+            console.error('Failed to parse imgsKeep JSON string:', err)
+            imgsKeep = undefined
+          }
+        } else if (Array.isArray(body.imgsKeep)) {
+          // If multer parsed it as array of strings, try to parse each element
+          imgsKeep = []
+          for (const item of body.imgsKeep) {
+            if (typeof item === 'string') {
+              try {
+                const parsed = JSON.parse(item)
+                if (Array.isArray(parsed)) {
+                  imgsKeep.push(...parsed)
+                } else {
+                  imgsKeep.push(parsed)
+                }
+              } catch {
+                // If parse fails, use as-is
+                imgsKeep.push(item)
+              }
+            } else {
+              imgsKeep.push(item)
+            }
+          }
+          console.log('Parsed imgsKeep from array:', imgsKeep)
+        } else {
+          imgsKeep = [body.imgsKeep]
+          console.log('Wrapped imgsKeep as single item:', imgsKeep)
+        }
+      } else {
+        console.log('No imgsKeep provided in request body')
       }
 
       // collect uploaded icon file (single)
@@ -300,6 +357,7 @@ export class ProductController {
       if (body.metaKeywords !== undefined) updateData.metaKeywords = this.parseArrayField(body.metaKeywords)
       if (body.note !== undefined) updateData.note = body.note
       if (imgsFilesInput) updateData.imgsFiles = imgsFilesInput
+      if (imgsKeep) updateData.imgsKeep = imgsKeep
       if (iconFileInput) updateData.iconFile = iconFileInput
       if (processedSeo !== undefined) updateData.seoMeta = processedSeo
 

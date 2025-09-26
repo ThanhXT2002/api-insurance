@@ -124,11 +124,32 @@ router.get('/:id', authenticate, controller.getById.bind(controller))
  *                 type: string
  *               price:
  *                 type: integer
+ *               coverage:
+ *                 type: integer
+ *               term:
+ *                 type: string
+ *               targetLink:
+ *                 type: string
+ *               targetFile:
+ *                 type: string
+ *               isSaleOnline:
+ *                 type: boolean
+ *               active:
+ *                 type: boolean
+ *               isPromotion:
+ *                 type: boolean
+ *               promotionDetails:
+ *                 type: string
+ *               note:
+ *                 type: string
  *               imgs:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
+ *               imgsKeep:
+ *                 type: string
+ *                 description: JSON array of existing images to keep and their order
  *               tags:
  *                 type: string
  *                 description: JSON array
@@ -206,11 +227,38 @@ router.post(
  *                 type: string
  *               price:
  *                 type: integer
+ *               coverage:
+ *                 type: integer
+ *               term:
+ *                 type: string
+ *               targetLink:
+ *                 type: string
+ *               targetFile:
+ *                 type: string
+ *               isSaleOnline:
+ *                 type: boolean
+ *               active:
+ *                 type: boolean
+ *               isPromotion:
+ *                 type: boolean
+ *               promotionDetails:
+ *                 type: string
+ *               note:
+ *                 type: string
  *               imgs:
  *                 type: array
  *                 items:
  *                   type: string
  *                   format: binary
+ *               imgsKeep:
+ *                 type: string
+ *                 description: JSON array of existing images to keep and their order
+ *               tags:
+ *                 type: string
+ *                 description: JSON array
+ *               metaKeywords:
+ *                 type: string
+ *                 description: JSON array
  *               seoMeta:
  *                 type: object
  *     responses:
