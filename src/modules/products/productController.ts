@@ -480,4 +480,33 @@ export class ProductController {
         .send(ApiResponse.error(err.message, 'Lỗi cập nhật trạng thái sản phẩm', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
+
+  // PATCH /api/products/:id/isSaleOnline
+  async updateIsSaleOnline(req: Request, res: Response) {
+    try {
+      if (!AuthUtils.hasPermission(req, 'product.update')) {
+        return res
+          .status(StatusCodes.FORBIDDEN)
+          .send(ApiResponse.error('Không đủ quyền', 'Yêu cầu quyền PRODUCT_UPDATE', StatusCodes.FORBIDDEN))
+      }
+
+      const { id } = req.params
+      const body: any = req.body || {}
+      if (typeof body.isSaleOnline === 'undefined') {
+        return res
+          .status(StatusCodes.BAD_REQUEST)
+          .send(ApiResponse.error('Thiếu trường isSaleOnline', 'isSaleOnline là bắt buộc', StatusCodes.BAD_REQUEST))
+      }
+
+      const isSaleOnline = body.isSaleOnline === 'true' || body.isSaleOnline === true
+      const audit = AuthUtils.getAuditContext(req)
+      const updated = await this.service.updateIsSaleOnline(parseInt(id), isSaleOnline, { actorId: audit.updatedBy })
+      res.status(StatusCodes.OK).send(ApiResponse.ok(updated, 'Cập nhật isSaleOnline thành công'))
+    } catch (err: any) {
+      console.error('Error updating isSaleOnline:', err)
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(err.message, 'Lỗi cập nhật isSaleOnline', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
 }

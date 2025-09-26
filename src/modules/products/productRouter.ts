@@ -275,6 +275,43 @@ router.put(
   controller.update.bind(controller)
 )
 
+// Quick update for isSaleOnline
+/**
+ * @openapi
+ * /api/products/{id}/isSaleOnline:
+ *   patch:
+ *     tags:
+ *       - Products
+ *     summary: Cập nhật nhanh cờ isSaleOnline cho sản phẩm
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: ID của sản phẩm cần cập nhật
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               isSaleOnline:
+ *                 type: boolean
+ *             required:
+ *               - isSaleOnline
+ *     responses:
+ *       200:
+ *         description: Cập nhật isSaleOnline thành công
+ *       400:
+ *         description: Thiếu hoặc sai dữ liệu
+ *       403:
+ *         description: Không đủ quyền
+ */
+router.patch('/:id/isSaleOnline', authenticate, controller.updateIsSaleOnline.bind(controller))
+
 /**
  * @openapi
  * /api/products/{id}:

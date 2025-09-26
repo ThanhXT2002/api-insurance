@@ -536,4 +536,15 @@ export class ProductService extends BaseService {
       ...this.getProductInclude()
     }
   }
+
+  // Quick update for isSaleOnline flag
+  async updateIsSaleOnline(id: number, isSaleOnline: boolean, ctx?: { actorId?: number }) {
+    const updated = await this.repo.runTransaction(async (tx) => {
+      const data: any = { isSaleOnline }
+      if (ctx?.actorId) data.updatedBy = ctx.actorId
+      const res = await tx.product.update({ where: { id }, data })
+      return res
+    })
+    return this.transformUserAuditFields([updated])[0]
+  }
 }
