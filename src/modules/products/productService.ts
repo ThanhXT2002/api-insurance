@@ -154,7 +154,7 @@ export class ProductService extends BaseService {
   }
 
   async findBySlug(slug: string) {
-    const product = await this.repo.findBySlug(slug)
+    const product = await this.repo.findBySlug(slug, this.getProductIncludeWithNameAuthor())
     if (!product) return null
     // Load SEO
     try {
@@ -167,7 +167,7 @@ export class ProductService extends BaseService {
   }
 
   async getByIdWithRelations(id: number) {
-    const product = await this.repo.findById({ where: { id } })
+    const product = await this.repo.findById({ where: { id }, include: this.getProductIncludeWithNameAuthor() })
     if (!product) return null
     try {
       const seo = await seoService.getSeoFor(SeoableType.PRODUCT, product.id)
@@ -385,5 +385,22 @@ export class ProductService extends BaseService {
       }
     } catch (e) {}
     return transformed
+  }
+
+  private getProductInclude() {
+    return {
+      creator: {
+        select: { id: true, name: true, email: true }
+      },
+      updater: {
+        select: { id: true, name: true, email: true }
+      }
+    }
+  }
+
+  private getProductIncludeWithNameAuthor() {
+    return {
+      ...this.getProductInclude()
+    }
   }
 }
