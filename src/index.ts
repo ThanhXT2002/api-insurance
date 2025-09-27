@@ -8,13 +8,17 @@ import serverless from 'serverless-http'
 
 const app = express()
 
+// If the app is running behind a trusted proxy (Vercel, Cloudflare, Heroku, etc.)
+// enable trust proxy so Express will respect X-Forwarded-* headers and req.ip
+app.set('trust proxy', true)
+
 // Basic middleware
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
 // CORS - enable before routes so preflight responses include required headers
 // Support multiple origins via comma-separated CLIENT_ORIGIN env var
-const clientOrigins = (process.env.CLIENT_ORIGIN || '' )
+const clientOrigins = (process.env.CLIENT_ORIGIN || '')
   .split(',')
   .map((s) => s.trim())
   .filter(Boolean)
