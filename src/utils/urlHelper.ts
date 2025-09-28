@@ -5,8 +5,8 @@ import { createSlug } from './slugHelper'
  */
 const RESOURCE_PATH_MAP = {
   'post-category': '/post-category',
-  post: '/posts',
-  product: '/products',
+  post: '/post',
+  product: '/product',
   'product-category': '/product-categories'
 } as const
 
