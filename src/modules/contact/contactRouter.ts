@@ -12,14 +12,6 @@ const controller = new ContactController(service)
 
 const router = Router()
 
-// Ghi chú:
-// - Các comment OpenAPI (@openapi) theo chuẩn JSDoc được swagger-jsdoc thu thập từ router files.
-// - Đặt tài liệu cụ thể cho từng endpoint ngay bên cạnh route để dễ bảo trì.
-// - Endpoint POST /api/contact: public, có rate limit để hạn chế spam.
-// - Endpoint GET /api/contact: dành cho admin, cần authentication và permission 'contact.view'.
-// - Nếu deploy sau proxy (Vercel, Cloudflare), Express đã được cấu hình `app.set('trust proxy', true)`
-//   tại bootstrap để cho phép đọc header 'x-forwarded-for' đúng.
-
 /**
  * @openapi
  * /api/contact:
@@ -35,6 +27,8 @@ const router = Router()
  *             type: object
  *             properties:
  *               name:
+ *                 type: string
+ *               phone:
  *                 type: string
  *               email:
  *                 type: string

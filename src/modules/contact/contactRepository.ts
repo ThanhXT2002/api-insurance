@@ -3,6 +3,7 @@ import prisma from '../../config/prismaClient'
 export type ContactRecord = {
   id: number
   name?: string | null
+  phone?: string | null
   email?: string | null
   message: string
   ip?: string | null
@@ -18,7 +19,8 @@ export class ContactRepository {
         email: record.email ?? null,
         message: record.message,
         ip: record.ip ?? null,
-        userAgent: record.userAgent ?? null
+        userAgent: record.userAgent ?? null,
+        phone: record.phone ?? null
       }
     })
     return created as unknown as ContactRecord

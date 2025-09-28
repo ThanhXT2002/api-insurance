@@ -98,6 +98,7 @@ async function main() {
     const first = pick(firstNames)
     const last = pick(lastNames)
     const fullName = `${last} ${first}`
+    const phone = Math.random() < 0.8 ? `${randomInt(100000000, 999999999)}` : undefined
     const email = Math.random() < 0.8 ? randomEmailFromName(fullName) : undefined
     const message = `${pick(msgs)} ${i % 5 === 0 ? 'Vui lòng liên hệ lại sớm.' : ''}`
     const ip = Math.random() < 0.95 ? randomIp() : undefined
@@ -106,6 +107,7 @@ async function main() {
 
     items.push({
       name: fullName,
+      phone,
       email,
       message,
       ip,

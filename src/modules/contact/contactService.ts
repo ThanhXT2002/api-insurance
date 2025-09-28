@@ -6,11 +6,12 @@ export class ContactService {
     this.repo = repo
   }
 
-  async submit(payload: { name?: string; email?: string; message?: string; ip?: string; userAgent?: string }) {
+  async submit(payload: { name?: string; phone?: string; email?: string; message?: string; ip?: string; userAgent?: string }) {
     // basic validation could be added here
     const record = await this.repo.create(payload as Omit<ContactRecord, 'id' | 'createdAt'>)
     return record
   }
+  
   async getAll(params: any = {}) {
     const { keyword, page, limit, ...other } = params
     const safePage = Number(page) || 1
@@ -21,6 +22,7 @@ export class ContactService {
     if (keyword) {
       where.OR = [
         { name: { contains: keyword, mode: 'insensitive' } },
+        { phone: { contains: keyword, mode: 'insensitive' } },
         { email: { contains: keyword, mode: 'insensitive' } },
         { message: { contains: keyword, mode: 'insensitive' } }
       ]
