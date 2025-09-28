@@ -44,6 +44,24 @@ router.get('/', controller.getAll.bind(controller))
 
 /**
  * @openapi
+ * /api/products/home:
+ *   get:
+ *     tags:
+ *       - Products
+ *     summary: Lấy danh sách sản phẩm cho trang chủ (active + isFeatured)
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *         description: Số lượng tối đa sản phẩm trả về
+ *     responses:
+ *       200:
+ *         description: Danh sách sản phẩm trang chủ
+ */
+router.get('/home', controller.getProductHome.bind(controller))
+
+/**
+ * @openapi
  * /api/products/slug/{slug}:
  *   get:
  *     tags:

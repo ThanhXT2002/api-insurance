@@ -277,6 +277,45 @@ export class ProductService extends BaseService {
     return super.getAll({ page: safePage, limit: safeLimit, filters })
   }
 
+  /**
+   * Get products for homepage.
+   * Priority ordering rule:
+   *  - Only include active && isFeatured products
+   *  - Sort by priority ascending (1,2,3...). priority === 0 should be treated as 'last'
+   *  - For equal priority, newest updatedAt first (updatedAt DESC)
+   *  - Accept optional limit
+   */
+  async getProductHome(params: { limit?: number } = {}) {
+    const limit = typeof params.limit === 'number' ? params.limit : Number(params.limit) || 10
+
+    // Load candidates with minimal includes
+    const candidates = await this.repo.findMany({
+      where: { active: true, isFeatured: true },
+      include: this.getProductIncludeWithNameAuthor()
+    })
+
+    // Ensure we operate on array
+    const rows: any[] = Array.isArray(candidates) ? candidates : (candidates && (candidates as any).rows) || []
+
+    // Sort in-memory with custom comparator: treat priority===0 as very large so it goes last when sorting asc
+    rows.sort((a: any, b: any) => {
+      const pa = typeof a.priority === 'number' ? a.priority : 0
+      const pb = typeof b.priority === 'number' ? b.priority : 0
+      const va = pa === 0 ? Number.MAX_SAFE_INTEGER : pa
+      const vb = pb === 0 ? Number.MAX_SAFE_INTEGER : pb
+      if (va !== vb) return va - vb
+
+      // tie-breaker: updatedAt desc
+      const da = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+      const db = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+      return db - da
+    })
+
+    const selected = typeof limit === 'number' && limit > 0 ? rows.slice(0, limit) : rows
+
+    return this.transformUserAuditFields(selected)
+  }
+
   async findBySlug(slug: string) {
     const product = await this.repo.findBySlug(slug, this.getProductIncludeWithNameAuthor())
     if (!product) return null

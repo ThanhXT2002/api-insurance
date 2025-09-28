@@ -102,6 +102,20 @@ export class ProductController {
     }
   }
 
+  // Public: GET /api/products/home?limit=10
+  async getProductHome(req: Request, res: Response) {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined
+      const products = await this.service.getProductHome({ limit })
+      res.status(StatusCodes.OK).send(ApiResponse.ok(products, 'Lấy sản phẩm trang chủ thành công'))
+    } catch (err: any) {
+      console.error('Error getProductHome:', err)
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(err.message, 'Lỗi lấy sản phẩm trang chủ', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
+
   async create(req: Request, res: Response) {
     try {
       if (!AuthUtils.hasPermission(req, 'product.create')) {
