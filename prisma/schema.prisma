@@ -55,6 +55,12 @@ model User {
   createdReviews      ProductReview[] @relation("ProductReviewCreatedBy")
   updatedReviews      ProductReview[] @relation("ProductReviewUpdatedBy")
 
+  // Relations với Menu
+  createdMenuCategories MenuCategory[] @relation("MenuCategoryCreatedBy")
+  updatedMenuCategories MenuCategory[] @relation("MenuCategoryUpdatedBy")
+  createdMenuItems      MenuItem[]     @relation("MenuItemCreatedBy")
+  updatedMenuItems      MenuItem[]     @relation("MenuItemUpdatedBy")
+
   @@map("users")
 }
 
@@ -422,7 +428,81 @@ model Contact {
   @@map("contacts")
 }
 
+// MenuCategory: Loại menu (header, footer, mobile, product...)
+model MenuCategory {
+  id          Int     @id @default(autoincrement())
+  key         String  @unique // menu-header, menu-footer, menu-mobile, menu-product
+  name        String // "Menu Header", "Menu Footer"
+  description String?
+  active      Boolean @default(true)
+  position    String? // header, footer, sidebar
+
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy Int
+  updatedBy Int
+
+  // Relations
+  menus   MenuItem[] @relation("MenuCategoryItems")
+  creator User       @relation("MenuCategoryCreatedBy", fields: [createdBy], references: [id])
+  updater User       @relation("MenuCategoryUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@map("menu_categories")
+}
+
+// MenuItem: Menu item với cấu trúc cây (nested tree)
+model MenuItem {
+  id         Int     @id @default(autoincrement())
+  key        String // unique key cho mỗi node, ví dụ: "0", "0-0", "0-0-1"
+  label      String // Tên hiển thị của menu
+  icon       String? // Icon class (pi pi-home, pi pi-user...)
+  url        String? // URL đích
+  routerLink String? // Angular router link
+  command    String? // JavaScript command (nếu cần)
+
+  // Tree structure
+  parentId   Int? // Self-reference cho parent
+  categoryId Int // Thuộc loại menu nào
+
+  // Display & Behavior
+  active     Boolean @default(true)
+  order      Int     @default(0) // Thứ tự hiển thị trong cùng cấp
+  isBlank    Boolean @default(false) // Mở link trong tab mới
+  expanded   Boolean @default(false) // Mặc định expand hay collapse
+  selectable Boolean @default(true) // Có thể select không
+  draggable  Boolean @default(true) // Có thể drag không
+  droppable  Boolean @default(true) // Có thể drop vào không
+
+  // Styling
+  styleClass String? // CSS class tùy chỉnh
+  badge      String? // Badge text (VD: "New", "3")
+  badgeClass String? // Badge CSS class
+
+  // Metadata
+  description String? // Mô tả cho admin
+  data        Json? // Dữ liệu tùy chỉnh thêm (flexible)
+
+  // Audit fields
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy Int
+  updatedBy Int
+
+  // Relations
+  category MenuCategory @relation("MenuCategoryItems", fields: [categoryId], references: [id], onDelete: Cascade)
+  parent   MenuItem?    @relation("MenuItemParent", fields: [parentId], references: [id], onDelete: Cascade)
+  children MenuItem[]   @relation("MenuItemParent")
+  creator  User         @relation("MenuItemCreatedBy", fields: [createdBy], references: [id])
+  updater  User         @relation("MenuItemUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@unique([categoryId, key]) // Key unique trong 1 category
+  @@index([categoryId, parentId, order])
+  @@index([active])
+  @@map("menu_items")
+}
 
 // npx prisma migrate dev --name add_seo_meta_model
 // npx prisma generate
 // npx tsx prisma/seedContacts.ts
+// npx prisma studio --port 5555
