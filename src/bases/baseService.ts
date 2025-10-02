@@ -50,6 +50,13 @@ export class BaseService<T = any> {
       delete transformed.updater // Remove original relation
     }
 
+    // Recursively transform nested arrays (like children, menus)
+    Object.keys(transformed).forEach((key) => {
+      if (Array.isArray(transformed[key])) {
+        transformed[key] = transformed[key].map((item: any) => this.transformSingleRecord(item))
+      }
+    })
+
     return transformed
   }
 
@@ -62,6 +69,9 @@ export class BaseService<T = any> {
 
   /**
    * Get default include for models with audit fields
+   * Note: Chỉ dùng cho các service sử dụng getAll()/getById() mặc định của BaseService.
+   * Nếu service có custom methods riêng thì phải tự include creator/updater trong repository
+   * và gọi transformUserAuditFields() trực tiếp (như ProductService, MenuService).
    */
   protected getAuditInclude(): any {
     const modelName = this.repository.getModelName
@@ -175,7 +185,7 @@ export class BaseService<T = any> {
     }
 
     // Models that declare scalar createdBy / updatedBy fields
-    const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta']
+    const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta', 'menuCategory', 'menuItem']
     if (scalarAuditModels.includes(modelName as string)) {
       data.createdBy = actorId
     }
@@ -188,7 +198,7 @@ export class BaseService<T = any> {
       return
     }
 
-    const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta']
+    const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta', 'menuCategory', 'menuItem']
     if (scalarAuditModels.includes(modelName as string)) {
       data.updatedBy = actorId
     }

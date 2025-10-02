@@ -10,6 +10,7 @@ import userAssignmentRouter from '../modules/userAssignments/userAssignmentRoute
 import userRouter from '../modules/users/userRouter'
 import reportsRouter from '../modules/reports/reportsRouter'
 import contactRouter from '../modules/contact/contactRouter'
+import menuRouter from '../modules/menus/menuRouter'
 
 export function registerRoutes(app: Express) {
   // Health route (without API prefix for monitoring)
@@ -56,6 +57,9 @@ export function registerRoutes(app: Express) {
 
   // Contact form endpoint
   app.use('/api/contact', contactRouter)
+
+  // Menu management routes
+  app.use('/api/menus', menuRouter)
 
   // TODO: Thêm các module khác với API prefix
   // app.use('/api/products', productRouter)
