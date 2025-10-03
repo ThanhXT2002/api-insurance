@@ -235,7 +235,7 @@ export class MenuItemService extends BaseService {
   /**
    * Lấy tất cả children của menu item
    */
-  async getChildren(parentId: number, activeOnly = false) {
+  async getChildren(parentId: number, activeOnly?: boolean) {
     const children = await this.repo.findChildren(parentId, activeOnly)
     // Map tên user cho các trường createdBy/updatedBy
     return this.transformUserAuditFields(children)

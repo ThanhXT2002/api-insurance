@@ -79,10 +79,12 @@ export class MenuItemRepository extends BaseRepository<'menuItem'> {
 
   /**
    * Tìm tất cả children của một menu item
+   * @param activeOnly - true: chỉ lấy active items, false: chỉ lấy inactive items, undefined: lấy tất cả
    */
-  async findChildren(parentId: number, activeOnly = false, client?: any) {
+  async findChildren(parentId: number, activeOnly?: boolean, client?: any) {
     const where: any = { parentId }
-    if (activeOnly) where.active = true
+    if (activeOnly === true) where.active = true
+    if (activeOnly === false) where.active = false
 
     return this.findMany(
       {

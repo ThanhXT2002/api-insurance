@@ -228,7 +228,8 @@ export class MenuItemController {
   async getChildren(req: Request, res: Response) {
     try {
       const id = parseInt(req.params.id)
-      const activeOnly = req.query.activeOnly === 'true'
+      // Parse activeOnly: 'true' -> true, 'false' -> false, undefined/missing -> undefined
+      const activeOnly = req.query.activeOnly === 'true' ? true : req.query.activeOnly === 'false' ? false : undefined
 
       const result = await this.service.getChildren(id, activeOnly)
 
