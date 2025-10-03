@@ -504,20 +504,54 @@ router.delete('/items/:id', authenticate, itemController.delete.bind(itemControl
  *     tags:
  *       - Menu Items
  *     summary: Lấy menu items theo category (tree structure)
+ *     description: |
+ *       Lấy danh sách menu items theo categoryId với tree structure.
+ *       Filter theo active status:
+ *       - `active=true`: Chỉ lấy items có active=true
+ *       - `active=false`: Chỉ lấy items có active=false
+ *       - Không truyền active: Lấy tất cả items (cả active và inactive)
  *     parameters:
  *       - in: path
  *         name: categoryId
  *         required: true
  *         schema: { type: integer }
+ *         description: ID của menu category
  *       - in: query
  *         name: active
- *         schema: { type: boolean }
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: ['true', 'false']
+ *         description: |
+ *           Filter theo trạng thái active:
+ *           - 'true': Chỉ lấy items active
+ *           - 'false': Chỉ lấy items inactive
+ *           - Không truyền: Lấy tất cả
  *       - in: query
  *         name: includeChildren
- *         schema: { type: boolean }
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *           default: true
+ *         description: Có include children hay không (tree structure)
  *     responses:
  *       200:
  *         description: Menu items tree
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Lấy menu items thành công"
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
  *     security:
  *       - bearerAuth: []
  */

@@ -126,8 +126,9 @@ export class MenuItemService extends BaseService {
 
   /**
    * Lấy danh sách menu items theo category (tree structure)
+   * @param active - true: chỉ lấy active items, false: chỉ lấy inactive items, undefined: lấy tất cả
    */
-  async getItemsByCategoryId(categoryId: number, options?: { activeOnly?: boolean; includeChildren?: boolean }) {
+  async getItemsByCategoryId(categoryId: number, options?: { active?: boolean; includeChildren?: boolean }) {
     const items = await this.repo.findByCategoryId(categoryId, options)
     // Map tên user cho các trường createdBy/updatedBy
     return this.transformUserAuditFields(items)

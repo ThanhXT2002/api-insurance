@@ -90,8 +90,11 @@ export class MenuItemController {
       const categoryId = parseInt(req.params.categoryId)
       const { active, includeChildren } = req.query
 
+      // Parse active: 'true' -> true, 'false' -> false, undefined -> undefined
+      const activeFilter = active === 'true' ? true : active === 'false' ? false : undefined
+
       const result = await this.service.getItemsByCategoryId(categoryId, {
-        activeOnly: active === 'true',
+        active: activeFilter,
         includeChildren: includeChildren !== 'false' // Default true
       })
 

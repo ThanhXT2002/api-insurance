@@ -10,16 +10,18 @@ export class MenuItemRepository extends BaseRepository<'menuItem'> {
 
   /**
    * Tìm tất cả menu items theo categoryId
+   * @param active - true: chỉ lấy active items, false: chỉ lấy inactive items, undefined: lấy tất cả
    */
-  async findByCategoryId(
-    categoryId: number,
-    options?: { activeOnly?: boolean; includeChildren?: boolean },
-    client?: any
-  ) {
+  async findByCategoryId(categoryId: number, options?: { active?: boolean; includeChildren?: boolean }, client?: any) {
     const where: any = { categoryId, parentId: null }
-    if (options?.activeOnly) {
+
+    // Xử lý filter active
+    if (options?.active === true) {
       where.active = true
+    } else if (options?.active === false) {
+      where.active = false
     }
+    // Nếu active = undefined, không filter -> lấy tất cả
 
     const include: any = {
       creator: { select: { id: true, name: true, email: true } },
@@ -27,20 +29,28 @@ export class MenuItemRepository extends BaseRepository<'menuItem'> {
     }
 
     if (options?.includeChildren) {
+      // Xây dựng where cho children
+      let childrenWhere: any = undefined
+      if (options?.active === true) {
+        childrenWhere = { active: true }
+      } else if (options?.active === false) {
+        childrenWhere = { active: false }
+      }
+
       include.children = {
-        where: options?.activeOnly ? { active: true } : undefined,
+        where: childrenWhere,
         orderBy: { order: 'asc' },
         include: {
           creator: { select: { id: true, name: true, email: true } },
           updater: { select: { id: true, name: true, email: true } },
           children: {
-            where: options?.activeOnly ? { active: true } : undefined,
+            where: childrenWhere,
             orderBy: { order: 'asc' },
             include: {
               creator: { select: { id: true, name: true, email: true } },
               updater: { select: { id: true, name: true, email: true } },
               children: {
-                where: options?.activeOnly ? { active: true } : undefined,
+                where: childrenWhere,
                 orderBy: { order: 'asc' },
                 include: {
                   creator: { select: { id: true, name: true, email: true } },
