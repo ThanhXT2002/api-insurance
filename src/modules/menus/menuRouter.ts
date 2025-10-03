@@ -285,24 +285,49 @@ router.post('/categories/batch-active', authenticate, categoryController.batchAc
  *             properties:
  *               categoryId:
  *                 type: integer
+ *                 description: ID của menu category
  *               parentId:
  *                 type: integer
  *                 nullable: true
+ *                 description: ID của parent item (null nếu là root)
+ *               key:
+ *                 type: string
+ *                 description: Key unique (tự động generate nếu không cung cấp)
  *               label:
  *                 type: string
+ *                 description: Tên hiển thị của menu
  *               icon:
  *                 type: string
+ *                 description: Icon class (pi pi-home, pi pi-user...)
  *               url:
  *                 type: string
+ *                 description: URL đích
  *               routerLink:
  *                 type: string
+ *                 description: Angular router link
+ *               command:
+ *                 type: string
+ *                 description: JavaScript command
  *               order:
  *                 type: integer
+ *                 description: Thứ tự hiển thị (tự động tính nếu không cung cấp)
+ *               isBlank:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Mở link trong tab mới
+ *               expanded:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Mặc định expand hay collapse
  *               active:
  *                 type: boolean
+ *                 default: true
+ *                 description: Trạng thái active
  *     responses:
  *       201:
  *         description: Tạo menu item thành công
+ *       400:
+ *         description: Dữ liệu không hợp lệ
  *     security:
  *       - bearerAuth: []
  */
@@ -346,9 +371,46 @@ router.get('/items/:id', authenticate, itemController.getById.bind(itemControlle
  *         application/json:
  *           schema:
  *             type: object
+ *             properties:
+ *               key:
+ *                 type: string
+ *                 description: Key unique
+ *               label:
+ *                 type: string
+ *                 description: Tên hiển thị
+ *               icon:
+ *                 type: string
+ *                 description: Icon class
+ *               url:
+ *                 type: string
+ *                 description: URL đích
+ *               routerLink:
+ *                 type: string
+ *                 description: Angular router link
+ *               command:
+ *                 type: string
+ *                 description: JavaScript command
+ *               order:
+ *                 type: integer
+ *                 description: Thứ tự hiển thị
+ *               parentId:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: ID parent mới (di chuyển item)
+ *               isBlank:
+ *                 type: boolean
+ *                 description: Mở link trong tab mới
+ *               expanded:
+ *                 type: boolean
+ *                 description: Expand/collapse
+ *               active:
+ *                 type: boolean
+ *                 description: Trạng thái active
  *     responses:
  *       200:
  *         description: Cập nhật thành công
+ *       404:
+ *         description: Không tìm thấy menu item
  *     security:
  *       - bearerAuth: []
  */

@@ -13,27 +13,7 @@ export class MenuItemService extends BaseService {
    * Tạo menu item mới
    */
   async create(data: any, ctx?: { actorId?: number }) {
-    const {
-      categoryId,
-      parentId,
-      label,
-      icon,
-      url,
-      routerLink,
-      command,
-      order,
-      isBlank,
-      expanded,
-      selectable,
-      draggable,
-      droppable,
-      styleClass,
-      badge,
-      badgeClass,
-      description,
-      data: customData,
-      active
-    } = data
+    const { categoryId, parentId, label, icon, url, routerLink, command, order, isBlank, expanded, active } = data
 
     const actorId = ctx?.actorId || 1
 
@@ -65,14 +45,6 @@ export class MenuItemService extends BaseService {
       order: finalOrder,
       isBlank: isBlank ?? false,
       expanded: expanded ?? false,
-      selectable: selectable ?? true,
-      draggable: draggable ?? true,
-      droppable: droppable ?? true,
-      styleClass,
-      badge,
-      badgeClass,
-      description,
-      data: customData,
       active: active ?? true,
       createdBy: actorId,
       updatedBy: actorId
@@ -113,14 +85,6 @@ export class MenuItemService extends BaseService {
       'parentId',
       'isBlank',
       'expanded',
-      'selectable',
-      'draggable',
-      'droppable',
-      'styleClass',
-      'badge',
-      'badgeClass',
-      'description',
-      'data',
       'active'
     ]
 
@@ -255,14 +219,6 @@ export class MenuItemService extends BaseService {
       order: item.order + 1,
       isBlank: item.isBlank,
       expanded: item.expanded,
-      selectable: item.selectable,
-      draggable: item.draggable,
-      droppable: item.droppable,
-      styleClass: item.styleClass,
-      badge: item.badge,
-      badgeClass: item.badgeClass,
-      description: item.description,
-      data: item.data,
       active: item.active,
       createdBy: actorId,
       updatedBy: actorId

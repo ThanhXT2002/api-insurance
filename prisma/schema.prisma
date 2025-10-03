@@ -466,22 +466,10 @@ model MenuItem {
   categoryId Int // Thuộc loại menu nào
 
   // Display & Behavior
-  active     Boolean @default(true)
-  order      Int     @default(0) // Thứ tự hiển thị trong cùng cấp
-  isBlank    Boolean @default(false) // Mở link trong tab mới
-  expanded   Boolean @default(false) // Mặc định expand hay collapse
-  selectable Boolean @default(true) // Có thể select không
-  draggable  Boolean @default(true) // Có thể drag không
-  droppable  Boolean @default(true) // Có thể drop vào không
-
-  // Styling
-  styleClass String? // CSS class tùy chỉnh
-  badge      String? // Badge text (VD: "New", "3")
-  badgeClass String? // Badge CSS class
-
-  // Metadata
-  description String? // Mô tả cho admin
-  data        Json? // Dữ liệu tùy chỉnh thêm (flexible)
+  active   Boolean @default(true)
+  order    Int     @default(0) // Thứ tự hiển thị trong cùng cấp
+  isBlank  Boolean @default(false) // Mở link trong tab mới
+  expanded Boolean @default(false) // Mặc định expand hay collapse
 
   // Audit fields
   createdAt DateTime @default(now())
@@ -506,3 +494,7 @@ model MenuItem {
 // npx prisma generate
 // npx tsx prisma/seedContacts.ts
 // npx prisma studio --port 5555
+
+
+// npx prisma migrate dev --create-only --name remove_unused_menu_fields
+// npx prisma migrate dev

@@ -219,20 +219,11 @@ export class MenuCategoryService extends BaseService {
         routerLink: item.routerLink,
         command: item.command,
         isBlank: item.isBlank,
-        styleClass: item.styleClass,
-        badge: item.badge,
-        badgeClass: item.badgeClass,
-        description: item.description,
         active: item.active,
-        order: item.order,
-        ...item.data // Merge custom data
+        order: item.order
       },
       icon: item.icon,
       expanded: item.expanded,
-      selectable: item.selectable,
-      draggable: item.draggable,
-      droppable: item.droppable,
-      styleClass: item.styleClass,
       children: item.children && item.children.length > 0 ? this.transformToPrimeNGTree(item.children) : undefined
     }))
   }
