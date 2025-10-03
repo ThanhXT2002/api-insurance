@@ -202,4 +202,22 @@ export class MenuCategoryController {
         .send(ApiResponse.error(error.message, 'Đếm menu items thất bại', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
+
+  /**
+   * GET /api/menus/categories/:id/items-flat - Lấy tất cả menu items dạng flat list (không phân biệt cha con)
+   */
+  async getItemsFlat(req: Request, res: Response) {
+    try {
+      const id = parseInt(req.params.id)
+      const activeOnly = req.query.activeOnly === 'true' ? true : req.query.activeOnly === 'false' ? false : undefined
+
+      const result = await this.service.getAllItemsFlat(id, activeOnly)
+
+      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Lấy danh sách menu items thành công'))
+    } catch (error: any) {
+      res
+        .status(StatusCodes.BAD_REQUEST)
+        .send(ApiResponse.error(error.message, 'Lấy menu items thất bại', StatusCodes.BAD_REQUEST))
+    }
+  }
 }

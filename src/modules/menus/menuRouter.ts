@@ -143,6 +143,64 @@ router.get('/categories/:id/count-items', authenticate, categoryController.count
 
 /**
  * @openapi
+ * /api/menus/categories/{id}/items-flat:
+ *   get:
+ *     tags:
+ *       - Menu Categories
+ *     summary: Lấy tất cả menu items dạng flat list (không phân biệt cha con)
+ *     description: Trả về danh sách phẳng tất cả menu items trong category, không có cấu trúc tree
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: ID của menu category
+ *       - in: query
+ *         name: activeOnly
+ *         schema:
+ *           type: string
+ *           enum: [true, false]
+ *         description: Filter theo active status (true = chỉ active, false = chỉ inactive, không truyền = tất cả)
+ *     responses:
+ *       200:
+ *         description: Danh sách menu items (flat array)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   key:
+ *                     type: string
+ *                   label:
+ *                     type: string
+ *                   icon:
+ *                     type: string
+ *                   url:
+ *                     type: string
+ *                   routerLink:
+ *                     type: string
+ *                   parentId:
+ *                     type: integer
+ *                     nullable: true
+ *                   categoryId:
+ *                     type: integer
+ *                   active:
+ *                     type: boolean
+ *                   order:
+ *                     type: integer
+ *       404:
+ *         description: Không tìm thấy category
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/categories/:id/items-flat', authenticate, categoryController.getItemsFlat.bind(categoryController))
+
+/**
+ * @openapi
  * /api/menus/categories:
  *   post:
  *     tags:

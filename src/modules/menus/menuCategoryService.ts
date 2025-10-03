@@ -255,6 +255,52 @@ export class MenuCategoryService extends BaseService {
   }
 
   /**
+   * Lấy tất cả menu items trong category dạng flat list (không phân biệt cha con)
+   * @param categoryId - ID của menu category
+   * @param activeOnly - Chỉ lấy items active (default: undefined = tất cả)
+   * @returns Flat array of menu items
+   */
+  async getAllItemsFlat(categoryId: number, activeOnly?: boolean) {
+    // Lấy category với tất cả menu items (tree structure)
+    const category = await this.repo.findOneWithTree(categoryId, activeOnly)
+
+    if (!category) {
+      throw new Error('Menu category không tồn tại')
+    }
+
+    // Flatten tree thành flat list
+    const flatItems = this.flattenMenuTree(category.menus || [])
+
+    // Map tên user cho các trường createdBy/updatedBy
+    return this.transformUserAuditFields(flatItems)
+  }
+
+  /**
+   * Flatten menu tree thành flat array (recursive)
+   * @param items - Menu items tree
+   * @returns Flat array
+   */
+  private flattenMenuTree(items: any[]): any[] {
+    const result: any[] = []
+
+    const flatten = (items: any[]) => {
+      items.forEach((item) => {
+        // Add item hiện tại (không bao gồm children trong output)
+        const { children, ...itemWithoutChildren } = item
+        result.push(itemWithoutChildren)
+
+        // Recursively flatten children
+        if (children && children.length > 0) {
+          flatten(children)
+        }
+      })
+    }
+
+    flatten(items)
+    return result
+  }
+
+  /**
    * Đếm số menu items trong category
    */
   async countMenuItems(categoryId: number): Promise<number> {
