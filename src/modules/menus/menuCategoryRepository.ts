@@ -1,5 +1,6 @@
 import { BaseRepository } from '../../bases/repositoryBase'
 import prisma from '../../config/prismaClient'
+import { MenuHelper } from './menuHelper'
 
 /**
  * Repository xử lý CRUD cho MenuCategory
@@ -60,19 +61,12 @@ export class MenuCategoryRepository extends BaseRepository<'menuCategory'> {
     })
 
     // Bước 3: Group menu items theo categoryId và build tree
-    const menusByCategory = new Map()
-
-    allMenuItems.forEach((item: any) => {
-      if (!menusByCategory.has(item.categoryId)) {
-        menusByCategory.set(item.categoryId, [])
-      }
-      menusByCategory.get(item.categoryId).push(item)
-    })
+    const menusByCategory = MenuHelper.groupMenuItemsByCategory(allMenuItems)
 
     // Bước 4: Build tree cho mỗi category
     return categories.map((category: any) => ({
       ...category,
-      menus: this.buildTreeFromFlat(menusByCategory.get(category.id) || [])
+      menus: MenuHelper.buildTreeFromFlat(menusByCategory.get(category.id) || [])
     }))
   }
 
@@ -114,7 +108,7 @@ export class MenuCategoryRepository extends BaseRepository<'menuCategory'> {
     // Bước 3: Build tree structure từ flat array
     return {
       ...category,
-      menus: this.buildTreeFromFlat(allMenuItems)
+      menus: MenuHelper.buildTreeFromFlat(allMenuItems)
     }
   }
 
@@ -138,51 +132,5 @@ export class MenuCategoryRepository extends BaseRepository<'menuCategory'> {
       select: { _count: { select: { menus: true } } }
     })
     return result?._count?.menus || 0
-  }
-
-  /**
-   * Build tree structure từ flat array (O(n) complexity)
-   * @param items - Flat array of menu items
-   * @returns Tree structure
-   */
-  private buildTreeFromFlat(items: any[]): any[] {
-    const itemMap = new Map()
-    const roots: any[] = []
-
-    // Bước 1: Tạo map và khởi tạo children array
-    items.forEach((item: any) => {
-      itemMap.set(item.id, { ...item, children: [] })
-    })
-
-    // Bước 2: Build tree structure
-    items.forEach((item: any) => {
-      const treeItem = itemMap.get(item.id)
-
-      if (item.parentId === null) {
-        // Root item
-        roots.push(treeItem)
-      } else {
-        // Child item - add to parent's children
-        const parent = itemMap.get(item.parentId)
-        if (parent) {
-          parent.children.push(treeItem)
-        }
-      }
-    })
-
-    // Bước 3: Sắp xếp children theo order (recursive)
-    const sortChildren = (items: any[]) => {
-      items.forEach((item: any) => {
-        if (item.children.length > 0) {
-          item.children.sort((a: any, b: any) => a.order - b.order)
-          sortChildren(item.children)
-        }
-      })
-    }
-
-    roots.sort((a, b) => a.order - b.order)
-    sortChildren(roots)
-
-    return roots
   }
 }
