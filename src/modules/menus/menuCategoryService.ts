@@ -201,8 +201,9 @@ export class MenuCategoryService extends BaseService {
       ...category,
       menus: category.menus ? this.transformToPrimeNGTree(category.menus) : []
     }
-    // Map tên user cho các trường createdBy/updatedBy
-    return this.transformUserAuditFields(result)
+
+    // Loại bỏ thông tin nhạy cảm cho public API
+    return this.cleanForPublic(result)
   }
 
   /**
@@ -305,5 +306,14 @@ export class MenuCategoryService extends BaseService {
    */
   async countMenuItems(categoryId: number): Promise<number> {
     return this.repo.countMenuItems(categoryId)
+  }
+
+  /**
+   * Loại bỏ thông tin nhạy cảm cho public API
+   * Xóa: createdAt, updatedAt, createdBy, updatedBy
+   */
+  private cleanForPublic(data: any): any {
+    const { createdAt, updatedAt, createdBy, updatedBy, ...cleanData } = data
+    return cleanData
   }
 }
