@@ -152,54 +152,46 @@ export class MenuCategoryService extends BaseService {
 
   /**
    * API public: Lấy menu items theo category key (chỉ active)
-   * Dùng cho frontend public
+   * Dùng cho frontend public - Tối ưu performance
    */
   async getPublicMenuByKey(categoryKey: string) {
-    // Lấy category theo key, phải active
-    const category = await this.repo.findByKey(categoryKey, {
-      creator: { select: { id: true, name: true, email: true } },
-      updater: { select: { id: true, name: true, email: true } },
-      menus: {
-        where: { parentId: null, active: true },
-        orderBy: { order: 'asc' },
-        include: {
-          creator: { select: { id: true, name: true, email: true } },
-          updater: { select: { id: true, name: true, email: true } },
-          children: {
-            where: { active: true },
-            orderBy: { order: 'asc' },
-            include: {
-              creator: { select: { id: true, name: true, email: true } },
-              updater: { select: { id: true, name: true, email: true } },
-              children: {
-                where: { active: true },
-                orderBy: { order: 'asc' },
-                include: {
-                  creator: { select: { id: true, name: true, email: true } },
-                  updater: { select: { id: true, name: true, email: true } },
-                  children: {
-                    where: { active: true },
-                    orderBy: { order: 'asc' },
-                    include: {
-                      creator: { select: { id: true, name: true, email: true } },
-                      updater: { select: { id: true, name: true, email: true } }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    })
+    // Bước 1: Lấy category info (không include menus)
+    const category = await this.repo.findByKey(categoryKey, {})
 
     if (!category || !category.active) {
       throw new Error('Menu category không tồn tại hoặc đã bị vô hiệu hóa')
     }
 
+    // Bước 2: Lấy tất cả menu items của category trong 1 query duy nhất
+    const allMenuItems = await prisma.menuItem.findMany({
+      where: {
+        categoryId: category.id,
+        active: true
+      },
+      select: {
+        id: true,
+        key: true,
+        label: true,
+        icon: true,
+        url: true,
+        routerLink: true,
+        command: true,
+        isBlank: true,
+        active: true,
+        order: true,
+        expanded: true,
+        parentId: true
+      },
+      orderBy: { order: 'asc' }
+    })
+
+    // Bước 3: Build tree structure từ flat array
+    const menuTree = this.buildTreeFromFlat(allMenuItems)
+
+    // Bước 4: Transform sang PrimeNG format
     const result = {
       ...category,
-      menus: category.menus ? this.transformToPrimeNGTree(category.menus) : []
+      menus: this.transformToPrimeNGTree(menuTree)
     }
 
     // Loại bỏ thông tin nhạy cảm cho public API
@@ -306,6 +298,52 @@ export class MenuCategoryService extends BaseService {
    */
   async countMenuItems(categoryId: number): Promise<number> {
     return this.repo.countMenuItems(categoryId)
+  }
+
+  /**
+   * Build tree structure từ flat array (O(n) complexity)
+   * @param items - Flat array of menu items
+   * @returns Tree structure
+   */
+  private buildTreeFromFlat(items: any[]): any[] {
+    const itemMap = new Map()
+    const roots: any[] = []
+
+    // Bước 1: Tạo map và khởi tạo children array
+    items.forEach((item) => {
+      itemMap.set(item.id, { ...item, children: [] })
+    })
+
+    // Bước 2: Build tree structure
+    items.forEach((item) => {
+      const treeItem = itemMap.get(item.id)
+
+      if (item.parentId === null) {
+        // Root item
+        roots.push(treeItem)
+      } else {
+        // Child item - add to parent's children
+        const parent = itemMap.get(item.parentId)
+        if (parent) {
+          parent.children.push(treeItem)
+        }
+      }
+    })
+
+    // Bước 3: Sắp xếp children theo order (recursive)
+    const sortChildren = (items: any[]) => {
+      items.forEach((item) => {
+        if (item.children.length > 0) {
+          item.children.sort((a: any, b: any) => a.order - b.order)
+          sortChildren(item.children)
+        }
+      })
+    }
+
+    roots.sort((a, b) => a.order - b.order)
+    sortChildren(roots)
+
+    return roots
   }
 
   /**

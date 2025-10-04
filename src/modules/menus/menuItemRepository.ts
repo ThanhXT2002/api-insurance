@@ -1,4 +1,5 @@
 import { BaseRepository } from '../../bases/repositoryBase'
+import prisma from '../../config/prismaClient'
 
 /**
  * Repository xử lý CRUD cho MenuItem
@@ -9,68 +10,55 @@ export class MenuItemRepository extends BaseRepository<'menuItem'> {
   }
 
   /**
-   * Tìm tất cả menu items theo categoryId
+   * Tìm tất cả menu items theo categoryId - Tối ưu performance
    * @param active - true: chỉ lấy active items, false: chỉ lấy inactive items, undefined: lấy tất cả
    */
   async findByCategoryId(categoryId: number, options?: { active?: boolean; includeChildren?: boolean }, client?: any) {
-    const where: any = { categoryId, parentId: null }
+    if (!options?.includeChildren) {
+      // Nếu không cần children, chỉ lấy root items
+      const where: any = { categoryId, parentId: null }
+      
+      if (options?.active === true) {
+        where.active = true
+      } else if (options?.active === false) {
+        where.active = false
+      }
 
-    // Xử lý filter active
+      return this.findMany(
+        {
+          where,
+          include: {
+            creator: { select: { id: true, name: true, email: true } },
+            updater: { select: { id: true, name: true, email: true } }
+          },
+          orderBy: { order: 'asc' }
+        },
+        client
+      )
+    }
+
+    // Nếu cần children, lấy tất cả menu items rồi build tree
+    const where: any = { categoryId }
+    
     if (options?.active === true) {
       where.active = true
     } else if (options?.active === false) {
       where.active = false
     }
-    // Nếu active = undefined, không filter -> lấy tất cả
 
-    const include: any = {
-      creator: { select: { id: true, name: true, email: true } },
-      updater: { select: { id: true, name: true, email: true } }
-    }
-
-    if (options?.includeChildren) {
-      // Xây dựng where cho children
-      let childrenWhere: any = undefined
-      if (options?.active === true) {
-        childrenWhere = { active: true }
-      } else if (options?.active === false) {
-        childrenWhere = { active: false }
-      }
-
-      include.children = {
-        where: childrenWhere,
-        orderBy: { order: 'asc' },
-        include: {
-          creator: { select: { id: true, name: true, email: true } },
-          updater: { select: { id: true, name: true, email: true } },
-          children: {
-            where: childrenWhere,
-            orderBy: { order: 'asc' },
-            include: {
-              creator: { select: { id: true, name: true, email: true } },
-              updater: { select: { id: true, name: true, email: true } },
-              children: {
-                where: childrenWhere,
-                orderBy: { order: 'asc' },
-                include: {
-                  creator: { select: { id: true, name: true, email: true } },
-                  updater: { select: { id: true, name: true, email: true } }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    return this.findMany(
-      {
-        where,
-        include,
-        orderBy: { order: 'asc' }
+    // Lấy tất cả menu items trong 1 query
+    const allItems = await prisma.menuItem.findMany({
+      where,
+      include: {
+        creator: { select: { id: true, name: true, email: true } },
+        updater: { select: { id: true, name: true, email: true } }
       },
-      client
-    )
+      orderBy: { order: 'asc' }
+    })
+
+    // Build tree và chỉ trả về root items
+    const tree = this.buildTreeFromFlat(allItems)
+    return tree.filter((item: any) => item.parentId === null)
   }
 
   /**
@@ -228,5 +216,51 @@ export class MenuItemRepository extends BaseRepository<'menuItem'> {
       const siblings = await this.findChildren(parentId, false, client)
       return `${parent.key}-${siblings.length}`
     }
+  }
+
+  /**
+   * Build tree structure từ flat array (O(n) complexity)
+   * @param items - Flat array of menu items
+   * @returns Tree structure
+   */
+  private buildTreeFromFlat(items: any[]): any[] {
+    const itemMap = new Map()
+    const roots: any[] = []
+
+    // Bước 1: Tạo map và khởi tạo children array
+    items.forEach((item: any) => {
+      itemMap.set(item.id, { ...item, children: [] })
+    })
+
+    // Bước 2: Build tree structure
+    items.forEach((item: any) => {
+      const treeItem = itemMap.get(item.id)
+      
+      if (item.parentId === null) {
+        // Root item
+        roots.push(treeItem)
+      } else {
+        // Child item - add to parent's children
+        const parent = itemMap.get(item.parentId)
+        if (parent) {
+          parent.children.push(treeItem)
+        }
+      }
+    })
+
+    // Bước 3: Sắp xếp children theo order (recursive)
+    const sortChildren = (items: any[]) => {
+      items.forEach((item: any) => {
+        if (item.children.length > 0) {
+          item.children.sort((a: any, b: any) => a.order - b.order)
+          sortChildren(item.children)
+        }
+      })
+    }
+
+    roots.sort((a, b) => a.order - b.order)
+    sortChildren(roots)
+
+    return roots
   }
 }
