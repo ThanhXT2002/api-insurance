@@ -76,7 +76,9 @@ export class BaseService<T = any> {
   protected getAuditInclude(): any {
     const modelName = this.repository.getModelName
 
-    if (modelName === 'postCategory' || modelName === 'post') {
+    // Models that use relation fields for audit
+    const relationAuditModels = ['postCategory', 'post', 'menuCategory', 'menuItem']
+    if (relationAuditModels.includes(modelName as string)) {
       return {
         creator: {
           select: {
@@ -178,14 +180,15 @@ export class BaseService<T = any> {
   private injectCreateAuditFields(data: any, actorId: number) {
     const modelName = this.repository.getModelName
     // Models that use relation fields named `creator` / `updater` for nested connect
-    if (modelName === 'postCategory' || modelName === 'post') {
+    const relationAuditModels = ['postCategory', 'post', 'menuCategory', 'menuItem']
+    if (relationAuditModels.includes(modelName as string)) {
       data.creator = { connect: { id: actorId } }
       data.updater = { connect: { id: actorId } }
       return
     }
 
     // Models that declare scalar createdBy / updatedBy fields
-    const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta', 'menuCategory', 'menuItem']
+    const scalarAuditModels = ['postComment', 'seoMeta']
     if (scalarAuditModels.includes(modelName as string)) {
       data.createdBy = actorId
     }
@@ -193,12 +196,15 @@ export class BaseService<T = any> {
 
   private injectUpdateAuditFields(data: any, actorId: number) {
     const modelName = this.repository.getModelName
-    if (modelName === 'postCategory' || modelName === 'post') {
+    // Models that use relation fields named `creator` / `updater` for nested connect
+    const relationAuditModels = ['postCategory', 'post', 'menuCategory', 'menuItem']
+    if (relationAuditModels.includes(modelName as string)) {
       data.updater = { connect: { id: actorId } }
       return
     }
 
-    const scalarAuditModels = ['postCategory', 'post', 'postComment', 'seoMeta', 'menuCategory', 'menuItem']
+    // Models that declare scalar createdBy / updatedBy fields
+    const scalarAuditModels = ['postComment', 'seoMeta']
     if (scalarAuditModels.includes(modelName as string)) {
       data.updatedBy = actorId
     }

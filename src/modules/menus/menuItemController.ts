@@ -36,6 +36,7 @@ export class MenuItemController {
 
       res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Cập nhật menu item thành công'))
     } catch (error: any) {
+      console.log('Error updating menu item:', error)
       res
         .status(StatusCodes.BAD_REQUEST)
         .send(ApiResponse.error(error.message, 'Cập nhật menu item thất bại', StatusCodes.BAD_REQUEST))

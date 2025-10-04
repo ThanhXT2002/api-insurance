@@ -71,22 +71,10 @@ export class MenuItemService extends BaseService {
       }
     }
 
-    const updateData: any = { updatedBy: actorId }
+    const updateData: any = {}
 
-    // Map các fields
-    const fields = [
-      'key',
-      'label',
-      'icon',
-      'url',
-      'routerLink',
-      'command',
-      'order',
-      'parentId',
-      'isBlank',
-      'expanded',
-      'active'
-    ]
+    // Map các fields (excluding parentId - handled separately)
+    const fields = ['key', 'label', 'icon', 'url', 'routerLink', 'command', 'isBlank', 'expanded', 'active']
 
     fields.forEach((field) => {
       if (data[field] !== undefined) {
@@ -94,7 +82,22 @@ export class MenuItemService extends BaseService {
       }
     })
 
-    return this.repo.update({ id }, updateData)
+    // Handle parentId as relation
+    if (data.parentId !== undefined) {
+      if (data.parentId === null || data.parentId === 0) {
+        updateData.parent = { disconnect: true }
+      } else {
+        updateData.parent = { connect: { id: data.parentId } }
+      }
+    }
+
+    // Handle order field separately - don't allow null, use existing value or default
+    if (data.order !== undefined && data.order !== null) {
+      updateData.order = data.order
+    }
+
+    // Use BaseService update method to inject audit fields properly
+    return super.update({ id }, updateData, { actorId })
   }
 
   /**
