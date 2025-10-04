@@ -17,7 +17,7 @@ export class MenuItemRepository extends BaseRepository<'menuItem'> {
     if (!options?.includeChildren) {
       // Nếu không cần children, chỉ lấy root items
       const where: any = { categoryId, parentId: null }
-      
+
       if (options?.active === true) {
         where.active = true
       } else if (options?.active === false) {
@@ -39,7 +39,7 @@ export class MenuItemRepository extends BaseRepository<'menuItem'> {
 
     // Nếu cần children, lấy tất cả menu items rồi build tree
     const where: any = { categoryId }
-    
+
     if (options?.active === true) {
       where.active = true
     } else if (options?.active === false) {
@@ -235,7 +235,7 @@ export class MenuItemRepository extends BaseRepository<'menuItem'> {
     // Bước 2: Build tree structure
     items.forEach((item: any) => {
       const treeItem = itemMap.get(item.id)
-      
+
       if (item.parentId === null) {
         // Root item
         roots.push(treeItem)

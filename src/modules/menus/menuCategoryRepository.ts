@@ -61,7 +61,7 @@ export class MenuCategoryRepository extends BaseRepository<'menuCategory'> {
 
     // Bước 3: Group menu items theo categoryId và build tree
     const menusByCategory = new Map()
-    
+
     allMenuItems.forEach((item: any) => {
       if (!menusByCategory.has(item.categoryId)) {
         menusByCategory.set(item.categoryId, [])
@@ -157,7 +157,7 @@ export class MenuCategoryRepository extends BaseRepository<'menuCategory'> {
     // Bước 2: Build tree structure
     items.forEach((item: any) => {
       const treeItem = itemMap.get(item.id)
-      
+
       if (item.parentId === null) {
         // Root item
         roots.push(treeItem)
