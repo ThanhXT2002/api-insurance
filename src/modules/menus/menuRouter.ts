@@ -604,7 +604,12 @@ router.delete('/items/:id', authenticate, requirePermissions('menu.delete'), ite
  *     security:
  *       - bearerAuth: []
  */
-router.get('/items/category/:categoryId', authenticate, requirePermissions('menu.view'), itemController.getByCategory.bind(itemController))
+router.get(
+  '/items/category/:categoryId',
+  authenticate,
+  requirePermissions('menu.view'),
+  itemController.getByCategory.bind(itemController)
+)
 
 /**
  * @openapi
@@ -632,7 +637,12 @@ router.get('/items/category/:categoryId', authenticate, requirePermissions('menu
  *     security:
  *       - bearerAuth: []
  */
-router.post('/items/batch-active', authenticate, requirePermissions('menu.update'), itemController.batchActive.bind(itemController))
+router.post(
+  '/items/batch-active',
+  authenticate,
+  requirePermissions('menu.update'),
+  itemController.batchActive.bind(itemController)
+)
 
 /**
  * @openapi
@@ -669,7 +679,12 @@ router.post('/items/batch-active', authenticate, requirePermissions('menu.update
  *     security:
  *       - bearerAuth: []
  */
-router.post('/items/reorder', authenticate, requirePermissions('menu.update'), itemController.reorder.bind(itemController))
+router.post(
+  '/items/reorder',
+  authenticate,
+  requirePermissions('menu.update'),
+  itemController.reorder.bind(itemController)
+)
 
 /**
  * @openapi
@@ -702,7 +717,12 @@ router.post('/items/reorder', authenticate, requirePermissions('menu.update'), i
  *     security:
  *       - bearerAuth: []
  */
-router.post('/items/batch-update-order', authenticate, requirePermissions('menu.update'), itemController.batchUpdateOrder.bind(itemController))
+router.post(
+  '/items/batch-update-order',
+  authenticate,
+  requirePermissions('menu.update'),
+  itemController.batchUpdateOrder.bind(itemController)
+)
 
 /**
  * @openapi
@@ -734,7 +754,12 @@ router.post('/items/batch-update-order', authenticate, requirePermissions('menu.
  *     security:
  *       - bearerAuth: []
  */
-router.post('/items/:id/move', authenticate, requirePermissions('menu.update'), itemController.moveItem.bind(itemController))
+router.post(
+  '/items/:id/move',
+  authenticate,
+  requirePermissions('menu.update'),
+  itemController.moveItem.bind(itemController)
+)
 
 /**
  * @openapi
@@ -754,7 +779,12 @@ router.post('/items/:id/move', authenticate, requirePermissions('menu.update'), 
  *     security:
  *       - bearerAuth: []
  */
-router.post('/items/:id/duplicate', authenticate, requirePermissions('menu.create'), itemController.duplicate.bind(itemController))
+router.post(
+  '/items/:id/duplicate',
+  authenticate,
+  requirePermissions('menu.create'),
+  itemController.duplicate.bind(itemController)
+)
 
 /**
  * @openapi
@@ -806,7 +836,12 @@ router.post('/items/:id/duplicate', authenticate, requirePermissions('menu.creat
  *     security:
  *       - bearerAuth: []
  */
-router.get('/items/:id/children', authenticate, requirePermissions('menu.view'), itemController.getChildren.bind(itemController))
+router.get(
+  '/items/:id/children',
+  authenticate,
+  requirePermissions('menu.view'),
+  itemController.getChildren.bind(itemController)
+)
 
 /**
  * @openapi
@@ -826,6 +861,11 @@ router.get('/items/:id/children', authenticate, requirePermissions('menu.view'),
  *     security:
  *       - bearerAuth: []
  */
-router.get('/items/:id/count-children', authenticate, requirePermissions('menu.view'), itemController.countChildren.bind(itemController))
+router.get(
+  '/items/:id/count-children',
+  authenticate,
+  requirePermissions('menu.view'),
+  itemController.countChildren.bind(itemController)
+)
 
 export default router
