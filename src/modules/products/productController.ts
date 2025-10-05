@@ -180,8 +180,8 @@ export class ProductController {
         price: price ? parseInt(price) : undefined,
         coverage: coverage ? parseInt(coverage) : undefined,
         term,
-        targetLink,
-        targetFile,
+        targetLink: targetLink.trim(),
+        targetFile: targetFile.trim(),
         details,
         // icon will be handled as uploaded file when provided; keep original icon string when not uploading
         icon,
@@ -361,8 +361,8 @@ export class ProductController {
       if (body.isHighlighted !== undefined) updateData.isHighlighted = body.isHighlighted === 'true'
       if (body.isFeatured !== undefined) updateData.isFeatured = body.isFeatured === 'true'
       if (body.term !== undefined) updateData.term = body.term
-      if (body.targetLink !== undefined) updateData.targetLink = body.targetLink
-      if (body.targetFile !== undefined) updateData.targetFile = body.targetFile
+      if (body.targetLink !== undefined) updateData.targetLink = body.targetLink.trim()
+      if (body.targetFile !== undefined) updateData.targetFile = body.targetFile.trim()
       if (body.isSaleOnline !== undefined) updateData.isSaleOnline = body.isSaleOnline === 'true'
       if (body.active !== undefined) updateData.active = body.active === 'true'
       if (body.tags !== undefined) updateData.tags = this.parseArrayField(body.tags)
