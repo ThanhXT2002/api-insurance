@@ -333,15 +333,35 @@ export class ProductService extends BaseService {
   }
 
   async findBySlug(slug: string) {
-    const product = await this.repo.findBySlug(slug, this.getProductIncludeWithNameAuthor())
+    // Use a minimal select for public product detail endpoint. SEO is loaded separately.
+    const select = {
+      id: true,
+      sku: true,
+      name: true,
+      description: true,
+      slug: true,
+      price: true,
+      targetLink: true,
+      targetFile: true,
+      shortContent: true,
+      content: true,
+      imgs: true,
+      isSaleOnline: true,
+      isPromotion: true,
+      promotionDetails: true
+    }
+
+    const product = await this.repo.findBySlug(slug, { select })
     if (!product) return null
-    // Load SEO
+
+    // Load SEO metadata and attach as seoMeta
     try {
       const seo = await seoService.getSeoFor(SeoableType.PRODUCT, product.id)
       if (seo) (product as any).seoMeta = seo
     } catch (err: any) {
       console.error('Failed to load seo for product', product.id, err?.message || err)
     }
+
     return this.transformUserAuditFields([product])[0]
   }
 

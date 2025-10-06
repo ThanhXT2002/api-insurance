@@ -6,8 +6,20 @@ export class ProductRepository extends BaseRepository<'product'> {
     super('product', logger)
   }
 
-  async findBySlug(slug: string, include?: any, client?: any) {
-    return this.findUnique({ where: { slug }, include }, client)
+  // Allow callers to pass either `include` or `select` via an options object
+  async findBySlug(slug: string, options?: { select?: any; include?: any } | any, client?: any) {
+    // Backwards-compatible: if caller passed an include object as the second arg, support it
+    const maybeOptions = options ?? {}
+    const select = maybeOptions.select
+    const include =
+      maybeOptions.include ??
+      (maybeOptions.include === undefined && maybeOptions && !('select' in maybeOptions) ? maybeOptions : undefined)
+
+    const query: any = { where: { slug } }
+    if (include) query.include = include
+    else if (select) query.select = select
+
+    return this.findUnique(query, client)
   }
 
   // Simple search by name, shortContent, content
