@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { getSupabaseAdmin, getSupabase } from '../config/supabaseClient'
 import { AuthRepository } from '../modules/auth/authRepository'
+import { UserCacheHelper } from '../services/cacheService'
 
 // Extend Express Request interface to include user context
 declare global {
@@ -33,51 +34,11 @@ declare global {
   }
 }
 
-// Simple in-memory cache for user permissions
-interface UserCache {
-  data: any
-  timestamp: number
-}
-
 export class AuthMiddleware {
   private authRepository: AuthRepository
-  private userCache: Map<number, UserCache> = new Map()
-  private CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   constructor() {
     this.authRepository = new AuthRepository()
-
-    // Clean cache every 10 minutes
-    setInterval(() => this.cleanExpiredCache(), 10 * 60 * 1000)
-  }
-
-  private cleanExpiredCache() {
-    const now = Date.now()
-    for (const [userId, cache] of this.userCache.entries()) {
-      if (now - cache.timestamp > this.CACHE_TTL) {
-        this.userCache.delete(userId)
-      }
-    }
-  }
-
-  private getCachedUser(userId: number): any | null {
-    const cache = this.userCache.get(userId)
-    if (!cache) return null
-
-    const now = Date.now()
-    if (now - cache.timestamp > this.CACHE_TTL) {
-      this.userCache.delete(userId)
-      return null
-    }
-
-    return cache.data
-  }
-
-  private setCachedUser(userId: number, data: any) {
-    this.userCache.set(userId, {
-      data,
-      timestamp: Date.now()
-    })
   }
 
   /**
@@ -380,9 +341,30 @@ export class AuthMiddleware {
     return localUser
   }
 
-  private async loadUserPermissions(user: any) {
-    // Check cache first
-    const cached = this.getCachedUser(user.id)
+  private async loadUserPermissions(user: any): Promise<{
+    id: number
+    supabaseId: string
+    email: string
+    name: string | null
+    phoneNumber: string | null
+    addresses: string | null
+    avatarUrl: string | null
+    active: boolean
+    updatedAt: Date
+    roles: Array<{
+      id: number
+      key: string
+      name: string
+      permissions: Array<{
+        id: number
+        key: string
+        name: string
+      }>
+    }>
+    permissions: Set<string>
+  }> {
+    // Check cache first using CacheService
+    const cached = UserCacheHelper.getUser(user.id)
     if (cached) {
       return cached
     }
@@ -486,20 +468,20 @@ export class AuthMiddleware {
       permissions
     }
 
-    // Cache the result
-    this.setCachedUser(user.id, result)
+    // Cache the result using CacheService
+    UserCacheHelper.setUser(user.id, result)
 
     return result
   }
 
   // Public method to clear cache for a specific user (useful after update)
   public clearUserCache(userId: number) {
-    this.userCache.delete(userId)
+    UserCacheHelper.clearUser(userId)
   }
 
   // Public method to clear all cache
   public clearAllCache() {
-    this.userCache.clear()
+    UserCacheHelper.clearAllUsers()
   }
 }
 
