@@ -288,10 +288,19 @@ export class ProductService extends BaseService {
   async getProductHome(params: { limit?: number } = {}) {
     const limit = typeof params.limit === 'number' ? params.limit : Number(params.limit) || 10
 
-    // Load candidates with minimal includes
+    // Load candidates with a minimal select to reduce payload (include updatedAt for sorting)
     const candidates = await this.repo.findMany({
       where: { active: true, isFeatured: true },
-      include: this.getProductIncludeWithNameAuthor()
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        icon: true,
+        priority: true,
+        // include updatedAt for sorting logic but we'll strip it from final output
+        updatedAt: true
+      }
     })
 
     // Ensure we operate on array
@@ -313,7 +322,14 @@ export class ProductService extends BaseService {
 
     const selected = typeof limit === 'number' && limit > 0 ? rows.slice(0, limit) : rows
 
-    return this.transformUserAuditFields(selected)
+    // Strip transient sorting field updatedAt before returning to FE
+    const cleaned = selected.map((r: any) => {
+      const copy = { ...r }
+      if ('updatedAt' in copy) delete copy.updatedAt
+      return copy
+    })
+
+    return this.transformUserAuditFields(cleaned)
   }
 
   async findBySlug(slug: string) {
