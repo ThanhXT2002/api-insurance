@@ -873,13 +873,6 @@ export class PostService extends BaseService {
     }
   }
 
-  private getPostCateInclude() {
-    return {
-      category: {
-        select: { id: true, name: true, slug: true }
-      }
-    }
-  }
 
   // Helper: Get include object for posts with SEO
   private getPostIncludeWithSeo() {

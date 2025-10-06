@@ -9,32 +9,32 @@ export class PostRepository extends BaseRepository<'post'> {
 
   // Tìm post theo slug
   // Accept options so callers can provide `select` or `include`.
-  async findBySlug(slug: string, options: { select?: any; include?: any } = {}, client?: any) {
-    const defaultSelect = {
-      // include most public-facing fields but exclude admin / heavy fields
-      id: true,
-      title: true,
-      slug: true,
-      excerpt: true,
-      shortContent: true,
-      content: true,
-      featuredImage: true,
-      videoUrl: true,
-      publishedAt: true,
-      targetAudience: true,
-      metaKeywords: true,
-      // relations useful for public pages
-      category: { select: { id: true, name: true, slug: true } },
-      taggedCategoryTags: { select: { category: { select: { id: true, name: true, slug: true } } } },
-      postProductLinks: { select: { product: { select: { id: true, name: true, slug: true, price: true } } } },
-      _count: { select: { comments: true } }
-    }
+  // async findBySlug(slug: string, options: { select?: any; include?: any } = {}, client?: any) {
+  //   const defaultSelect = {
+  //     // include most public-facing fields but exclude admin / heavy fields
+  //     id: true,
+  //     title: true,
+  //     slug: true,
+  //     excerpt: true,
+  //     shortContent: true,
+  //     content: true,
+  //     featuredImage: true,
+  //     videoUrl: true,
+  //     publishedAt: true,
+  //     targetAudience: true,
+  //     metaKeywords: true,
+  //     // relations useful for public pages
+  //     category: { select: { id: true, name: true, slug: true } },
+  //     taggedCategoryTags: { select: { category: { select: { id: true, name: true, slug: true } } } },
+  //     postProductLinks: { select: { product: { select: { id: true, name: true, slug: true, price: true } } } },
+  //     _count: { select: { comments: true } }
+  //   }
 
-    const { select, include } = options
-    // Avoid passing both `select` and `include` to Prisma at the same time.
-    const queryShape = include ? { include } : { select: select ?? defaultSelect }
-    return this.findUnique({ where: { slug }, ...queryShape }, client)
-  }
+  //   const { select, include } = options
+  //   // Avoid passing both `select` and `include` to Prisma at the same time.
+  //   const queryShape = include ? { include } : { select: select ?? defaultSelect }
+  //   return this.findUnique({ where: { slug }, ...queryShape }, client)
+  // }
 
   // Tìm post đã publish theo slug (áp dụng rule publishedAt <= now và chưa expired)
   // Accept options with `select` so callers can ask for a lightweight shape.
@@ -78,39 +78,39 @@ export class PostRepository extends BaseRepository<'post'> {
   }
 
   // Tìm posts đã publish và không hết hạn
-  async findPublished(
-    options: {
-      limit?: number
-      skip?: number
-      categoryId?: number
-      postType?: PostType
-      include?: any
-    } = {},
-    client?: any
-  ) {
-    const { limit, skip, categoryId, postType, include } = options
-    const now = new Date()
+  // async findPublished(
+  //   options: {
+  //     limit?: number
+  //     skip?: number
+  //     categoryId?: number
+  //     postType?: PostType
+  //     include?: any
+  //   } = {},
+  //   client?: any
+  // ) {
+  //   const { limit, skip, categoryId, postType, include } = options
+  //   const now = new Date()
 
-    const where: any = {
-      status: PostStatus.PUBLISHED,
-      publishedAt: { lte: now },
-      OR: [{ expiredAt: null }, { expiredAt: { gt: now } }]
-    }
+  //   const where: any = {
+  //     status: PostStatus.PUBLISHED,
+  //     publishedAt: { lte: now },
+  //     OR: [{ expiredAt: null }, { expiredAt: { gt: now } }]
+  //   }
 
-    if (categoryId) where.categoryId = categoryId
-    if (postType) where.postType = postType
+  //   if (categoryId) where.categoryId = categoryId
+  //   if (postType) where.postType = postType
 
-    return this.findMany(
-      {
-        where,
-        include,
-        orderBy: { publishedAt: 'desc' },
-        take: limit,
-        skip
-      },
-      client
-    )
-  }
+  //   return this.findMany(
+  //     {
+  //       where,
+  //       include,
+  //       orderBy: { publishedAt: 'desc' },
+  //       take: limit,
+  //       skip
+  //     },
+  //     client
+  //   )
+  // }
 
   // Minimal variant: select only fields needed for lists to improve performance
   async findPublishedMinimal(
@@ -157,66 +157,66 @@ export class PostRepository extends BaseRepository<'post'> {
     )
   }
 
-  // Tìm posts theo category
-  async findByCategory(
-    categoryId: number,
-    options: {
-      limit?: number
-      skip?: number
-      status?: PostStatus
-      include?: any
-    } = {},
-    client?: any
-  ) {
-    const { limit, skip, status, include } = options
-    const where: any = { categoryId }
+  // // Tìm posts theo category
+  // async findByCategory(
+  //   categoryId: number,
+  //   options: {
+  //     limit?: number
+  //     skip?: number
+  //     status?: PostStatus
+  //     include?: any
+  //   } = {},
+  //   client?: any
+  // ) {
+  //   const { limit, skip, status, include } = options
+  //   const where: any = { categoryId }
 
-    if (status) where.status = status
+  //   if (status) where.status = status
 
-    return this.findMany(
-      {
-        where,
-        include,
-        orderBy: { createdAt: 'desc' },
-        take: limit,
-        skip
-      },
-      client
-    )
-  }
+  //   return this.findMany(
+  //     {
+  //       where,
+  //       include,
+  //       orderBy: { createdAt: 'desc' },
+  //       take: limit,
+  //       skip
+  //     },
+  //     client
+  //   )
+  // }
 
-  // Tìm posts featured/highlighted
-  async findFeatured(
-    options: {
-      limit?: number
-      isFeatured?: boolean
-      isHighlighted?: boolean
-      include?: any
-    } = {},
-    client?: any
-  ) {
-    const { limit, isFeatured, isHighlighted, include } = options
-    const now = new Date()
+  // // Tìm posts featured/highlighted
+  // async findFeatured(
+  //   options: {
+  //     limit?: number
+  //     isFeatured?: boolean
+  //     isHighlighted?: boolean
+  //     include?: any
+  //   } = {},
+  //   client?: any
+  // ) {
+  //   const { limit, isFeatured, isHighlighted, include } = options
+  //   const now = new Date()
 
-    const where: any = {
-      status: PostStatus.PUBLISHED,
-      publishedAt: { lte: now },
-      OR: [{ expiredAt: null }, { expiredAt: { gt: now } }]
-    }
+  //   const where: any = {
+  //     status: PostStatus.PUBLISHED,
+  //     publishedAt: { lte: now },
+  //     OR: [{ expiredAt: null }, { expiredAt: { gt: now } }]
+  //   }
 
-    if (isFeatured !== undefined) where.isFeatured = isFeatured
-    if (isHighlighted !== undefined) where.isHighlighted = isHighlighted
+  //   if (isFeatured !== undefined) where.isFeatured = isFeatured
+  //   if (isHighlighted !== undefined) where.isHighlighted = isHighlighted
 
-    return this.findMany(
-      {
-        where,
-        include,
-        orderBy: [{ priority: 'desc' }, { publishedAt: 'desc' }],
-        take: limit
-      },
-      client
-    )
-  }
+  //   return this.findMany(
+  //     {
+  //       where,
+  //       include,
+  //       orderBy: [{ priority: 'desc' }, { publishedAt: 'desc' }],
+  //       take: limit
+  //     },
+  //     client
+  //   )
+  // }
 
   // Minimal variant for featured posts
   async findFeaturedMinimal(
@@ -253,7 +253,7 @@ export class PostRepository extends BaseRepository<'post'> {
       {
         where,
         select,
-        orderBy: [{ priority: 'desc' }, { publishedAt: 'desc' }],
+        orderBy: { publishedAt: 'desc' },
         take: limit
       },
       client
