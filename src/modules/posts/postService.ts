@@ -168,13 +168,13 @@ export class PostService extends BaseService {
     const highlightedFlag = typeof isHighlighted === 'string' ? isHighlighted === 'true' : !!isHighlighted
 
     // Minimal select for public list endpoints
-      const listSelect = {
-        id: true,
-        title: true,
-        featuredImage: true,
-        publishedAt: true,
-        category: { select: { id: true, name: true, slug: true } }
-      }
+    const listSelect = {
+      id: true,
+      title: true,
+      featuredImage: true,
+      publishedAt: true,
+      category: { select: { id: true, name: true, slug: true } }
+    }
 
     if (keyword) {
       // Tìm kiếm theo keyword (title/excerpt/content) - support pagination and other filters
@@ -186,7 +186,7 @@ export class PostService extends BaseService {
         isHighlighted: typeof isHighlighted !== 'undefined' ? highlightedFlag : undefined,
         skip: (safePage - 1) * safeLimit,
         limit: safeLimit,
-          select: listSelect
+        select: listSelect
       })
 
       // repo.search returns { rows, total } or array depending on implementation; normalize
@@ -212,13 +212,13 @@ export class PostService extends BaseService {
     const skip = (safePage - 1) * safeLimit
     const [total, rows] = await Promise.all([
       this.repo.count({ where: filters }),
-        this.repo.findMany({
-          where: filters,
-          select: listSelect,
-          orderBy: { publishedAt: 'desc' },
-          skip,
-          take: safeLimit
-        })
+      this.repo.findMany({
+        where: filters,
+        select: listSelect,
+        orderBy: { publishedAt: 'desc' },
+        skip,
+        take: safeLimit
+      })
     ])
 
     return {
