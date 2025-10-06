@@ -25,10 +25,10 @@ export class ProductRepository extends BaseRepository<'product'> {
   // Simple search by name, shortContent, content
   async search(
     keyword: string,
-    options: { limit?: number; skip?: number; active?: boolean; include?: any } = {},
+    options: { limit?: number; skip?: number; active?: boolean; include?: any; select?: any } = {},
     client?: any
   ) {
-    const { limit, skip, active, include } = options
+    const { limit, skip, active, include, select } = options
 
     const where: any = {
       OR: [
@@ -45,6 +45,7 @@ export class ProductRepository extends BaseRepository<'product'> {
     if (skip) findQuery.skip = skip
     if (limit) findQuery.take = limit
     if (include) findQuery.include = include
+    else if (select) findQuery.select = select
 
     const db = client ?? prisma
 

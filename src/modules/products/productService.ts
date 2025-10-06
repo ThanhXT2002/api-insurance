@@ -265,16 +265,45 @@ export class ProductService extends BaseService {
     const safePage = Math.max(1, Number(page) || 1)
     const safeLimit = Math.max(1, Number(limit) || 20)
 
+    // Minimal select for listing/search to reduce payload
+    const listSelect = {
+      id: true,
+      name: true,
+      icon: true,
+      sku: true,
+      active: true,
+      isSaleOnline: true
+    }
+
     if (keyword) {
-      const result = await this.repo.search(keyword, { skip: (safePage - 1) * safeLimit, limit: safeLimit, active })
+      const result = await this.repo.search(keyword, {
+        skip: (safePage - 1) * safeLimit,
+        limit: safeLimit,
+        active,
+        select: listSelect
+      })
       if (result && typeof result === 'object' && 'rows' in result && 'total' in result) return result
       const resAny: any = result
       return { rows: resAny, total: Array.isArray(resAny) ? resAny.length : 0 }
     }
 
-    const filters: any = {}
-    if (typeof active !== 'undefined') filters.active = active
-    return super.getAll({ page: safePage, limit: safeLimit, filters })
+    // Non-keyword listing: use repo.findMany with select and count for pagination
+    const where: any = {}
+    if (typeof active !== 'undefined') where.active = active
+
+    const skip = (safePage - 1) * safeLimit
+    const [total, rows] = await Promise.all([
+      this.repo.count({ where }),
+      this.repo.findMany({ where, select: listSelect, skip, take: safeLimit })
+    ])
+
+    return {
+      rows: this.transformUserAuditFields(rows),
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit)
+    }
   }
 
   /**
