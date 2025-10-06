@@ -167,6 +167,15 @@ export class PostService extends BaseService {
     const featuredFlag = typeof isFeatured === 'string' ? isFeatured === 'true' : !!isFeatured
     const highlightedFlag = typeof isHighlighted === 'string' ? isHighlighted === 'true' : !!isHighlighted
 
+    // Minimal select for public list endpoints
+      const listSelect = {
+        id: true,
+        title: true,
+        featuredImage: true,
+        publishedAt: true,
+        category: { select: { id: true, name: true, slug: true } }
+      }
+
     if (keyword) {
       // Tìm kiếm theo keyword (title/excerpt/content) - support pagination and other filters
       const results = await this.repo.search(keyword, {
@@ -177,7 +186,7 @@ export class PostService extends BaseService {
         isHighlighted: typeof isHighlighted !== 'undefined' ? highlightedFlag : undefined,
         skip: (safePage - 1) * safeLimit,
         limit: safeLimit,
-        include: this.getPostInclude()
+          select: listSelect
       })
 
       // repo.search returns { rows, total } or array depending on implementation; normalize
@@ -191,7 +200,7 @@ export class PostService extends BaseService {
       return { rows: transformedResults, total }
     }
 
-    // Apply filters if provided (non-keyword path uses BaseService paging)
+    // Apply filters if provided
     const filters: any = {}
     if (status) filters.status = status
     if (categoryId) filters.categoryId = Number(categoryId)
@@ -199,9 +208,26 @@ export class PostService extends BaseService {
     if (typeof isFeatured !== 'undefined') filters.isFeatured = featuredFlag
     if (typeof isHighlighted !== 'undefined') filters.isHighlighted = highlightedFlag
 
-    // Ensure we include join relations so responses can expose taggedCategoryIds and relatedProductIds
-    const include = this.getPostInclude()
-    return super.getAll({ ...otherParams, page: safePage, limit: safeLimit, filters, include })
+    // Non-keyword path: use count + findMany with minimal select and category include for pagination
+    const skip = (safePage - 1) * safeLimit
+    const [total, rows] = await Promise.all([
+      this.repo.count({ where: filters }),
+        this.repo.findMany({
+          where: filters,
+          select: listSelect,
+          orderBy: { publishedAt: 'desc' },
+          skip,
+          take: safeLimit
+        })
+    ])
+
+    return {
+      rows: this.transformUserAuditFields(rows),
+      total,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(total / safeLimit)
+    }
   }
 
   // Lấy posts đã publish với pagination - with audit transformation
@@ -843,6 +869,14 @@ export class PostService extends BaseService {
       },
       _count: {
         select: { comments: true }
+      }
+    }
+  }
+
+  private getPostCateInclude() {
+    return {
+      category: {
+        select: { id: true, name: true, slug: true }
       }
     }
   }

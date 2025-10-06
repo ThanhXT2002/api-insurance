@@ -303,10 +303,11 @@ export class PostRepository extends BaseRepository<'post'> {
       isFeatured?: boolean
       isHighlighted?: boolean
       include?: any
+      select?: any
     } = {},
     client?: any
   ) {
-    const { limit, skip, status, categoryId, postType, isFeatured, isHighlighted, include } = options
+    const { limit, skip, status, categoryId, postType, isFeatured, isHighlighted, include, select } = options
 
     const where: any = {
       OR: [
@@ -329,6 +330,7 @@ export class PostRepository extends BaseRepository<'post'> {
     if (skip) findQuery.skip = skip
     if (limit) findQuery.take = limit
     if (include) findQuery.include = include
+    else if (select) findQuery.select = select
 
     // Use provided transaction client when available, otherwise fall back to global prisma
     const db = client ?? prisma
