@@ -42,13 +42,29 @@ export class AuthService {
     } catch (err: any) {
       // Nếu tạo profile failed, có thể rollback Supabase user nếu cần
       if (err.code === 'P2002') {
-        return { error: { code: 'P2002', message: 'Email đã tồn tại, vui lòng thử phương thức đăng ký khác!', meta: err.meta } }
+        return {
+          error: { code: 'P2002', message: 'Email đã tồn tại, vui lòng thử phương thức đăng ký khác!', meta: err.meta }
+        }
       }
       throw err
     }
   }
 
-  // Lấy thông tin profile user
+  // Lấy thông tin profile user từ middleware (tối ưu, không cần query DB)
+  getProfileFromUser(user: any): UserProfileSafe {
+    return {
+      email: user.email,
+      name: user.name ?? null,
+      phoneNumber: user.phoneNumber ?? null,
+      avatarUrl: user.avatarUrl ?? null,
+      active: user.active,
+      updatedAt: user.updatedAt ?? null,
+      addresses: user.addresses ?? null,
+      roles: user.roles?.map((r: any) => r.key) ?? []
+    }
+  }
+
+  // Lấy thông tin profile user đầy đủ từ DB (chỉ dùng khi cần thiết)
   async getProfile(userId: number) {
     const user = await this.authRepository.findByIdWithRoles(userId)
     if (!user) {

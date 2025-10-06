@@ -52,26 +52,39 @@ export class AuthRepository extends BaseRepository<'user'> {
   }
 
   // Thêm phương thức updateById cho AuthRepository
-async updateById(id: number, data: any) {
-  return prisma.user.update({
-    where: { id },
-    data,
-    include: {
-      roleAssignments: {
-        include: { role: true }
+  async updateById(id: number, data: any) {
+    return prisma.user.update({
+      where: { id },
+      data,
+      include: {
+        roleAssignments: {
+          include: { role: true }
+        }
       }
-    }
-  })
-}
+    })
+  }
 
-  // Lấy user với role assignments
+  // Lấy user với role assignments (tối ưu cho profile)
   async findByIdWithRoles(userId: number) {
     return prisma.user.findUnique({
       where: { id: userId },
-      include: {
+      select: {
+        id: true,
+        supabaseId: true,
+        email: true,
+        name: true,
+        phoneNumber: true,
+        addresses: true,
+        avatarUrl: true,
+        active: true,
+        updatedAt: true,
         roleAssignments: {
-          include: {
-            role: true
+          select: {
+            role: {
+              select: {
+                key: true
+              }
+            }
           }
         }
       }

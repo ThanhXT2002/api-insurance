@@ -13,8 +13,11 @@ declare global {
         supabaseId: string
         email: string
         name: string | null
+        phoneNumber: string | null
+        addresses: string | null
         avatarUrl: string | null
         active: boolean
+        updatedAt: Date
         roles: Array<{
           id: number
           key: string
@@ -341,17 +344,35 @@ export class AuthMiddleware {
   }
 
   private async loadUserPermissions(user: any) {
-    // Load user with roles and permissions
+    // Load user with roles and permissions - Tối ưu query với select thay vì include
     const userWithRoles = await this.authRepository.findUnique({
       where: { id: user.id },
-      include: {
+      select: {
+        id: true,
+        supabaseId: true,
+        email: true,
+        name: true,
+        phoneNumber: true,
+        addresses: true,
+        avatarUrl: true,
+        active: true,
+        updatedAt: true,
         roleAssignments: {
-          include: {
+          select: {
             role: {
-              include: {
+              select: {
+                id: true,
+                key: true,
+                name: true,
                 rolePermissions: {
-                  include: {
-                    permission: true
+                  select: {
+                    permission: {
+                      select: {
+                        id: true,
+                        key: true,
+                        name: true
+                      }
+                    }
                   }
                 }
               }
@@ -359,8 +380,15 @@ export class AuthMiddleware {
           }
         },
         userPermissions: {
-          include: {
-            permission: true
+          select: {
+            allowed: true,
+            permission: {
+              select: {
+                id: true,
+                key: true,
+                name: true
+              }
+            }
           }
         }
       }
@@ -406,8 +434,11 @@ export class AuthMiddleware {
       supabaseId: userWithRoles.supabaseId!,
       email: userWithRoles.email,
       name: userWithRoles.name,
+      phoneNumber: userWithRoles.phoneNumber,
+      addresses: userWithRoles.addresses,
       avatarUrl: userWithRoles.avatarUrl,
       active: userWithRoles.active,
+      updatedAt: userWithRoles.updatedAt,
       roles,
       permissions
     }

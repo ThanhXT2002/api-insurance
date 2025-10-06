@@ -51,14 +51,17 @@ export class AuthController {
   // Lấy thông tin profile
   async getProfile(req: Request, res: Response) {
     try {
-      const userId = (req as any).user?.id
-      if (!userId) {
+      const user = (req as any).user
+      if (!user) {
         return res
           .status(StatusCodes.UNAUTHORIZED)
           .send(ApiResponse.error('Không tìm thấy thông tin user', 'Unauthorized', StatusCodes.UNAUTHORIZED))
       }
 
-      const profile = await this.authService.getProfile(userId)
+      // Tối ưu: Sử dụng data từ middleware thay vì query lại DB
+      // Middleware đã load đầy đủ phoneNumber, addresses, updatedAt rồi
+      const profile = this.authService.getProfileFromUser(user)
+
       return res.status(StatusCodes.OK).send(ApiResponse.ok(profile, 'Lấy thông tin profile thành công'))
     } catch (err: any) {
       console.error(err)
