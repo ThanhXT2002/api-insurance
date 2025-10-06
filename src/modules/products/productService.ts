@@ -269,10 +269,13 @@ export class ProductService extends BaseService {
     const listSelect = {
       id: true,
       name: true,
+      slug: true,
+      description: true,
       icon: true,
       sku: true,
       active: true,
-      isSaleOnline: true
+      isSaleOnline: true,
+      priority: true,
     }
 
     if (keyword) {
