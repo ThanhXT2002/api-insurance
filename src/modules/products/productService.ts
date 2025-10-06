@@ -330,6 +330,7 @@ export class ProductService extends BaseService {
         description: true,
         icon: true,
         priority: true,
+        imgs: true,
         // include updatedAt for sorting logic but we'll strip it from final output
         updatedAt: true
       }

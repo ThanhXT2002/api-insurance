@@ -369,7 +369,8 @@ export class PostService extends BaseService {
       excerpt: true,
       featuredImage: true,
       priority: true,
-      publishedAt: true
+      publishedAt: true,
+      category: { select: { id: true, name: true, slug: true } },
     }
   }
 
