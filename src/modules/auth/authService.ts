@@ -84,6 +84,10 @@ export class AuthService {
       updatedAt: new Date()
     })
 
+    // Clear cache để lần sau load lại data mới (lazy import to avoid circular dependency)
+    const { authMiddleware } = await import('../../middlewares/authMiddleware.js')
+    authMiddleware.clearUserCache(userId)
+
     return this.toSafeProfile(updatedUser)
   }
 
@@ -101,6 +105,11 @@ export class AuthService {
       },
       existingUser.avatarUrl
     )
+
+    // Clear cache để lần sau load lại data mới (lazy import to avoid circular dependency)
+    const { authMiddleware } = await import('../../middlewares/authMiddleware.js')
+    authMiddleware.clearUserCache(userId)
+
     return {
       user: this.toSafeProfile(updatedUser),
       uploadInfo: {

@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { getSupabaseAdmin, getSupabase } from '../config/supabaseClient'
 import { AuthRepository } from '../modules/auth/authRepository'
-import { AuthService } from '../modules/auth/authService'
 
 // Extend Express Request interface to include user context
 declare global {
@@ -34,13 +33,51 @@ declare global {
   }
 }
 
+// Simple in-memory cache for user permissions
+interface UserCache {
+  data: any
+  timestamp: number
+}
+
 export class AuthMiddleware {
   private authRepository: AuthRepository
-  private authService: AuthService
+  private userCache: Map<number, UserCache> = new Map()
+  private CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   constructor() {
     this.authRepository = new AuthRepository()
-    this.authService = new AuthService(this.authRepository)
+
+    // Clean cache every 10 minutes
+    setInterval(() => this.cleanExpiredCache(), 10 * 60 * 1000)
+  }
+
+  private cleanExpiredCache() {
+    const now = Date.now()
+    for (const [userId, cache] of this.userCache.entries()) {
+      if (now - cache.timestamp > this.CACHE_TTL) {
+        this.userCache.delete(userId)
+      }
+    }
+  }
+
+  private getCachedUser(userId: number): any | null {
+    const cache = this.userCache.get(userId)
+    if (!cache) return null
+
+    const now = Date.now()
+    if (now - cache.timestamp > this.CACHE_TTL) {
+      this.userCache.delete(userId)
+      return null
+    }
+
+    return cache.data
+  }
+
+  private setCachedUser(userId: number, data: any) {
+    this.userCache.set(userId, {
+      data,
+      timestamp: Date.now()
+    })
   }
 
   /**
@@ -344,6 +381,12 @@ export class AuthMiddleware {
   }
 
   private async loadUserPermissions(user: any) {
+    // Check cache first
+    const cached = this.getCachedUser(user.id)
+    if (cached) {
+      return cached
+    }
+
     // Load user with roles and permissions - Tối ưu query với select thay vì include
     const userWithRoles = await this.authRepository.findUnique({
       where: { id: user.id },
@@ -429,7 +472,7 @@ export class AuthMiddleware {
       }
     })
 
-    return {
+    const result = {
       id: userWithRoles.id,
       supabaseId: userWithRoles.supabaseId!,
       email: userWithRoles.email,
@@ -442,6 +485,21 @@ export class AuthMiddleware {
       roles,
       permissions
     }
+
+    // Cache the result
+    this.setCachedUser(user.id, result)
+
+    return result
+  }
+
+  // Public method to clear cache for a specific user (useful after update)
+  public clearUserCache(userId: number) {
+    this.userCache.delete(userId)
+  }
+
+  // Public method to clear all cache
+  public clearAllCache() {
+    this.userCache.clear()
   }
 }
 
