@@ -216,14 +216,16 @@ export class PostService extends BaseService {
     const { page = 1, limit = 10, categoryId, postType } = params
     const skip = (page - 1) * limit
 
-    const posts = await this.repo.findPublished({
+    // Use minimal select for list endpoint to improve performance
+    const posts = await this.repo.findPublishedMinimal({
       limit,
       skip,
       categoryId,
       postType,
-      include: this.getPostInclude()
+      select: this.getPostListSelect()
     })
 
+    // No heavy relations included here; transform if needed
     const transformedPosts = this.transformUserAuditFields(posts)
 
     // Get total count for pagination
@@ -253,10 +255,11 @@ export class PostService extends BaseService {
       isHighlighted?: boolean
     } = {}
   ) {
-    const posts = await this.repo.findFeatured({
+    const posts = await this.repo.findFeaturedMinimal({
       ...params,
-      include: this.getPostInclude()
+      select: this.getPostListSelect()
     })
+
     return this.transformUserAuditFields(posts)
   }
 
@@ -269,18 +272,39 @@ export class PostService extends BaseService {
       postType?: PostType
     } = {}
   ) {
-    const posts = await this.repo.findRelated(postId, params.categoryId, {
+    const posts = await this.repo.findRelatedMinimal(postId, params.categoryId, {
       limit: params.limit,
       postType: params.postType,
-      include: this.getPostInclude()
+      select: this.getPostListSelect()
     })
+
     return this.transformUserAuditFields(posts)
   }
 
   // Tìm post theo slug với SEO - with audit transformation
   async findBySlug(slug: string) {
     // For public slug endpoint, only return posts that are actually published
-    const post = await (this.repo as any).findPublishedBySlug(slug, this.getPostIncludeWithSeo())
+    // Use an explicit `select` to avoid returning admin/heavy fields to FE.
+    const select = {
+      id: true,
+      title: true,
+      slug: true,
+      excerpt: true,
+      shortContent: true,
+      content: true,
+      featuredImage: true,
+      videoUrl: true,
+      publishedAt: true,
+      targetAudience: true,
+      metaKeywords: true,
+      // relations useful for public page
+      category: { select: { id: true, name: true, slug: true } },
+      taggedCategoryTags: { select: { category: { select: { id: true, name: true, slug: true } } } },
+      postProductLinks: { select: { product: { select: { id: true, name: true, slug: true, price: true } } } },
+      _count: { select: { comments: true } }
+    }
+
+    const post = await this.repo.findPublishedBySlug(slug, { select })
     if (!post) return null
 
     // seo metadata stored in polymorphic seoMeta table; fetch separately
@@ -308,6 +332,19 @@ export class PostService extends BaseService {
     }
 
     return this.transformUserAuditFields([post])[0]
+  }
+
+  // Minimal select object for list endpoints to reduce payload and speed up queries
+  private getPostListSelect() {
+    return {
+      id: true,
+      title: true,
+      slug: true,
+      excerpt: true,
+      featuredImage: true,
+      priority: true,
+      publishedAt: true
+    }
   }
 
   // Tạo post mới với validation và SEO - with audit transformation

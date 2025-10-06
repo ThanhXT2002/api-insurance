@@ -43,7 +43,10 @@ export class BaseRepository<TModel extends PrismaModelKeys> {
   async runTransaction<T>(cb: (tx: typeof prisma) => Promise<T>): Promise<T> {
     this.logger?.info?.('[BaseRepository] start transaction', { model: this.modelName })
     try {
-      const res = await prisma.$transaction(cb)
+      // Increase transaction timeout to 30 seconds for file upload operations
+      const res = await prisma.$transaction(cb, {
+        timeout: 30000 // 30 seconds
+      })
       this.logger?.info?.('[BaseRepository] transaction committed', { model: this.modelName })
       return res
     } catch (err) {

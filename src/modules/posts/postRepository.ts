@@ -8,12 +8,37 @@ export class PostRepository extends BaseRepository<'post'> {
   }
 
   // Tìm post theo slug
-  async findBySlug(slug: string, include?: any, client?: any) {
-    return this.findUnique({ where: { slug }, include }, client)
+  // Accept options so callers can provide `select` or `include`.
+  async findBySlug(slug: string, options: { select?: any; include?: any } = {}, client?: any) {
+    const defaultSelect = {
+      // include most public-facing fields but exclude admin / heavy fields
+      id: true,
+      title: true,
+      slug: true,
+      excerpt: true,
+      shortContent: true,
+      content: true,
+      featuredImage: true,
+      videoUrl: true,
+      publishedAt: true,
+      targetAudience: true,
+      metaKeywords: true,
+      // relations useful for public pages
+      category: { select: { id: true, name: true, slug: true } },
+      taggedCategoryTags: { select: { category: { select: { id: true, name: true, slug: true } } } },
+      postProductLinks: { select: { product: { select: { id: true, name: true, slug: true, price: true } } } },
+      _count: { select: { comments: true } }
+    }
+
+    const { select, include } = options
+    // Avoid passing both `select` and `include` to Prisma at the same time.
+    const queryShape = include ? { include } : { select: select ?? defaultSelect }
+    return this.findUnique({ where: { slug }, ...queryShape }, client)
   }
 
   // Tìm post đã publish theo slug (áp dụng rule publishedAt <= now và chưa expired)
-  async findPublishedBySlug(slug: string, include?: any, client?: any) {
+  // Accept options with `select` so callers can ask for a lightweight shape.
+  async findPublishedBySlug(slug: string, options: { select?: any; include?: any } = {}, client?: any) {
     const now = new Date()
     const where: any = {
       slug,
@@ -22,8 +47,33 @@ export class PostRepository extends BaseRepository<'post'> {
       OR: [{ expiredAt: null }, { expiredAt: { gt: now } }]
     }
 
+    const defaultSelect = {
+      // intentionally exclude the heavy/admin fields requested by the user
+      id: true,
+      title: true,
+      slug: true,
+      excerpt: true,
+      shortContent: true,
+      content: true,
+      featuredImage: true,
+      videoUrl: true,
+      publishedAt: true,
+      targetAudience: true,
+      metaKeywords: true,
+      // relations useful on public page
+      category: { select: { id: true, name: true, slug: true } },
+      taggedCategoryTags: { select: { category: { select: { id: true, name: true, slug: true } } } },
+      postProductLinks: { select: { product: { select: { id: true, name: true, slug: true, price: true } } } },
+      _count: { select: { comments: true } }
+    }
+
+    const { select, include } = options
+
+    // Avoid passing both `select` and `include` to Prisma at the same time.
+    const queryShape = include ? { include } : { select: select ?? defaultSelect }
+
     // Use findMany with take:1 since BaseRepository doesn't expose findFirst
-    const results = await this.findMany({ where, include, take: 1 }, client)
+    const results = await this.findMany({ where, ...queryShape, take: 1 }, client)
     return Array.isArray(results) && results.length > 0 ? results[0] : null
   }
 
@@ -54,6 +104,51 @@ export class PostRepository extends BaseRepository<'post'> {
       {
         where,
         include,
+        orderBy: { publishedAt: 'desc' },
+        take: limit,
+        skip
+      },
+      client
+    )
+  }
+
+  // Minimal variant: select only fields needed for lists to improve performance
+  async findPublishedMinimal(
+    options: {
+      limit?: number
+      skip?: number
+      categoryId?: number
+      postType?: PostType
+      select?: any
+    } = {},
+    client?: any
+  ) {
+    const { limit, skip, categoryId, postType } = options
+    const now = new Date()
+
+    const where: any = {
+      status: PostStatus.PUBLISHED,
+      publishedAt: { lte: now },
+      OR: [{ expiredAt: null }, { expiredAt: { gt: now } }]
+    }
+
+    if (categoryId) where.categoryId = categoryId
+    if (postType) where.postType = postType
+
+    const select = options.select ?? {
+      id: true,
+      title: true,
+      slug: true,
+      excerpt: true,
+      featuredImage: true,
+      priority: true,
+      publishedAt: true
+    }
+
+    return this.findMany(
+      {
+        where,
+        select,
         orderBy: { publishedAt: 'desc' },
         take: limit,
         skip
@@ -116,6 +211,48 @@ export class PostRepository extends BaseRepository<'post'> {
       {
         where,
         include,
+        orderBy: [{ priority: 'desc' }, { publishedAt: 'desc' }],
+        take: limit
+      },
+      client
+    )
+  }
+
+  // Minimal variant for featured posts
+  async findFeaturedMinimal(
+    options: {
+      limit?: number
+      isFeatured?: boolean
+      isHighlighted?: boolean
+      select?: any
+    } = {},
+    client?: any
+  ) {
+    const { limit, isFeatured, isHighlighted } = options
+    const now = new Date()
+
+    const where: any = {
+      status: PostStatus.PUBLISHED,
+      publishedAt: { lte: now },
+      OR: [{ expiredAt: null }, { expiredAt: { gt: now } }]
+    }
+    if (isFeatured !== undefined) where.isFeatured = isFeatured
+    if (isHighlighted !== undefined) where.isHighlighted = isHighlighted
+
+    const select = options.select ?? {
+      id: true,
+      title: true,
+      slug: true,
+      excerpt: true,
+      featuredImage: true,
+      priority: true,
+      publishedAt: true
+    }
+
+    return this.findMany(
+      {
+        where,
+        select,
         orderBy: [{ priority: 'desc' }, { publishedAt: 'desc' }],
         take: limit
       },
@@ -256,6 +393,51 @@ export class PostRepository extends BaseRepository<'post'> {
       {
         where,
         include,
+        orderBy: { publishedAt: 'desc' },
+        take: limit
+      },
+      client
+    )
+  }
+
+  // Minimal variant for related posts
+  async findRelatedMinimal(
+    postId: number,
+    categoryId?: number,
+    options: {
+      limit?: number
+      postType?: PostType
+      select?: any
+    } = {},
+    client?: any
+  ) {
+    const { limit = 5, postType } = options
+    const now = new Date()
+
+    const where: any = {
+      id: { not: postId },
+      status: PostStatus.PUBLISHED,
+      publishedAt: { lte: now },
+      OR: [{ expiredAt: null }, { expiredAt: { gt: now } }]
+    }
+
+    if (categoryId) where.categoryId = categoryId
+    if (postType) where.postType = postType
+
+    const select = options.select ?? {
+      id: true,
+      title: true,
+      slug: true,
+      excerpt: true,
+      featuredImage: true,
+      priority: true,
+      publishedAt: true
+    }
+
+    return this.findMany(
+      {
+        where,
+        select,
         orderBy: { publishedAt: 'desc' },
         take: limit
       },
