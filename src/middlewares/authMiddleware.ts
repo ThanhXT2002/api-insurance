@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken'
 import { getSupabaseAdmin, getSupabase } from '../config/supabaseClient'
 import { AuthRepository } from '../modules/auth/authRepository'
 import { UserCacheHelper } from '../services/cacheService'
+import prisma from '../config/prismaClient'
 
 // Extend Express Request interface to include user context
 declare global {
@@ -366,107 +367,118 @@ export class AuthMiddleware {
     // Check cache first using CacheService
     const cached = UserCacheHelper.getUser(user.id)
     if (cached) {
+      console.log(`[AuthMiddleware] Cache HIT for user ${user.id}`)
       return cached
     }
 
-    // Load user with roles and permissions - Tối ưu query với select thay vì include
-    const userWithRoles = await this.authRepository.findUnique({
-      where: { id: user.id },
-      select: {
-        id: true,
-        supabaseId: true,
-        email: true,
-        name: true,
-        phoneNumber: true,
-        addresses: true,
-        avatarUrl: true,
-        active: true,
-        updatedAt: true,
-        roleAssignments: {
-          select: {
-            role: {
-              select: {
-                id: true,
-                key: true,
-                name: true,
-                rolePermissions: {
-                  select: {
-                    permission: {
-                      select: {
-                        id: true,
-                        key: true,
-                        name: true
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        userPermissions: {
-          select: {
-            allowed: true,
-            permission: {
-              select: {
-                id: true,
-                key: true,
-                name: true
-              }
-            }
-          }
+    console.log(`[AuthMiddleware] Cache MISS for user ${user.id} - Loading with RAW SQL`)
+
+    // ULTRA OPTIMIZED: 1 RAW SQL QUERY DUY NHẤT - TRÁNH CARTESIAN PRODUCT
+    const timerLabel = `[AuthMiddleware-${Date.now()}] RAW SQL Load user ${user.id}`
+    console.time(timerLabel)
+
+    const rawResult = (await prisma.$queryRaw`
+      SELECT 
+        u.id as user_id,
+        u."supabaseId" as user_supabase_id,
+        u.email as user_email,
+        u.name as user_name,
+        u."phoneNumber" as user_phone_number,
+        u.addresses as user_addresses,
+        u."avatarUrl" as user_avatar_url,
+        u.active as user_active,
+        u."updatedAt" as user_updated_at,
+        -- Role info
+        r.id as role_id,
+        r.key as role_key,
+        r.name as role_name,
+        -- Role permissions
+        p1.id as role_perm_id,
+        p1.key as role_perm_key,
+        p1.name as role_perm_name,
+        -- User permissions
+        p2.id as user_perm_id,
+        p2.key as user_perm_key,
+        p2.name as user_perm_name,
+        up.allowed as user_perm_allowed
+      FROM users u
+      -- Get user roles
+      LEFT JOIN user_role_assignments ura ON u.id = ura."userId"
+      LEFT JOIN user_roles r ON ura."roleId" = r.id
+      -- Get role permissions
+      LEFT JOIN role_permissions rp ON r.id = rp."roleId"
+      LEFT JOIN permissions p1 ON rp."permissionId" = p1.id
+      -- Get direct user permissions
+      LEFT JOIN user_permissions up ON u.id = up."userId"
+      LEFT JOIN permissions p2 ON up."permissionId" = p2.id
+      WHERE u.id = ${user.id}
+    `) as any[]
+
+    console.timeEnd(timerLabel)
+
+    if (rawResult.length === 0) {
+      throw new Error('User not found')
+    }
+
+    // Process raw result (1 lần duy nhất trong memory - NHANH)
+    console.time(`[AuthMiddleware] Process user ${user.id} data`)
+
+    const userInfo = rawResult[0]
+    const rolesMap = new Map<number, any>()
+    const permissionsSet = new Set<string>()
+
+    rawResult.forEach((row: any) => {
+      // Build roles map
+      if (row.role_id && !rolesMap.has(row.role_id)) {
+        rolesMap.set(row.role_id, {
+          id: row.role_id,
+          key: row.role_key,
+          name: row.role_name,
+          permissions: []
+        })
+      }
+
+      // Add role permissions
+      if (row.role_perm_id && row.role_id) {
+        const role = rolesMap.get(row.role_id)
+        const existingPerm = role.permissions.find((p: any) => p.id === row.role_perm_id)
+        if (!existingPerm) {
+          role.permissions.push({
+            id: row.role_perm_id,
+            key: row.role_perm_key,
+            name: row.role_perm_name
+          })
+        }
+        permissionsSet.add(row.role_perm_key)
+      }
+
+      // Handle direct user permissions
+      if (row.user_perm_id) {
+        if (row.user_perm_allowed) {
+          permissionsSet.add(row.user_perm_key)
+        } else {
+          permissionsSet.delete(row.user_perm_key)
         }
       }
     })
 
-    if (!userWithRoles) {
-      throw new Error('User not found')
-    }
-
-    // Build roles array with permissions
-    const roles = userWithRoles.roleAssignments.map((assignment: any) => ({
-      id: assignment.role.id,
-      key: assignment.role.key,
-      name: assignment.role.name,
-      permissions: assignment.role.rolePermissions.map((rp: any) => ({
-        id: rp.permission.id,
-        key: rp.permission.key,
-        name: rp.permission.name
-      }))
-    }))
-
-    // Build flat permission set for quick lookup
-    const permissions = new Set<string>()
-
-    // Add permissions from roles
-    roles.forEach((role: any) => {
-      role.permissions.forEach((permission: any) => {
-        permissions.add(permission.key)
-      })
-    })
-
-    // Add/remove direct user permissions (these can override role permissions)
-    userWithRoles.userPermissions.forEach((up: any) => {
-      if (up.allowed) {
-        permissions.add(up.permission.key)
-      } else {
-        permissions.delete(up.permission.key) // Remove permission if explicitly denied
-      }
-    })
-
     const result = {
-      id: userWithRoles.id,
-      supabaseId: userWithRoles.supabaseId!,
-      email: userWithRoles.email,
-      name: userWithRoles.name,
-      phoneNumber: userWithRoles.phoneNumber,
-      addresses: userWithRoles.addresses,
-      avatarUrl: userWithRoles.avatarUrl,
-      active: userWithRoles.active,
-      updatedAt: userWithRoles.updatedAt,
-      roles,
-      permissions
+      id: userInfo.user_id,
+      supabaseId: userInfo.user_supabase_id,
+      email: userInfo.user_email,
+      name: userInfo.user_name,
+      phoneNumber: userInfo.user_phone_number,
+      addresses: userInfo.user_addresses,
+      avatarUrl: userInfo.user_avatar_url,
+      active: userInfo.user_active,
+      updatedAt: userInfo.user_updated_at,
+      roles: Array.from(rolesMap.values()),
+      permissions: permissionsSet
     }
+
+    console.timeEnd(`[AuthMiddleware] Process user ${user.id} data`)
+
+    console.log(`[DEBUG] User ${user.id}: Found ${rolesMap.size} roles, ${permissionsSet.size} total permissions`)
 
     // Cache the result using CacheService
     UserCacheHelper.setUser(user.id, result)
