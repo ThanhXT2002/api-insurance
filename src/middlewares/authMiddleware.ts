@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
 import { getSupabaseAdmin, getSupabase } from '../config/supabaseClient'
 import { AuthRepository } from '../modules/auth/authRepository'
-import { UserCacheHelper } from '../services/cacheService'
 import prisma from '../config/prismaClient'
 
 // Extend Express Request interface to include user context
@@ -420,15 +419,14 @@ export class AuthMiddleware {
     return result
   }
 
-  // Public method to clear cache for a specific user (useful after update)
-  public clearUserCache(userId: number) {
-    UserCacheHelper.clearUser(userId)
-  }
+  // Cache methods removed - using materialized view instead
+  // public clearUserCache(userId: number) {
+  //   // No longer needed with materialized view
+  // }
 
-  // Public method to clear all cache
-  public clearAllCache() {
-    UserCacheHelper.clearAllUsers()
-  }
+  // public clearAllCache() {
+  //   // No longer needed with materialized view
+  // }
 }
 
 // Create singleton instance

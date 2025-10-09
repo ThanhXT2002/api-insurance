@@ -4,7 +4,6 @@ import { fileUploadService, UploadedFile } from '../../services/fileUploadServic
 import { withRollback } from '../../utils/rollbackHelper'
 import UploadHelpers from '../../services/uploadHelpers'
 import { UserProfileSafe } from '~/types/userType'
-import { UserCacheHelper } from '../../services/cacheService'
 
 export class AuthService {
   constructor(private authRepository: AuthRepository) {}
@@ -85,8 +84,8 @@ export class AuthService {
       updatedAt: new Date()
     })
 
-    // Clear cache để lần sau load lại data mới
-    UserCacheHelper.clearUser(userId)
+    // Cache no longer needed - using materialized view
+    // UserCacheHelper.clearUser(userId)
 
     return this.toSafeProfile(updatedUser)
   }
@@ -106,8 +105,8 @@ export class AuthService {
       existingUser.avatarUrl
     )
 
-    // Clear cache để lần sau load lại data mới
-    UserCacheHelper.clearUser(userId)
+    // Cache no longer needed - using materialized view
+    // UserCacheHelper.clearUser(userId)
 
     return {
       user: this.toSafeProfile(updatedUser),
