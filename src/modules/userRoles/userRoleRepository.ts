@@ -1,5 +1,6 @@
 import { BaseRepository } from '../../bases/repositoryBase'
 import prisma from '../../config/prismaClient'
+import { refreshMatViewHelper } from '../../utils/refreshMatViewHelper'
 
 export class UserRoleRepository extends BaseRepository<'userRole'> {
   constructor(logger?: any) {
@@ -70,22 +71,38 @@ export class UserRoleRepository extends BaseRepository<'userRole'> {
 
   async assignPermission(roleId: number, permissionId: number, client?: any) {
     const db = client || prisma
-    return db.rolePermission.create({
+    const result = await db.rolePermission.create({
       data: {
         roleId,
         permissionId
       }
     })
+
+    // Refresh materialized view after role permission assignment
+    if (!client) {
+      // Only refresh if not in transaction
+      await refreshMatViewHelper()
+    }
+
+    return result
   }
 
   async removePermission(roleId: number, permissionId: number, client?: any) {
     const db = client || prisma
-    return db.rolePermission.deleteMany({
+    const result = await db.rolePermission.deleteMany({
       where: {
         roleId,
         permissionId
       }
     })
+
+    // Refresh materialized view after role permission removal
+    if (!client && result.count > 0) {
+      // Only refresh if not in transaction and changes made
+      await refreshMatViewHelper()
+    }
+
+    return result
   }
 
   async assignPermissions(roleId: number, permissionIds: number[], client?: any) {
@@ -104,6 +121,12 @@ export class UserRoleRepository extends BaseRepository<'userRole'> {
           permissionId
         }))
       })
+    }
+
+    // Refresh materialized view after bulk permission assignment
+    if (!client) {
+      // Only refresh if not in transaction
+      await refreshMatViewHelper()
     }
 
     return true

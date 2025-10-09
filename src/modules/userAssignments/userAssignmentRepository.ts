@@ -1,6 +1,7 @@
 import { User, UserRole, Permission, UserRoleAssignment, UserPermission } from '../../../generated/prisma'
 import prisma from '../../config/prismaClient'
 import { BaseRepository } from '../../bases/repositoryBase'
+import { refreshMatViewHelper } from '../../utils/refreshMatViewHelper'
 
 export class UserAssignmentRepository extends BaseRepository<any> {
   constructor() {
@@ -58,12 +59,17 @@ export class UserAssignmentRepository extends BaseRepository<any> {
 
   // Assign role to user
   async assignRole(userId: number, roleId: number): Promise<UserRoleAssignment> {
-    return await prisma.userRoleAssignment.create({
+    const result = await prisma.userRoleAssignment.create({
       data: {
         userId,
         roleId
       }
     })
+
+    // Refresh materialized view after role assignment
+    await refreshMatViewHelper()
+
+    return result
   }
 
   // Remove role from user
@@ -74,6 +80,12 @@ export class UserAssignmentRepository extends BaseRepository<any> {
         roleId
       }
     })
+
+    if (result.count > 0) {
+      // Refresh materialized view after role removal
+      await refreshMatViewHelper()
+    }
+
     return result.count > 0
   }
 
@@ -100,12 +112,17 @@ export class UserAssignmentRepository extends BaseRepository<any> {
 
   // Assign direct permission to user
   async assignPermission(userId: number, permissionId: number): Promise<UserPermission> {
-    return await prisma.userPermission.create({
+    const result = await prisma.userPermission.create({
       data: {
         userId,
         permissionId
       }
     })
+
+    // Refresh materialized view after permission assignment
+    await refreshMatViewHelper()
+
+    return result
   }
 
   // Remove direct permission from user
@@ -116,6 +133,12 @@ export class UserAssignmentRepository extends BaseRepository<any> {
         permissionId
       }
     })
+
+    if (result.count > 0) {
+      // Refresh materialized view after permission removal
+      await refreshMatViewHelper()
+    }
+
     return result.count > 0
   }
 

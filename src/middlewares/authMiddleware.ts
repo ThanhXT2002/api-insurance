@@ -364,124 +364,58 @@ export class AuthMiddleware {
     }>
     permissions: Set<string>
   }> {
-    // Check cache first using CacheService
-    const cached = UserCacheHelper.getUser(user.id)
-    if (cached) {
-      console.log(`[AuthMiddleware] Cache HIT for user ${user.id}`)
-      return cached
-    }
+    // Read pre-aggregated data from materialized view created in DB
+    // This avoids expensive JOINs in runtime and dramatically speeds up reads.
+    const timer = `[AuthMiddleware] MatView Load user ${user.id}`
+    console.time(timer)
 
-    console.log(`[AuthMiddleware] Cache MISS for user ${user.id} - Loading with RAW SQL`)
-
-    // ULTRA OPTIMIZED: 1 RAW SQL QUERY DUY NHẤT - TRÁNH CARTESIAN PRODUCT
-    const timerLabel = `[AuthMiddleware-${Date.now()}] RAW SQL Load user ${user.id}`
-    console.time(timerLabel)
-
-    const rawResult = (await prisma.$queryRaw`
-      SELECT 
-        u.id as user_id,
-        u."supabaseId" as user_supabase_id,
-        u.email as user_email,
-        u.name as user_name,
-        u."phoneNumber" as user_phone_number,
-        u.addresses as user_addresses,
-        u."avatarUrl" as user_avatar_url,
-        u.active as user_active,
-        u."updatedAt" as user_updated_at,
-        -- Role info
-        r.id as role_id,
-        r.key as role_key,
-        r.name as role_name,
-        -- Role permissions
-        p1.id as role_perm_id,
-        p1.key as role_perm_key,
-        p1.name as role_perm_name,
-        -- User permissions
-        p2.id as user_perm_id,
-        p2.key as user_perm_key,
-        p2.name as user_perm_name,
-        up.allowed as user_perm_allowed
-      FROM users u
-      -- Get user roles
-      LEFT JOIN user_role_assignments ura ON u.id = ura."userId"
-      LEFT JOIN user_roles r ON ura."roleId" = r.id
-      -- Get role permissions
-      LEFT JOIN role_permissions rp ON r.id = rp."roleId"
-      LEFT JOIN permissions p1 ON rp."permissionId" = p1.id
-      -- Get direct user permissions
-      LEFT JOIN user_permissions up ON u.id = up."userId"
-      LEFT JOIN permissions p2 ON up."permissionId" = p2.id
-      WHERE u.id = ${user.id}
+    const rows = (await prisma.$queryRaw`
+      SELECT * FROM user_permissions_mat WHERE user_id = ${user.id} LIMIT 1
     `) as any[]
 
-    console.timeEnd(timerLabel)
+    console.timeEnd(timer)
 
-    if (rawResult.length === 0) {
+    if (!rows || rows.length === 0) {
       throw new Error('User not found')
     }
 
-    // Process raw result (1 lần duy nhất trong memory - NHANH)
-    console.time(`[AuthMiddleware] Process user ${user.id} data`)
+    const r = rows[0]
 
-    const userInfo = rawResult[0]
-    const rolesMap = new Map<number, any>()
-    const permissionsSet = new Set<string>()
+    // r.roles is jsonb array of {id,key,name,permissions:[...]}
+    const roles = r.roles || []
 
-    rawResult.forEach((row: any) => {
-      // Build roles map
-      if (row.role_id && !rolesMap.has(row.role_id)) {
-        rolesMap.set(row.role_id, {
-          id: row.role_id,
-          key: row.role_key,
-          name: row.role_name,
-          permissions: []
-        })
-      }
+    // role_permission_keys is a text[] from the view
+    const roleKeys: string[] = r.role_permission_keys || []
 
-      // Add role permissions
-      if (row.role_perm_id && row.role_id) {
-        const role = rolesMap.get(row.role_id)
-        const existingPerm = role.permissions.find((p: any) => p.id === row.role_perm_id)
-        if (!existingPerm) {
-          role.permissions.push({
-            id: row.role_perm_id,
-            key: row.role_perm_key,
-            name: row.role_perm_name
-          })
-        }
-        permissionsSet.add(row.role_perm_key)
-      }
+    // user_permissions is jsonb array of {key, allowed}
+    const userPerms: Array<{ key: string; allowed: boolean }> = r.user_permissions || []
 
-      // Handle direct user permissions
-      if (row.user_perm_id) {
-        if (row.user_perm_allowed) {
-          permissionsSet.add(row.user_perm_key)
-        } else {
-          permissionsSet.delete(row.user_perm_key)
-        }
-      }
+    // Build flat permission set (apply user overrides)
+    const permissions = new Set<string>()
+    roleKeys.forEach((k: string) => {
+      if (k) permissions.add(k)
+    })
+    userPerms.forEach((up) => {
+      if (!up || !up.key) return
+      if (up.allowed) permissions.add(up.key)
+      else permissions.delete(up.key)
     })
 
     const result = {
-      id: userInfo.user_id,
-      supabaseId: userInfo.user_supabase_id,
-      email: userInfo.user_email,
-      name: userInfo.user_name,
-      phoneNumber: userInfo.user_phone_number,
-      addresses: userInfo.user_addresses,
-      avatarUrl: userInfo.user_avatar_url,
-      active: userInfo.user_active,
-      updatedAt: userInfo.user_updated_at,
-      roles: Array.from(rolesMap.values()),
-      permissions: permissionsSet
+      id: r.user_id,
+      supabaseId: r.supabase_id,
+      email: r.email,
+      name: r.name,
+      phoneNumber: r.phone_number,
+      addresses: r.addresses,
+      avatarUrl: r.avatar_url,
+      active: r.active,
+      updatedAt: r.updated_at,
+      roles,
+      permissions
     }
 
-    console.timeEnd(`[AuthMiddleware] Process user ${user.id} data`)
-
-    console.log(`[DEBUG] User ${user.id}: Found ${rolesMap.size} roles, ${permissionsSet.size} total permissions`)
-
-    // Cache the result using CacheService
-    UserCacheHelper.setUser(user.id, result)
+    console.log(`[DEBUG] User ${user.id}: Roles ${roles.length}, perms ${permissions.size}`)
 
     return result
   }

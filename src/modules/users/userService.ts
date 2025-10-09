@@ -4,6 +4,7 @@ import { getSupabase, getSupabaseAdmin } from '../../config/supabaseClient'
 import { fileUploadService } from '../../services/fileUploadService'
 import { withRollback, RollbackManager } from '../../utils/rollbackHelper'
 import { UserCreateDto, UserUpdateDto } from '~/types/userType'
+import { refreshMatViewHelper } from '../../utils/refreshMatViewHelper'
 
 export class UserService extends BaseService {
   constructor(protected repo: UserRepository) {
@@ -262,7 +263,14 @@ export class UserService extends BaseService {
 
       // 4) Chuẩn bị response: chuyển nested relations thành mảng key
       // - Giữ response phẳng (roleKeys, permissionKeys) để frontend dễ dùng
-      return this.flattenUserRelations(created)
+      const result = this.flattenUserRelations(created)
+
+      // 5) Refresh materialized view after user creation with roles/permissions
+      if (requestedRoleKeys.length > 0 || requestedPermissionKeys.length > 0) {
+        await refreshMatViewHelper()
+      }
+
+      return result
     })
   }
 
@@ -338,6 +346,11 @@ export class UserService extends BaseService {
 
       // Transform the returned object to arrays of keys
       const transformedUpdated = this.flattenUserRelations(updated)
+
+      // Refresh materialized view after user update with roles/permissions changes
+      if (requestedRoleKeysForUpdate !== null || requestedPermissionKeysForUpdate !== null) {
+        await refreshMatViewHelper()
+      }
 
       // If update succeeded and we replaced avatar, attempt to delete old avatar (best-effort)
       try {

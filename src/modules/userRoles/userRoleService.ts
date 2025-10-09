@@ -1,5 +1,6 @@
 import { BaseService } from '../../bases/baseService'
 import { UserRoleRepository } from './userRoleRepository'
+import { refreshMatViewHelper } from '../../utils/refreshMatViewHelper'
 
 export class UserRoleService extends BaseService {
   constructor(protected repo: UserRoleRepository) {
@@ -27,7 +28,7 @@ export class UserRoleService extends BaseService {
     delete data.permissionIds
 
     // Run in transaction: ensure uniqueness, create role, validate + assign permissions
-    return this.repo.runTransaction(async (tx) => {
+    const result = await this.repo.runTransaction(async (tx) => {
       // unique check inside transaction
       const existing = await tx.userRole.findUnique({ where: { key: data.key } })
       if (existing) {
@@ -56,6 +57,13 @@ export class UserRoleService extends BaseService {
 
       return role
     })
+
+    // Refresh materialized view after role creation with permissions
+    if (permissionIds.length > 0) {
+      await refreshMatViewHelper()
+    }
+
+    return result
   }
 
   async update(where: any, data: any, ctx?: { actorId?: number }) {
@@ -68,7 +76,7 @@ export class UserRoleService extends BaseService {
     // remove permissionIds from role update payload
     delete data.permissionIds
 
-    return this.repo.runTransaction(async (tx) => {
+    const result = await this.repo.runTransaction(async (tx) => {
       // if changing key, ensure uniqueness
       if (data.key) {
         const existing = await tx.userRole.findUnique({ where: { key: data.key } })
@@ -117,6 +125,13 @@ export class UserRoleService extends BaseService {
 
       return role
     })
+
+    // Refresh materialized view after role update with permission changes
+    if (permissionIdsProvided) {
+      await refreshMatViewHelper()
+    }
+
+    return result
   }
 
   // Helper: normalize a provided key into lowercase_with_underscores
