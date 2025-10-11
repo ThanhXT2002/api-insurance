@@ -353,7 +353,6 @@ export class ProductService extends BaseService {
         description: true,
         icon: true,
         priority: true,
-        isSaleOnline: true,
         updatedAt: true
       }
     })
@@ -396,8 +395,6 @@ export class ProductService extends BaseService {
         price: true,
         coverage: true,
         isSaleOnline: true,
-        isFeatured: true,
-        updatedAt: true
       }
     })
 
