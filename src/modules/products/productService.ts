@@ -275,7 +275,7 @@ export class ProductService extends BaseService {
       sku: true,
       active: true,
       isSaleOnline: true,
-      priority: true,
+      priority: true
     }
 
     if (keyword) {
@@ -310,6 +310,29 @@ export class ProductService extends BaseService {
   }
 
   /**
+   * Sort products by priority (1,2,3...) with priority===0 treated as 'last'
+   * For equal priority, newest updatedAt first (updatedAt DESC)
+   * @private
+   */
+  private sortByPriorityAndDate(products: any[]): any[] {
+    const rows = Array.isArray(products) ? [...products] : []
+
+    return rows.sort((a: any, b: any) => {
+      const pa = typeof a.priority === 'number' ? a.priority : 0
+      const pb = typeof b.priority === 'number' ? b.priority : 0
+      const va = pa === 0 ? Number.MAX_SAFE_INTEGER : pa
+      const vb = pb === 0 ? Number.MAX_SAFE_INTEGER : pb
+
+      if (va !== vb) return va - vb
+
+      // tie-breaker: updatedAt desc
+      const da = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+      const db = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
+      return db - da
+    })
+  }
+
+  /**
    * Get products for homepage.
    * Priority ordering rule:
    *  - Only include active && isFeatured products
@@ -330,8 +353,7 @@ export class ProductService extends BaseService {
         description: true,
         icon: true,
         priority: true,
-        imgs: true,
-        // include updatedAt for sorting logic but we'll strip it from final output
+        isSaleOnline: true,
         updatedAt: true
       }
     })
@@ -339,21 +361,9 @@ export class ProductService extends BaseService {
     // Ensure we operate on array
     const rows: any[] = Array.isArray(candidates) ? candidates : (candidates && (candidates as any).rows) || []
 
-    // Sort in-memory with custom comparator: treat priority===0 as very large so it goes last when sorting asc
-    rows.sort((a: any, b: any) => {
-      const pa = typeof a.priority === 'number' ? a.priority : 0
-      const pb = typeof b.priority === 'number' ? b.priority : 0
-      const va = pa === 0 ? Number.MAX_SAFE_INTEGER : pa
-      const vb = pb === 0 ? Number.MAX_SAFE_INTEGER : pb
-      if (va !== vb) return va - vb
-
-      // tie-breaker: updatedAt desc
-      const da = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
-      const db = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
-      return db - da
-    })
-
-    const selected = typeof limit === 'number' && limit > 0 ? rows.slice(0, limit) : rows
+    // Sort using shared sorting logic
+    const sorted = this.sortByPriorityAndDate(rows)
+    const selected = typeof limit === 'number' && limit > 0 ? sorted.slice(0, limit) : sorted
 
     // Strip transient sorting field updatedAt before returning to FE
     const cleaned = selected.map((r: any) => {
@@ -363,6 +373,118 @@ export class ProductService extends BaseService {
     })
 
     return this.transformUserAuditFields(cleaned)
+  }
+
+  /**
+   * Get all products that are available for online sale (isSaleOnline = true)
+   * Sorted by priority and date like homepage products
+   */
+  async getAllOnlineProducts(params: { limit?: number } = {}) {
+    const limit = typeof params.limit === 'number' ? params.limit : Number(params.limit) || undefined
+
+    // Load all online sale products with minimal select for performance
+    const candidates = await this.repo.findMany({
+      where: { active: true, isSaleOnline: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        description: true,
+        icon: true,
+        sku: true,
+        priority: true,
+        price: true,
+        coverage: true,
+        isSaleOnline: true,
+        isFeatured: true,
+        updatedAt: true
+      }
+    })
+
+    // Ensure we operate on array
+    const rows: any[] = Array.isArray(candidates) ? candidates : (candidates && (candidates as any).rows) || []
+
+    // Sort using shared sorting logic
+    const sorted = this.sortByPriorityAndDate(rows)
+    const selected = typeof limit === 'number' && limit > 0 ? sorted.slice(0, limit) : sorted
+
+    // Strip transient sorting field updatedAt before returning to FE
+    const cleaned = selected.map((r: any) => {
+      const copy = { ...r }
+      if ('updatedAt' in copy) delete copy.updatedAt
+      return copy
+    })
+
+    return this.transformUserAuditFields(cleaned)
+  }
+
+  /**
+   * Get all products with filtering like getAll but sorted by priority and date
+   * like getProductHome instead of default ordering
+   */
+  async getAllSorted(params: any = {}) {
+    const { keyword, active, page = 1, limit = 20 } = params
+    const safePage = Math.max(1, Number(page) || 1)
+    const safeLimit = Math.max(1, Number(limit) || 20)
+
+    // Enhanced select to include updatedAt for sorting and more fields for listing
+    const listSelect = {
+      id: true,
+      name: true,
+      slug: true,
+      description: true,
+      icon: true,
+      sku: true,
+      active: true,
+      isSaleOnline: true,
+      priority: true,
+      isFeatured: true,
+      updatedAt: true
+    }
+
+    let allRows: any[] = []
+
+    if (keyword) {
+      const result = await this.repo.search(keyword, {
+        active,
+        select: { ...listSelect }
+      })
+
+      if (result && typeof result === 'object' && 'rows' in result) {
+        allRows = Array.isArray(result.rows) ? result.rows : []
+      } else {
+        allRows = Array.isArray(result) ? result : []
+      }
+    } else {
+      // Non-keyword listing: get all matching records for sorting
+      const where: any = {}
+      if (typeof active !== 'undefined') where.active = active
+
+      allRows = await this.repo.findMany({ where, select: listSelect })
+      allRows = Array.isArray(allRows) ? allRows : []
+    }
+
+    // Sort using shared sorting logic
+    const sorted = this.sortByPriorityAndDate(allRows)
+
+    // Apply pagination after sorting
+    const skip = (safePage - 1) * safeLimit
+    const paginatedRows = sorted.slice(skip, skip + safeLimit)
+
+    // Strip transient sorting field updatedAt before returning to FE
+    const cleaned = paginatedRows.map((r: any) => {
+      const copy = { ...r }
+      if ('updatedAt' in copy) delete copy.updatedAt
+      return copy
+    })
+
+    return {
+      rows: this.transformUserAuditFields(cleaned),
+      total: sorted.length,
+      page: safePage,
+      limit: safeLimit,
+      totalPages: Math.ceil(sorted.length / safeLimit)
+    }
   }
 
   async findBySlug(slug: string) {

@@ -62,6 +62,54 @@ router.get('/home', controller.getProductHome.bind(controller))
 
 /**
  * @openapi
+ * /api/products/online:
+ *   get:
+ *     tags:
+ *       - Products
+ *     summary: Lấy toàn bộ danh sách sản phẩm bán online (active + isSaleOnline)
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *         description: Số lượng tối đa sản phẩm trả về (không giới hạn nếu không truyền)
+ *     responses:
+ *       200:
+ *         description: Danh sách sản phẩm bán online, sắp xếp theo priority và ngày
+ */
+router.get('/online', controller.getAllOnlineProducts.bind(controller))
+
+/**
+ * @openapi
+ * /api/products/sorted:
+ *   get:
+ *     tags:
+ *       - Products
+ *     summary: Lấy danh sách sản phẩm như getAll nhưng sắp xếp theo priority và ngày
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer }
+ *         description: Số trang (mặc định 1)
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer }
+ *         description: Số mục trên trang (mặc định 20)
+ *       - in: query
+ *         name: keyword
+ *         schema: { type: string }
+ *         description: Từ khóa tìm kiếm theo tên, mô tả, nội dung
+ *       - in: query
+ *         name: active
+ *         schema: { type: boolean }
+ *         description: Lọc theo trạng thái active
+ *     responses:
+ *       200:
+ *         description: Danh sách sản phẩm đã sắp xếp theo priority
+ */
+router.get('/sorted', controller.getAllSorted.bind(controller))
+
+/**
+ * @openapi
  * /api/products/slug/{slug}:
  *   get:
  *     tags:

@@ -116,6 +116,38 @@ export class ProductController {
     }
   }
 
+  // Public: GET /api/products/online?limit=20
+  async getAllOnlineProducts(req: Request, res: Response) {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string) : undefined
+      const products = await this.service.getAllOnlineProducts({ limit })
+      res.status(StatusCodes.OK).send(ApiResponse.ok(products, 'Lấy danh sách sản phẩm bán online thành công'))
+    } catch (err: any) {
+      console.error('Error getAllOnlineProducts:', err)
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(err.message, 'Lỗi lấy sản phẩm bán online', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
+
+  // Public: GET /api/products/sorted?page=1&limit=20&keyword=...&active=true
+  async getAllSorted(req: Request, res: Response) {
+    try {
+      const { page, limit, keyword, active } = req.query
+      const pageNum = parseInt(page as string) || 1
+      const limitNum = parseInt(limit as string) || 20
+      const act = typeof active !== 'undefined' ? active === 'true' : undefined
+
+      const result = await this.service.getAllSorted({ page: pageNum, limit: limitNum, keyword, active: act })
+      res.status(StatusCodes.OK).send(ApiResponse.ok(result, 'Lấy danh sách sản phẩm đã sắp xếp thành công'))
+    } catch (err: any) {
+      console.error('Error getAllSorted:', err)
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .send(ApiResponse.error(err.message, 'Lỗi lấy sản phẩm đã sắp xếp', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
+
   async create(req: Request, res: Response) {
     try {
       if (!AuthUtils.hasPermission(req, 'product.create')) {
