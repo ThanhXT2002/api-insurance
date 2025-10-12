@@ -421,3 +421,13 @@ enum UsagePurpose {
   XCH
   XCN_CH
 }
+
+
+// npx prisma migrate dev --name add_seo_meta_model
+// npx prisma generate
+// npx tsx prisma/seedContacts.ts
+// npx prisma studio --port 5555
+
+
+// npx prisma migrate dev --create-only --name remove_unused_menu_fields
+// npx prisma migrate dev
