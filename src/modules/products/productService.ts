@@ -394,6 +394,7 @@ export class ProductService extends BaseService {
         priority: true,
         price: true,
         coverage: true,
+        targetLink: true,
         isSaleOnline: true,
       }
     })

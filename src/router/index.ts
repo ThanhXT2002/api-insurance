@@ -11,6 +11,7 @@ import userRouter from '../modules/users/userRouter'
 import reportsRouter from '../modules/reports/reportsRouter'
 import contactRouter from '../modules/contact/contactRouter'
 import menuRouter from '../modules/menus/menuRouter'
+import vehicleTypeRouter from '../modules/vehicleTypes/vehicleTypeRouter'
 
 export function registerRoutes(app: Express) {
   // Health route (without API prefix for monitoring)
@@ -61,8 +62,10 @@ export function registerRoutes(app: Express) {
   // Menu management routes
   app.use('/api/menus', menuRouter)
 
+  // Vehicle type management routes
+  app.use('/api/vehicle-types', vehicleTypeRouter)
+
   // TODO: Thêm các module khác với API prefix
-  // app.use('/api/products', productRouter)
   // app.use('/api/orders', orderRouter)
 }
 
