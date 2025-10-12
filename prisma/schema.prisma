@@ -360,10 +360,10 @@ model VehicleType {
   /// OTOKKDVT, OTOKDVT, XEMAY, VCXOTO
   usageType       UsageType
   usagePurpose    UsagePurpose
-  seatMin         Int
-  seatMax         Int
-  weightMin       Int
-  weightMax       Int
+  seatMin         Int?
+  seatMax         Int?
+  weightMin       Int?
+  weightMax       Int?
   isShowSeat      Boolean      @default(false)
   isShowWeight    Boolean      @default(false)
   pricePerYear    Int
@@ -421,6 +421,3 @@ enum UsagePurpose {
   XCH
   XCN_CH
 }
-
-
-

@@ -7,10 +7,10 @@ interface VehicleTypeData {
   vehicleTypeName: string
   usageType: UsageType
   usagePurpose: UsagePurpose
-  seatMin: number
-  seatMax: number
-  weightMin: number
-  weightMax: number
+  seatMin?: number
+  seatMax?: number
+  weightMin?: number
+  weightMax?: number
   isShowSeat?: boolean
   isShowWeight?: boolean
   pricePerYear: number
@@ -77,15 +77,7 @@ export class VehicleTypeService extends BaseService {
       throw new Error(`Mã loại phương tiện "${data.vehicleTypeCode}" đã tồn tại`)
     }
 
-    // Validate seat range
-    if (data.seatMin > data.seatMax) {
-      throw new Error('Số ghế tối thiểu không được lớn hơn số ghế tối đa')
-    }
-
-    // Validate weight range
-    if (data.weightMin > data.weightMax) {
-      throw new Error('Trọng tải tối thiểu không được lớn hơn trọng tải tối đa')
-    }
+    // Seat and weight validation removed - these fields are optional based on usage type
 
     return super.create(data, ctx)
   }
@@ -115,27 +107,7 @@ export class VehicleTypeService extends BaseService {
       }
     }
 
-    // Validate seat range nếu có cập nhật
-    if (data.seatMin !== undefined || data.seatMax !== undefined) {
-      const current = await this.repo.findUnique(where)
-      const newSeatMin = data.seatMin ?? current?.seatMin ?? 0
-      const newSeatMax = data.seatMax ?? current?.seatMax ?? 0
-
-      if (newSeatMin > newSeatMax) {
-        throw new Error('Số ghế tối thiểu không được lớn hơn số ghế tối đa')
-      }
-    }
-
-    // Validate weight range nếu có cập nhật
-    if (data.weightMin !== undefined || data.weightMax !== undefined) {
-      const current = await this.repo.findUnique(where)
-      const newWeightMin = data.weightMin ?? current?.weightMin ?? 0
-      const newWeightMax = data.weightMax ?? current?.weightMax ?? 0
-
-      if (newWeightMin > newWeightMax) {
-        throw new Error('Trọng tải tối thiểu không được lớn hơn trọng tải tối đa')
-      }
-    }
+    // Seat and weight range validation removed - these fields are optional based on usage type
 
     return super.update(where, data, ctx)
   }
@@ -217,21 +189,7 @@ export class VehicleTypeService extends BaseService {
       throw new Error('Tên loại phương tiện không được để trống')
     }
 
-    if (data.seatMin !== undefined && (typeof data.seatMin !== 'number' || data.seatMin < 0)) {
-      throw new Error('Số ghế tối thiểu phải là số không âm')
-    }
-
-    if (data.seatMax !== undefined && (typeof data.seatMax !== 'number' || data.seatMax < 0)) {
-      throw new Error('Số ghế tối đa phải là số không âm')
-    }
-
-    if (data.weightMin !== undefined && (typeof data.weightMin !== 'number' || data.weightMin < 0)) {
-      throw new Error('Trọng tải tối thiểu phải là số không âm')
-    }
-
-    if (data.weightMax !== undefined && (typeof data.weightMax !== 'number' || data.weightMax < 0)) {
-      throw new Error('Trọng tải tối đa phải là số không âm')
-    }
+    // Seat and weight fields validation removed - these are optional based on usage type and purpose
 
     if (data.pricePerYear !== undefined && (typeof data.pricePerYear !== 'number' || data.pricePerYear < 0)) {
       throw new Error('Giá theo năm phải là số không âm')
