@@ -587,6 +587,9 @@ export class UserService extends BaseService {
       }
     }
 
+    // Refresh materialized view after user deletion
+    await refreshMatViewHelper()
+
     return {
       deleted: users.length,
       avatarFailures,
@@ -597,7 +600,12 @@ export class UserService extends BaseService {
   async activeMultiple(ids: number[], active: boolean, ctx?: { actorId?: number }) {
     if (!Array.isArray(ids) || ids.length === 0) throw new Error('Không có id nào được cung cấp')
     // Model User của Prisma không có trường updatedBy — chỉ cập nhật cờ active ở đây
-    return this.repo.updateMany({ id: { in: ids } }, { active })
+    const result = await this.repo.updateMany({ id: { in: ids } }, { active })
+
+    // Refresh materialized view after changing user active status
+    await refreshMatViewHelper()
+
+    return result
   }
 }
 

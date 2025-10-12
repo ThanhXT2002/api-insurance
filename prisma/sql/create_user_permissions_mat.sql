@@ -81,3 +81,5 @@ CREATE INDEX IF NOT EXISTS idx_user_permissions_mat_roles_gin ON user_permission
 -- WHERE tablename = 'user_permissions_mat';
 -- 5 Nếu muốn xem chi tiết một user cụ thể:
 -- SELECT * FROM user_permissions_mat WHERE user_id = 184;
+-- update :MATERIALIZED VIEW
+-- echo "REFRESH MATERIALIZED VIEW user_permissions_mat;" | npx prisma db execute --stdin --schema prisma/schema.prisma

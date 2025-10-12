@@ -86,10 +86,13 @@ export class AuthMiddleware {
       req.user = userWithPermissions
       next()
     } catch (error) {
+      console.error('❌ Authentication error:', error)
+      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack trace')
       res.status(500).json({
         success: false,
         message: 'Lỗi xác thực người dùng',
-        error: 'AUTH_ERROR'
+        error: 'AUTH_ERROR',
+        debug: error instanceof Error ? error.message : 'Unknown error'
       })
     }
   }
@@ -310,6 +313,14 @@ export class AuthMiddleware {
         // Assign default role to new user
         const defaultRole = await this.authRepository.ensureDefaultRole()
         await this.authRepository.createRoleAssignment(localUser.id, defaultRole.id)
+
+        // Refresh materialized view for the new user
+        try {
+          await prisma.$executeRaw`REFRESH MATERIALIZED VIEW user_permissions_mat`
+          console.log(`[AuthMiddleware] MatView refreshed for new user ${localUser.id}`)
+        } catch (refreshError) {
+          console.error(`[AuthMiddleware] Failed to refresh MatView for new user:`, refreshError)
+        }
       }
     } else {
       // Update user metadata from Supabase if needed
@@ -363,22 +374,131 @@ export class AuthMiddleware {
     }>
     permissions: Set<string>
   }> {
-    // Read pre-aggregated data from materialized view created in DB
-    // This avoids expensive JOINs in runtime and dramatically speeds up reads.
-    const timer = `[AuthMiddleware] MatView Load user ${user.id}`
+    const timer = `[AuthMiddleware] Load user ${user.id}`
     console.time(timer)
 
-    const rows = (await prisma.$queryRaw`
-      SELECT * FROM user_permissions_mat WHERE user_id = ${user.id} LIMIT 1
-    `) as any[]
+    try {
+      // Step 1: Try to get from materialized view first
+      const matViewRows = (await prisma.$queryRaw`
+        SELECT * FROM user_permissions_mat WHERE user_id = ${user.id} LIMIT 1
+      `) as any[]
 
-    console.timeEnd(timer)
+      if (matViewRows && matViewRows.length > 0) {
+        console.timeEnd(timer)
+        return this.parseUserPermissions(matViewRows[0])
+      }
 
-    if (!rows || rows.length === 0) {
-      throw new Error('User not found')
+      // Step 2: Materialized view is empty, query directly from tables
+      console.log(`[AuthMiddleware] MatView empty for user ${user.id}, querying directly...`)
+
+      const directData = await this.queryUserPermissionsDirect(user.id)
+
+      if (!directData) {
+        throw new Error('User not found in direct query')
+      }
+
+      // Step 3: If direct query has data, refresh materialized view for future use
+      console.log(`[AuthMiddleware] Found data for user ${user.id}, refreshing MatView...`)
+      try {
+        await prisma.$executeRaw`REFRESH MATERIALIZED VIEW user_permissions_mat`
+        console.log(`[AuthMiddleware] MatView refreshed successfully`)
+      } catch (refreshError) {
+        console.error(`[AuthMiddleware] Failed to refresh MatView:`, refreshError)
+        // Don't throw - continue with direct data
+      }
+
+      console.timeEnd(timer)
+      return directData
+    } catch (error) {
+      console.timeEnd(timer)
+      console.error(`[AuthMiddleware] Error loading user permissions:`, error)
+      throw error
+    }
+  }
+
+  private async queryUserPermissionsDirect(userId: number) {
+    // Query user with roles and permissions directly from tables
+    const userWithRoles = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        roleAssignments: {
+          include: {
+            role: {
+              include: {
+                rolePermissions: {
+                  include: {
+                    permission: true
+                  }
+                }
+              }
+            }
+          }
+        },
+        userPermissions: {
+          include: {
+            permission: true
+          }
+        }
+      }
+    })
+
+    if (!userWithRoles) {
+      return null
     }
 
-    const r = rows[0]
+    // Transform data to match materialized view structure
+    const roles = userWithRoles.roleAssignments.map((assignment: any) => ({
+      id: assignment.role.id,
+      key: assignment.role.key,
+      name: assignment.role.name,
+      permissions: assignment.role.rolePermissions.map((rp: any) => ({
+        id: rp.permission.id,
+        key: rp.permission.key,
+        name: rp.permission.name
+      }))
+    }))
+
+    // Collect all role permissions
+    const rolePermissionKeys: string[] = []
+    roles.forEach((role: any) => {
+      role.permissions.forEach((perm: any) => {
+        if (!rolePermissionKeys.includes(perm.key)) {
+          rolePermissionKeys.push(perm.key)
+        }
+      })
+    })
+
+    // User-specific permissions (overrides)
+    const userPerms = userWithRoles.userPermissions.map((up: any) => ({
+      key: up.permission.key,
+      allowed: up.allowed
+    }))
+
+    // Build flat permission set (apply user overrides)
+    const permissions = new Set<string>()
+    rolePermissionKeys.forEach((key: string) => permissions.add(key))
+    userPerms.forEach((up: any) => {
+      if (up.allowed) permissions.add(up.key)
+      else permissions.delete(up.key)
+    })
+
+    return {
+      id: userWithRoles.id,
+      supabaseId: userWithRoles.supabaseId || '',
+      email: userWithRoles.email,
+      name: userWithRoles.name,
+      phoneNumber: userWithRoles.phoneNumber,
+      addresses: userWithRoles.addresses,
+      avatarUrl: userWithRoles.avatarUrl,
+      active: userWithRoles.active,
+      updatedAt: userWithRoles.updatedAt,
+      roles,
+      permissions
+    }
+  }
+
+  private parseUserPermissions(matViewRow: any) {
+    const r = matViewRow
 
     // r.roles is jsonb array of {id,key,name,permissions:[...]}
     const roles = r.roles || []
@@ -414,7 +534,7 @@ export class AuthMiddleware {
       permissions
     }
 
-    console.log(`[DEBUG] User ${user.id}: Roles ${roles.length}, perms ${permissions.size}`)
+    console.log(`[DEBUG] User ${result.id}: Roles ${roles.length}, perms ${permissions.size}`)
 
     return result
   }
