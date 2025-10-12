@@ -10,14 +10,16 @@ const controller = new VehicleTypeController(service)
 
 const router = Router()
 
-// Public endpoints - Không cần authentication
+// Admin endpoints - Cần authentication và phân quyền
 /**
  * @openapi
  * /api/vehicle-types:
  *   get:
  *     tags:
  *       - Vehicle Types
- *     summary: Lấy danh sách loại phương tiện
+ *     summary: Lấy danh sách loại phương tiện (Admin)
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: page
@@ -72,9 +74,12 @@ const router = Router()
  *                       type: integer
  *                     totalPages:
  *                       type: integer
+ *       401:
+ *         description: Không có quyền truy cập
  */
-router.get('/', controller.getAll.bind(controller))
+router.get('/', authenticate, requirePermissions('vehicle_type.read'), controller.getAll.bind(controller))
 
+// Public endpoints - Không cần authentication (cho frontend public)
 /**
  * @openapi
  * /api/vehicle-types/code/{code}:
@@ -203,7 +208,7 @@ router.get('/statistics', controller.getStatistics.bind(controller))
  */
 router.get('/:id', controller.getById.bind(controller))
 
-// Protected endpoints - Cần authentication và phân quyền
+// Protected endpoints - Cần authentication và phân quyền (CRUD operations)
 /**
  * @openapi
  * /api/vehicle-types:
@@ -466,10 +471,6 @@ router.post(
  *         updatedBy:
  *           type: integer
  *           description: ID người cập nhật
- *         creator:
- *           $ref: '#/components/schemas/User'
- *         updater:
- *           $ref: '#/components/schemas/User'
  *     VehicleTypeInput:
  *       type: object
  *       required:
