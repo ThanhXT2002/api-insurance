@@ -39,8 +39,8 @@ export class MenuItemService extends BaseService {
       key,
       label,
       icon,
-      url: url.trim(),
-      routerLink: routerLink.trim(),
+      url: url ? url.trim() : null,
+      routerLink: routerLink ? routerLink.trim() : null,
       command,
       order: finalOrder,
       isBlank: isBlank ?? false,
@@ -78,8 +78,8 @@ export class MenuItemService extends BaseService {
 
     fields.forEach((field) => {
       if (data[field] !== undefined) {
-        if ((field === 'url' || field === 'routerLink') && typeof data[field] === 'string') {
-          updateData[field] = data[field].trim()
+        if (field === 'url' || field === 'routerLink') {
+          updateData[field] = data[field] && typeof data[field] === 'string' ? data[field].trim() : data[field]
         } else {
           updateData[field] = data[field]
         }
