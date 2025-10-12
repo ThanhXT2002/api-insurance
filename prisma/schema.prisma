@@ -1,297 +1,393 @@
-// Trình sinh Prisma Client
 generator client {
   provider = "prisma-client-js"
-  // Sinh client vào thư mục `generated/prisma` ở root project để phù hợp với import
-  // đường dẫn ../../generated/prisma từ thư mục src/base
   output   = "../generated/prisma"
 }
 
-// Datasource: cấu hình kết nối DB.
-// Mặc định ở đây dùng Postgres (thích hợp với Supabase). Nếu muốn phát triển local
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-// -------------------------
-// Các model (bảng)
-// -------------------------
-
-// User: thiết kế để dễ mở rộng và liên kết với Supabase Auth thông qua `supabaseId` (UUID)
 model User {
-  id          Int      @id @default(autoincrement())
-  // Nếu bạn dùng Supabase Auth, lưu id của user (UUID) tại đây để liên kết profile
-  // (ví dụ: 'supabaseId' sẽ chứa giá trị UUID do Supabase cấp). Trường này để
-  // tùy chọn để vẫn hỗ trợ user cục bộ không dùng Supabase.
-  // Lưu ý: với Postgres/Supabase trường này dùng native UUID để tương thích với
-  // id do Supabase cấp. Đây là kiểu chỉ hỗ trợ với Postgres connector.
-  supabaseId  String?  @unique @db.Uuid
-  email       String   @unique
-  name        String?
-  avatarUrl   String?
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  addresses   String?
-  phoneNumber String?
-
-  // Roles: many-to-many via UserRoleAssignment
-  roleAssignments UserRoleAssignment[]
-  // Quyền gán trực tiếp cho user (nếu có)
-  userPermissions UserPermission[]
-
-  // Relations với Post và Category
-  createdPosts        Post[]          @relation("PostCreatedBy")
-  updatedPosts        Post[]          @relation("PostUpdatedBy")
-  createdCategories   PostCategory[]  @relation("CategoryCreatedBy")
-  updatedCategories   PostCategory[]  @relation("CategoryUpdatedBy")
-  createdSeoMeta      SeoMeta[]       @relation("SeoCreatedBy")
-  updatedSeoMeta      SeoMeta[]       @relation("SeoUpdatedBy")
-  createdPostComments PostComment[]   @relation("PostCommentCreatedBy")
-  updatedPostComments PostComment[]   @relation("PostCommentUpdatedBy")
-  userComments        PostComment[]   @relation("UserComments")
-  createdProducts     Product[]       @relation("ProductCreatedBy")
-  updatedProducts     Product[]       @relation("ProductUpdatedBy")
-  createdReviews      ProductReview[] @relation("ProductReviewCreatedBy")
-  updatedReviews      ProductReview[] @relation("ProductReviewUpdatedBy")
-
-  // Relations với Menu
-  createdMenuCategories MenuCategory[] @relation("MenuCategoryCreatedBy")
-  updatedMenuCategories MenuCategory[] @relation("MenuCategoryUpdatedBy")
-  createdMenuItems      MenuItem[]     @relation("MenuItemCreatedBy")
-  updatedMenuItems      MenuItem[]     @relation("MenuItemUpdatedBy")
+  id                    Int                  @id @default(autoincrement())
+  supabaseId            String?              @unique @db.Uuid
+  email                 String               @unique
+  name                  String?
+  avatarUrl             String?
+  active                Boolean              @default(true)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  addresses             String?
+  phoneNumber           String?
+  createdMenuCategories MenuCategory[]       @relation("MenuCategoryCreatedBy")
+  updatedMenuCategories MenuCategory[]       @relation("MenuCategoryUpdatedBy")
+  createdMenuItems      MenuItem[]           @relation("MenuItemCreatedBy")
+  updatedMenuItems      MenuItem[]           @relation("MenuItemUpdatedBy")
+  createdCategories     PostCategory[]       @relation("CategoryCreatedBy")
+  updatedCategories     PostCategory[]       @relation("CategoryUpdatedBy")
+  createdPostComments   PostComment[]        @relation("PostCommentCreatedBy")
+  updatedPostComments   PostComment[]        @relation("PostCommentUpdatedBy")
+  userComments          PostComment[]        @relation("UserComments")
+  createdPosts          Post[]               @relation("PostCreatedBy")
+  updatedPosts          Post[]               @relation("PostUpdatedBy")
+  createdReviews        ProductReview[]      @relation("ProductReviewCreatedBy")
+  updatedReviews        ProductReview[]      @relation("ProductReviewUpdatedBy")
+  createdProducts       Product[]            @relation("ProductCreatedBy")
+  updatedProducts       Product[]            @relation("ProductUpdatedBy")
+  createdSeoMeta        SeoMeta[]            @relation("SeoCreatedBy")
+  updatedSeoMeta        SeoMeta[]            @relation("SeoUpdatedBy")
+  userPermissions       UserPermission[]
+  roleAssignments       UserRoleAssignment[]
+  createdVehicleTypes   VehicleType[]        @relation("VehicleTypeCreatedBy")
+  updatedVehicleTypes   VehicleType[]        @relation("VehicleTypeUpdatedBy")
 
   @@map("users")
 }
 
-// UserRole: lưu các vai trò (role) có thể mở rộng (ví dụ: admin, user, support)
 model UserRole {
-  id          Int     @id @default(autoincrement())
-  key         String  @unique // machine-friendly key, e.g. 'admin'
-  name        String // human-friendly name
-  description String?
-
-  assignments     UserRoleAssignment[]
-  // Quyền gán cho role
+  id              Int                  @id @default(autoincrement())
+  key             String               @unique
+  name            String
+  description     String?
   rolePermissions RolePermission[]
+  assignments     UserRoleAssignment[]
 
   @@map("user_roles")
 }
 
-// Bảng nối many-to-many giữa User và UserRole
 model UserRoleAssignment {
   id     Int      @id @default(autoincrement())
-  user   User     @relation(fields: [userId], references: [id])
   userId Int
-  role   UserRole @relation(fields: [roleId], references: [id])
   roleId Int
-  // tùy chọn: dùng để phân vùng vai trò theo tổ chức hoặc resource trong tương lai
   scope  String?
+  role   UserRole @relation(fields: [roleId], references: [id])
+  user   User     @relation(fields: [userId], references: [id])
 
   @@unique([userId, roleId, scope])
   @@map("user_role_assignments")
 }
 
-// -------------------------
-// Quyền (Permissions)
-// -------------------------
-// Permission: định nghĩa các chức năng cụ thể trong hệ thống, ví dụ: 'user.view',
-// 'user.edit', 'project.create'. Mỗi permission có key duy nhất và mô tả để tránh nhầm lẫn.
 model Permission {
-  id          Int     @id @default(autoincrement())
-  key         String  @unique // ví dụ: 'user.view'
-  name        String // ví dụ: 'Xem người dùng'
-  description String? // mô tả chi tiết quyền
-
-  // Các mapping
+  id              Int              @id @default(autoincrement())
+  key             String           @unique
+  name            String
+  description     String?
   rolePermissions RolePermission[]
   userPermissions UserPermission[]
 
   @@map("permissions")
 }
 
-// RolePermission: gán permission cho role (nhiều role <-> nhiều permission)
 model RolePermission {
   id           Int        @id @default(autoincrement())
-  role         UserRole   @relation(fields: [roleId], references: [id])
   roleId       Int
-  permission   Permission @relation(fields: [permissionId], references: [id])
   permissionId Int
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  role         UserRole   @relation(fields: [roleId], references: [id])
 
   @@unique([roleId, permissionId])
   @@map("role_permissions")
 }
 
-// UserPermission: tùy chọn để gán permission trực tiếp cho user (ghi đè hoặc bổ sung)
 model UserPermission {
   id           Int        @id @default(autoincrement())
-  user         User       @relation(fields: [userId], references: [id])
   userId       Int
-  permission   Permission @relation(fields: [permissionId], references: [id])
   permissionId Int
-  // allowed = true => cho phép, false => tắt quyền (dùng để ghi đè)
   allowed      Boolean    @default(true)
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  user         User       @relation(fields: [userId], references: [id])
 
   @@unique([userId, permissionId])
   @@map("user_permissions")
 }
 
-// Model PostCategory
 model PostCategory {
-  id          Int     @id @default(autoincrement())
+  id          Int               @id @default(autoincrement())
   name        String
-  slug        String  @unique
+  slug        String            @unique
   description String?
-  parentId    Int? // Self-reference cho category con
-  active      Boolean @default(true)
-  order       Int     @default(0) // Thứ tự hiển thị
-
-  // Audit fields
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy Int
-  updatedBy Int
-
-  // Relations
-  postTags PostCategoryTag[]
-  creator  User              @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
-  updater  User              @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
-  parent   PostCategory?     @relation("CategoryParent", fields: [parentId], references: [id])
-  children PostCategory[]    @relation("CategoryParent")
-  posts    Post[]            @relation("PostPrimaryCategory")
-
-  // Note: SEO metadata handled via polymorphic SeoMeta table with seoableType='POST_CATEGORY'
+  parentId    Int?
+  active      Boolean           @default(true)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  createdBy   Int
+  updatedBy   Int
+  order       Int               @default(0)
+  creator     User              @relation("CategoryCreatedBy", fields: [createdBy], references: [id])
+  parent      PostCategory?     @relation("CategoryParent", fields: [parentId], references: [id])
+  children    PostCategory[]    @relation("CategoryParent")
+  updater     User              @relation("CategoryUpdatedBy", fields: [updatedBy], references: [id])
+  postTags    PostCategoryTag[]
+  posts       Post[]            @relation("PostPrimaryCategory")
 
   @@map("post_categories")
 }
 
-// Model Post
 model Post {
-  id            Int        @id @default(autoincrement())
-  title         String
-  slug          String     @unique
-  excerpt       String?
-  shortContent  String?
-  content       String
-  featuredImage String?
-  status        PostStatus @default(DRAFT)
-
-  albumImages Json? // Array URLs: ["img1.jpg", "img2.jpg", "img3.jpg"]
-  videoUrl    String? // URL video YouTube/Vimeo cho video tutorials
-
-  // Content Enhancement  
-  note String? // Ghi chú nội bộ cho editor/admin
-
-  // Content Organization
-  priority      Int     @default(0) // Độ ưu tiên hiển thị (0=normal, 1=high, 2=urgent)
-  isHighlighted Boolean @default(false) // Bài viết nổi bật
-  isFeatured    Boolean @default(false) // Hiển thị ở homepage/featured section
-
-  // Publishing Control
-  scheduledAt DateTime? // Đăng theo lịch (scheduled publishing)
-  expiredAt   DateTime? // Ngày hết hạn (cho tin khuyến mãi)
-
-  // Insurance Specific
-  targetAudience   Json? // ["individual", "business", "family"] - đối tượng mục tiêu
-  postProductLinks PostProduct[] // explicit join to Product
-
-  // Content Metadata
-  metaKeywords Json? // Keywords for internal search
-
-  publishedAt DateTime?
-  categoryId  Int?
-
-  // Audit fields
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy Int
-  updatedBy Int
-
-  // Relations
-  creator  User          @relation("PostCreatedBy", fields: [createdBy], references: [id])
-  updater  User          @relation("PostUpdatedBy", fields: [updatedBy], references: [id])
-  category PostCategory? @relation("PostPrimaryCategory", fields: [categoryId], references: [id])
-
-  taggedCategoryTags PostCategoryTag[] // explicit join: mỗi item là 1 liên kết post<->category
-  comments           PostComment[]     @relation("PostComments") // Comments của post
-  postType           PostType          @default(ARTICLE) // ARTICLE, GUIDE, NEWS, PRODUCT
-
-  // Note: SEO metadata handled via polymorphic SeoMeta table with seoableType='POST'
+  id                 Int               @id @default(autoincrement())
+  title              String
+  slug               String            @unique
+  excerpt            String?
+  content            String
+  featuredImage      String?
+  status             PostStatus        @default(DRAFT)
+  albumImages        Json?
+  videoUrl           String?
+  note               String?
+  priority           Int               @default(0)
+  isHighlighted      Boolean           @default(false)
+  isFeatured         Boolean           @default(false)
+  scheduledAt        DateTime?
+  expiredAt          DateTime?
+  targetAudience     Json?
+  publishedAt        DateTime?
+  categoryId         Int?
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  createdBy          Int
+  updatedBy          Int
+  postType           PostType          @default(ARTICLE)
+  metaKeywords       Json?
+  shortContent       String?
+  taggedCategoryTags PostCategoryTag[]
+  comments           PostComment[]     @relation("PostComments")
+  postProductLinks   PostProduct[]
+  category           PostCategory?     @relation("PostPrimaryCategory", fields: [categoryId], references: [id])
+  creator            User              @relation("PostCreatedBy", fields: [createdBy], references: [id])
+  updater            User              @relation("PostUpdatedBy", fields: [updatedBy], references: [id])
 
   @@map("posts")
 }
 
-// Join table để lưu tag (explicit many-to-many) giữa Post và PostCategory
 model PostCategoryTag {
   id         Int          @id @default(autoincrement())
-  post       Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
   postId     Int
-  category   PostCategory @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   categoryId Int
   createdAt  DateTime     @default(now())
   createdBy  Int?
+  category   PostCategory @relation(fields: [categoryId], references: [id])
+  post       Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
 
   @@unique([postId, categoryId])
   @@map("post_category_tags")
 }
 
-// Join table giữa Post và Product (explicit many-to-many)
 model PostProduct {
   id        Int      @id @default(autoincrement())
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   postId    Int
-  product   Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
   productId Int
   createdAt DateTime @default(now())
   createdBy Int?
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id])
 
   @@unique([postId, productId])
   @@map("post_products")
 }
 
-// Model SEO chung cho tất cả
 model SeoMeta {
-  id          Int         @id @default(autoincrement())
-  // Polymorphic fields
-  seoableType SeoableType
-  seoableId   Int
+  id              Int         @id @default(autoincrement())
+  seoableType     SeoableType
+  seoableId       Int
+  seoTitle        String?     @db.VarChar(120)
+  metaDescription String?     @db.VarChar(255)
+  canonicalUrl    String?     @unique
+  focusKeyword    String?     @db.VarChar(100)
+  ogType          String?     @default("article") @db.VarChar(20)
+  noindex         Boolean     @default(false)
+  nofollow        Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  createdBy       Int
+  updatedBy       Int
+  creator         User        @relation("SeoCreatedBy", fields: [createdBy], references: [id])
+  updater         User        @relation("SeoUpdatedBy", fields: [updatedBy], references: [id])
 
-  // SEO cơ bản
-  seoTitle        String? @db.VarChar(120)
-  metaDescription String? @db.VarChar(255)
-  canonicalUrl    String? @unique
-  focusKeyword    String? @db.VarChar(100)
-
-  ogType String? @default("article") @db.VarChar(20)
-
-  // Kỹ thuật SEO
-  noindex  Boolean @default(false)
-  nofollow Boolean @default(false)
-
-  // Audit fields
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy Int
-  updatedBy Int
-  // Relations
-  creator   User     @relation("SeoCreatedBy", fields: [createdBy], references: [id])
-  updater   User     @relation("SeoUpdatedBy", fields: [updatedBy], references: [id])
-
-  // Composite unique index cho polymorphic
   @@unique([seoableType, seoableId])
   @@index([seoableType, seoableId])
   @@map("seo_meta")
 }
 
-enum PostType {
-  ARTICLE // Bài viết thông thường
-  GUIDE // Hướng dẫn
-  NEWS // Tin tức
-  PRODUCT // Giới thiệu sản phẩm bảo hiểm
-  FAQ // Câu hỏi thường gặp
+model PostComment {
+  id        Int      @id @default(autoincrement())
+  content   String
+  postId    Int
+  userId    Int?
+  email     String?
+  name      String?
+  approved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  createdBy Int
+  updatedBy Int
+  creator   User     @relation("PostCommentCreatedBy", fields: [createdBy], references: [id])
+  post      Post     @relation("PostComments", fields: [postId], references: [id])
+  updater   User     @relation("PostCommentUpdatedBy", fields: [updatedBy], references: [id])
+  user      User?    @relation("UserComments", fields: [userId], references: [id])
+
+  @@map("post_comments")
 }
 
-// Enums
+model Product {
+  id               Int             @id @default(autoincrement())
+  name             String
+  description      String?
+  slug             String          @unique
+  price            Int
+  term             String?
+  targetLink       String?
+  targetFile       String?
+  shortContent     String?
+  content          String
+  details          String?
+  icon             String?
+  imgs             Json?
+  active           Boolean         @default(true)
+  tags             Json?
+  isPromotion      Boolean         @default(false)
+  promotionDetails String?
+  metaKeywords     Json?
+  note             String?
+  priority         Int             @default(0)
+  isHighlighted    Boolean         @default(false)
+  isFeatured       Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  createdBy        Int?
+  updatedBy        Int?
+  sku              String          @unique
+  isSaleOnline     Boolean         @default(false)
+  coverage         Int?
+  postProductLinks PostProduct[]
+  reviews          ProductReview[]
+  creator          User?           @relation("ProductCreatedBy", fields: [createdBy], references: [id])
+  updater          User?           @relation("ProductUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@index([active])
+  @@index([isFeatured])
+  @@map("products")
+}
+
+model ProductReview {
+  id          Int      @id @default(autoincrement())
+  productId   Int
+  userId      Int?
+  userName    String?
+  userAvatar  String?
+  rating      Int
+  content     String?
+  description String?
+  note        String?
+  approved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  createdBy   Int?
+  updatedBy   Int?
+  creator     User?    @relation("ProductReviewCreatedBy", fields: [createdBy], references: [id])
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  updater     User?    @relation("ProductReviewUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@map("product_reviews")
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  name      String?
+  email     String?
+  message   String
+  ip        String?  @db.VarChar(64)
+  userAgent String?
+  createdAt DateTime @default(now())
+  phone     String?  @db.VarChar(20)
+
+  @@index([email])
+  @@index([ip])
+  @@map("contacts")
+}
+
+model MenuCategory {
+  id          Int        @id @default(autoincrement())
+  key         String     @unique
+  name        String
+  description String?
+  active      Boolean    @default(true)
+  position    String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  createdBy   Int
+  updatedBy   Int
+  creator     User       @relation("MenuCategoryCreatedBy", fields: [createdBy], references: [id])
+  updater     User       @relation("MenuCategoryUpdatedBy", fields: [updatedBy], references: [id])
+  menus       MenuItem[] @relation("MenuCategoryItems")
+
+  @@map("menu_categories")
+}
+
+model MenuItem {
+  id         Int          @id @default(autoincrement())
+  key        String
+  label      String
+  icon       String?
+  url        String?
+  routerLink String?
+  command    String?
+  parentId   Int?
+  categoryId Int
+  active     Boolean      @default(true)
+  order      Int          @default(0)
+  isBlank    Boolean      @default(false)
+  expanded   Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  createdBy  Int
+  updatedBy  Int
+  category   MenuCategory @relation("MenuCategoryItems", fields: [categoryId], references: [id], onDelete: Cascade)
+  creator    User         @relation("MenuItemCreatedBy", fields: [createdBy], references: [id])
+  parent     MenuItem?    @relation("MenuItemParent", fields: [parentId], references: [id], onDelete: Cascade)
+  children   MenuItem[]   @relation("MenuItemParent")
+  updater    User         @relation("MenuItemUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@unique([categoryId, key])
+  @@index([categoryId, parentId, order])
+  @@index([active])
+  @@map("menu_items")
+}
+
+model VehicleType {
+  id              Int          @id @default(autoincrement())
+  vehicleTypeCode String
+  vehicleTypeName String
+  /// OTOKKDVT, OTOKDVT, XEMAY, VCXOTO
+  usageType       UsageType
+  usagePurpose    UsagePurpose
+  seatMin         Int
+  seatMax         Int
+  weightMin       Int
+  weightMax       Int
+  isShowSeat      Boolean      @default(false)
+  isShowWeight    Boolean      @default(false)
+  pricePerYear    Int
+  active          Boolean      @default(true)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  createdBy       Int
+  updatedBy       Int
+  creator         User         @relation("VehicleTypeCreatedBy", fields: [createdBy], references: [id])
+  updater         User         @relation("VehicleTypeUpdatedBy", fields: [updatedBy], references: [id])
+
+  @@index([usageType, usagePurpose])
+  @@index([active])
+  @@map("vehicle_types")
+}
+
+enum PostType {
+  ARTICLE
+  GUIDE
+  NEWS
+  PRODUCT
+  FAQ
+}
+
 enum PostStatus {
   DRAFT
   PUBLISHED
@@ -301,200 +397,30 @@ enum PostStatus {
 enum SeoableType {
   POST
   POST_CATEGORY
-
-  // Insurance Products
   PRODUCT
   PRODUCT_CATEGORY
   INSURANCE_PLAN
-
-  // Customer & Reviews  
   REVIEW
   TESTIMONIAL
-
-  // Content & Guides
   CLAIM_GUIDE
   FAQ_ITEM
   LEGAL_PAGE
-
-  // Company Info
   BRANCH_OFFICE
   AGENT_PROFILE
-
-  // Có thể thêm nhiều hơn khi cần
 }
 
-model PostComment {
-  id        Int      @id @default(autoincrement())
-  content   String
-  postId    Int
-  userId    Int? // nullable cho guest comments
-  email     String? // cho guest
-  name      String? // cho guest
-  approved  Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy Int
-  updatedBy Int
-
-  // Relations
-  post    Post  @relation("PostComments", fields: [postId], references: [id])
-  user    User? @relation("UserComments", fields: [userId], references: [id])
-  creator User  @relation("PostCommentCreatedBy", fields: [createdBy], references: [id])
-  updater User  @relation("PostCommentUpdatedBy", fields: [updatedBy], references: [id])
-
-  @@map("post_comments")
+enum UsageType {
+  OTOKKDVT
+  OTOKDVT
+  XEMAY
+  VCXOTO
 }
 
-model Product {
-  id               Int      @id @default(autoincrement())
-  sku              String   @unique // Mã sản phẩm duy nhất
-  name             String
-  description      String?
-  slug             String   @unique
-  price            Int
-  coverage         Int? // Mức độ bảo hiểm, ví dụ: "100,000 USD"
-  term             String? // Thời hạn bảo hiểm, ví dụ: "1 year"
-  targetLink       String? // Link mua hàng hoặc trang chi tiết
-  targetFile       String? // Link file PDF tài liệu
-  shortContent     String?
-  content          String
-  details          String?
-  icon             String?
-  imgs             Json? // Array URLs: ["img1.jpg", "img2.jpg"]
-  isSaleOnline     Boolean  @default(false) // Có bán online không
-  active           Boolean  @default(true)
-  tags             Json? // Array of tags/keywords
-  isPromotion      Boolean  @default(false) // Có khuyến mãi
-  promotionDetails String? // Chi tiết khuyến mãi
-  metaKeywords     Json? // Keywords for internal search
-  note             String? // Ghi chú nội bộ cho editor/admin
-  // Content Organization
-  priority         Int      @default(0) // Độ ưu tiên hiển thị (0=normal, 1=high, 2=urgent)
-  isHighlighted    Boolean  @default(false) // Bài viết nổi bật
-  isFeatured       Boolean  @default(false)
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
-  createdBy        Int?
-  updatedBy        Int?
-
-  // Relations
-  creator User? @relation("ProductCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  updater User? @relation("ProductUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
-
-  reviews          ProductReview[]
-  postProductLinks PostProduct[]
-
-  @@index([active])
-  @@index([isFeatured])
-  @@map("products")
+enum UsagePurpose {
+  XCN
+  XCH
+  XCN_CH
 }
 
-model ProductReview {
-  id          Int      @id @default(autoincrement())
-  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
-  productId   Int
-  userId      Int?
-  userName    String?
-  userAvatar  String?
-  rating      Int // 1..5
-  content     String?
-  description String?
-  note        String? // Ghi chú nội bộ cho editor/admin
-  approved    Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  createdBy   Int?
-  updatedBy   Int?
-  // Relations
-  creator     User?    @relation("ProductReviewCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
-  updater     User?    @relation("ProductReviewUpdatedBy", fields: [updatedBy], references: [id], onDelete: SetNull)
-
-  @@map("product_reviews")
-}
-
-// Contact submissions from public site (contact us)
-model Contact {
-  id        Int      @id @default(autoincrement())
-  name      String?
-  email     String?
-  phone     String?  @db.VarChar(20)
-  message   String   @db.Text
-  ip        String?  @db.VarChar(64)
-  userAgent String?  @db.Text
-  createdAt DateTime @default(now())
-
-  @@index([email])
-  @@index([ip])
-  @@map("contacts")
-}
-
-// MenuCategory: Loại menu (header, footer, mobile, product...)
-model MenuCategory {
-  id          Int     @id @default(autoincrement())
-  key         String  @unique // menu-header, menu-footer, menu-mobile, menu-product
-  name        String // "Menu Header", "Menu Footer"
-  description String?
-  active      Boolean @default(true)
-  position    String? // header, footer, sidebar
-
-  // Audit fields
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy Int
-  updatedBy Int
-
-  // Relations
-  menus   MenuItem[] @relation("MenuCategoryItems")
-  creator User       @relation("MenuCategoryCreatedBy", fields: [createdBy], references: [id])
-  updater User       @relation("MenuCategoryUpdatedBy", fields: [updatedBy], references: [id])
-
-  @@map("menu_categories")
-}
-
-// MenuItem: Menu item với cấu trúc cây (nested tree)
-model MenuItem {
-  id         Int     @id @default(autoincrement())
-  key        String // unique key cho mỗi node, ví dụ: "0", "0-0", "0-0-1"
-  label      String // Tên hiển thị của menu
-  icon       String? // Icon class (pi pi-home, pi pi-user...)
-  url        String? // URL đích
-  routerLink String? // Angular router link
-  command    String? // JavaScript command (nếu cần)
-
-  // Tree structure
-  parentId   Int? // Self-reference cho parent
-  categoryId Int // Thuộc loại menu nào
-
-  // Display & Behavior
-  active   Boolean @default(true)
-  order    Int     @default(0) // Thứ tự hiển thị trong cùng cấp
-  isBlank  Boolean @default(false) // Mở link trong tab mới
-  expanded Boolean @default(false) // Mặc định expand hay collapse
-
-  // Audit fields
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  createdBy Int
-  updatedBy Int
-
-  // Relations
-  category MenuCategory @relation("MenuCategoryItems", fields: [categoryId], references: [id], onDelete: Cascade)
-  parent   MenuItem?    @relation("MenuItemParent", fields: [parentId], references: [id], onDelete: Cascade)
-  children MenuItem[]   @relation("MenuItemParent")
-  creator  User         @relation("MenuItemCreatedBy", fields: [createdBy], references: [id])
-  updater  User         @relation("MenuItemUpdatedBy", fields: [updatedBy], references: [id])
-
-  @@unique([categoryId, key]) // Key unique trong 1 category
-  @@index([categoryId, parentId, order])
-  @@index([active])
-  @@map("menu_items")
-}
-
-// npx prisma migrate dev --name add_seo_meta_model
-// npx prisma generate
-// npx tsx prisma/seedContacts.ts
-// npx prisma studio --port 5555
 
 
-// npx prisma migrate dev --create-only --name remove_unused_menu_fields
-// npx prisma migrate dev
