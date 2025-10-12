@@ -77,7 +77,7 @@ const router = Router()
  *       401:
  *         description: Không có quyền truy cập
  */
-router.get('/', authenticate, requirePermissions('vehicle_type.read'), controller.getAll.bind(controller))
+router.get('/', authenticate, requirePermissions('vehicle_type.view'), controller.getAll.bind(controller))
 
 // Public endpoints - Không cần authentication (cho frontend public)
 /**
