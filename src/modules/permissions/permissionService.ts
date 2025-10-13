@@ -1,5 +1,6 @@
 import { BaseService } from '../../bases/baseService'
 import { PermissionRepository } from './permissionRepository'
+import { refreshMatViewHelper } from '../../utils/refreshMatViewHelper'
 
 export class PermissionService extends BaseService {
   constructor(protected repo: PermissionRepository) {
@@ -32,7 +33,12 @@ export class PermissionService extends BaseService {
       throw new Error('Key permission phải là chữ thường và dùng dấu chấm phân tách (ví dụ: "resource.action")')
     }
 
-    return super.create(data, ctx)
+    const result = await super.create(data, ctx)
+
+    // After creating permission, refresh materialized view
+    await refreshMatViewHelper()
+
+    return result
   }
 
   async update(where: any, data: any, ctx?: { actorId?: number }) {
@@ -49,7 +55,22 @@ export class PermissionService extends BaseService {
       }
     }
 
-    return super.update(where, data, ctx)
+    const result = await super.update(where, data, ctx)
+
+    // After updating permission, refresh materialized view
+    await refreshMatViewHelper()
+
+    return result
+  }
+
+  // Override delete to ensure matview is refreshed after permission removal
+  async delete(where: any) {
+    const result = await super.delete(where)
+
+    // Refresh materialized view after deletion
+    await refreshMatViewHelper()
+
+    return result
   }
 
   async checkPermissionUsage(permissionId: number) {

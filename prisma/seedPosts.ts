@@ -131,7 +131,7 @@ const sampleParagraphs = [
 ]
 
 async function main() {
-  const total = 2000
+  const total = 100
   console.log(`Seeding ${total} fake posts...`)
 
   for (let i = 0; i < total; i++) {
