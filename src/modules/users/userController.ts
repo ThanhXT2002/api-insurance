@@ -279,6 +279,18 @@ export class UserController {
         .json(ApiResponse.error(err.message, 'Lỗi máy chủ', StatusCodes.INTERNAL_SERVER_ERROR))
     }
   }
+
+  async refreshMatView(req: Request, res: Response) {
+    try {
+      // Delegate to service so controller doesn't import utilities directly
+      await this.userService.refreshMatView()
+      res.status(StatusCodes.OK).json(ApiResponse.ok(null, 'Đã gửi yêu cầu refresh materialized view'))
+    } catch (err: any) {
+      res
+        .status(StatusCodes.INTERNAL_SERVER_ERROR)
+        .json(ApiResponse.error(err.message, 'Không thể refresh materialized view', StatusCodes.INTERNAL_SERVER_ERROR))
+    }
+  }
 }
 
 export default UserController

@@ -10,6 +10,13 @@ export class UserService extends BaseService {
   constructor(protected repo: UserRepository) {
     super(repo)
   }
+  /**
+   * Trigger refresh of materialized view. Exposed so controllers can call it
+   * without importing the helper directly (keeps controller thin and testable).
+   */
+  async refreshMatView(): Promise<void> {
+    await refreshMatViewHelper()
+  }
   // Ghi đè `getAll` để hỗ trợ tìm kiếm theo keyword trên email/name
   async getAll(params: any = {}) {
     const { keyword, page, limit, active, ...other } = params

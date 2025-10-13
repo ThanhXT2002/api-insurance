@@ -424,4 +424,19 @@ router.post('/delete-multiple', authenticate, controller.deleteMultiple.bind(con
  */
 router.post('/active-multiple', authenticate, controller.activeMultiple.bind(controller))
 
+/**
+ * @openapi
+ * /api/users/refresh-matview:
+ *   get:
+ *     tags:
+ *       - Users
+ *     summary: Trigger refresh of user_permissions_mat materialized view
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Đã gửi yêu cầu refresh materialized view
+ */
+router.get('/refresh-matview', authenticate, controller.refreshMatView.bind(controller))
+
 export default router
