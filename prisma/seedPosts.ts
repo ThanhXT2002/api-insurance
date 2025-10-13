@@ -26,7 +26,7 @@ function slugify(s: string) {
     .replace(/^-+|-+$/g, '')
 }
 
-const userIds = [184, 179]
+const userIds = [1]
 
 // Categories from the screenshot: 24..54 (some may be missing in DB but we'll use these ids)
 const categoryIds = [
@@ -131,8 +131,16 @@ const sampleParagraphs = [
 ]
 
 async function main() {
-  const total = 100
+  const total = 50
   console.log(`Seeding ${total} fake posts...`)
+
+  // load existing category IDs from DB to avoid foreign key violations
+  const existingCategories = await prisma.postCategory.findMany({ select: { id: true } })
+  const existingCategoryIds = existingCategories.map((c) => c.id)
+  if (existingCategoryIds.length === 0) {
+    console.error('No post categories found in DB. Run post categories seed first.')
+    return
+  }
 
   for (let i = 0; i < total; i++) {
     const title = `${pick(sampleTitles)} #${i + 1}`
@@ -144,10 +152,11 @@ async function main() {
     const createdAt = randomDateWithinYears(2)
     const createdBy = pick(userIds)
     const updatedBy = pick(userIds)
-    const categoryId = pick(categoryIds)
+    // pick a categoryId from existing categories to prevent FK errors
+    const categoryId = pick(existingCategoryIds)
 
     // relatedProducts placeholder: id list 1..9
-    const relatedProducts = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+    const relatedProducts = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
 
     const postData = {
       title,
@@ -168,7 +177,7 @@ async function main() {
       scheduledAt: null,
       expiredAt: null,
       targetAudience: JSON.stringify(['individual']),
-      relatedProducts: JSON.stringify(relatedProducts),
+      // related products are handled separately below via the PostProduct relation
       metaKeywords: JSON.stringify(['bảo hiểm', 'sản phẩm', 'tư vấn']),
       publishedAt: createdAt,
       categoryId,
@@ -180,11 +189,27 @@ async function main() {
 
     try {
       // Use upsert on slug to avoid duplicates when re-running
-      await prisma.post.upsert({
+      const post = await prisma.post.upsert({
         where: { slug },
         update: postData as any,
         create: postData as any
       })
+
+      // If there are related products, insert links into PostProduct join table.
+      if (Array.isArray(relatedProducts) && relatedProducts.length > 0) {
+        try {
+          const links = relatedProducts.map((pid) => ({
+            postId: post.id,
+            productId: pid,
+            createdBy: createdBy
+          }))
+
+          // createMany with skipDuplicates avoids errors when re-running seed
+          await prisma.postProduct.createMany({ data: links, skipDuplicates: true })
+        } catch (linkErr) {
+          console.error('Error creating post-product links for', slug, linkErr)
+        }
+      }
 
       if ((i + 1) % 100 === 0) console.log(`Seeded ${i + 1}/${total} posts`)
     } catch (err) {
